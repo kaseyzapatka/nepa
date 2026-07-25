@@ -111,7 +111,7 @@ bin → 0.87 cal / 0.99 actual positive). Operating curve (full pool, 285,747 ca
 
 ## Current state (2026-06-04) — HISTORICAL (superseded by the 2026-06-05 section above)
 
-**Single source of truth for labels:** `phase2/output/deliverable04/labeling_sample.csv`
+**Single source of truth for labels:** `phase2/training/deliverable04/classifier.csv`
 (1,168 rows). The `split` column is **frozen**: 1,014 `train` / 154 `test`. New labels added later
 default to `train` so the test set never grows or leaks.
 
@@ -478,7 +478,7 @@ uncertainty slice. `06` routing constants: `ROUTE_CONF_THRESHOLD=0.70`,
 |---|---|
 | Classifier (train/eval/score/emit-batch) | `phase2/code/deliverable04/04_classify_candidates.py` |
 | **Calibration + operating curve** | `phase2/code/deliverable04/04b_calibrate.py` (`--fit`/`--curve`/`--apply`) |
-| Labels (sole source, frozen split `test_v2`) | `phase2/output/deliverable04/labeling_sample.csv` |
+| Labels (sole source, frozen split `test_v2`) | `phase2/training/deliverable04/classifier.csv` |
 | Labeling codebook + split protocol | `phase2/notes/deliverable04/date_sourcing.md` |
 | Classifier model + meta + calibrators | `phase2/data/analysis/timeline/models/candidate_classifier/` |
 | Eval errors / diagnostics | `phase2/output/deliverable04/classifier_eval_errors.csv`, `diagnostics/01–07*.csv` |

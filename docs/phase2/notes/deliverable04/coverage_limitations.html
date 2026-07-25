@@ -4570,7 +4570,7 @@ vertical-align: -.125em;
 
 </header>
 
-<p><em>As of 2026-07-15, computed from the current pipeline output (<code>timeline_run_at</code> 2026-07-14; full-universe reconciliation applied 2026-07-15). All numbers on this page are recomputed from the current <code>timeline_project_dates.parquet</code> / <code>timeline_candidates.parquet</code> or read from the report’s diagnostics (<code>output/deliverable04/diagnostics/</code>).</em></p>
+<p><em>As of 2026-07-23 (Tier-C section-retrieval restore; full-universe reconciliation applied 2026-07-15; 48 new adjudications applied 2026-07-23). All numbers on this page are recomputed from the current <code>timeline_project_dates.parquet</code> / <code>timeline_candidates.parquet</code> or read from the report’s diagnostics (<code>output/deliverable04/diagnostics/</code>).</em></p>
 <p>This page explains <strong>why timelines are missing where they are missing</strong>: what coverage each review process reaches, where the gaps come from, and which gaps are structural (the date is not in the corpus) versus recoverable. Companion pages: <a href="date_sourcing.html">Date Sourcing &amp; Provenance</a> (what the dates mean and where each one comes from) and <a href="known_issues.html">Known Issues &amp; Deferred Items</a> (what is known-broken and why it was deferred).</p>
 <section id="headline-coverage" class="level2">
 <h2 class="anchored" data-anchor-id="headline-coverage">Headline coverage</h2>
@@ -4596,38 +4596,38 @@ vertical-align: -.125em;
 <tr class="odd">
 <td>CE</td>
 <td style="text-align: right;">54,668</td>
-<td style="text-align: right;">32,612 (59.7%)</td>
+<td style="text-align: right;">32,613 (59.7%)</td>
 <td style="text-align: right;">49,392 (90.3%)</td>
-<td style="text-align: right;"><strong>29,915 (54.7%)</strong></td>
+<td style="text-align: right;"><strong>29,916 (54.7%)</strong></td>
 </tr>
 <tr class="even">
 <td>EA</td>
 <td style="text-align: right;">3,083</td>
-<td style="text-align: right;">2,053 (66.6%)</td>
-<td style="text-align: right;">2,455 (79.6%)</td>
-<td style="text-align: right;"><strong>1,794 (58.2%)</strong></td>
+<td style="text-align: right;">2,060 (66.8%)</td>
+<td style="text-align: right;">2,458 (79.7%)</td>
+<td style="text-align: right;"><strong>1,798 (58.3%)</strong></td>
 </tr>
 <tr class="odd">
 <td>EIS</td>
 <td style="text-align: right;">4,130</td>
-<td style="text-align: right;">2,571 (62.3%)</td>
-<td style="text-align: right;">1,743 (42.2%)</td>
-<td style="text-align: right;"><strong>1,478 (35.8%)</strong></td>
+<td style="text-align: right;">2,585 (62.6%)</td>
+<td style="text-align: right;">1,749 (42.3%)</td>
+<td style="text-align: right;"><strong>1,487 (36.0%)</strong></td>
 </tr>
 <tr class="even">
 <td>All</td>
 <td style="text-align: right;">61,881</td>
-<td style="text-align: right;">37,236 (60.2%)</td>
-<td style="text-align: right;">53,590 (86.6%)</td>
-<td style="text-align: right;"><strong>33,187 (53.6%)</strong></td>
+<td style="text-align: right;">37,258 (60.2%)</td>
+<td style="text-align: right;">53,599 (86.6%)</td>
+<td style="text-align: right;"><strong>33,201 (53.7%)</strong></td>
 </tr>
 </tbody>
 </table>
-<p>A small share of the “both dates” rows have the decision before the initiation (<code>invalid_order</code>: CE 1,412 · EA 58 · EIS 154, mostly month-imputation artifacts). They count as covered above but are excluded from every duration figure; restricting completeness to valid-order rows gives CE 52.0% · EA 56.3% · EIS 32.1%.</p>
-<p>Reading the table: for CE and EA the <strong>decision</strong> is well covered (81–91%) and the <strong>initiation</strong> is the scarce endpoint; EIS is the reverse — initiations are well covered (a Notice of Intent is required) but decision coverage is only 42.2%. For duration context, the headline medians on complete timelines are CE 20 days (n = 27,278), EA 116 days (n = 1,730), EIS 1,008 days (n = 1,321); duration n’s are slightly below the complete counts because year-granularity endpoints are excluded from durations (see the duration-frame definition in <a href="date_sourcing.html">Date Sourcing &amp; Provenance</a>).</p>
+<p>A small share of the “both dates” rows have the decision before the initiation (<code>invalid_order</code>: CE 1,414 · EA 56 · EIS 155, mostly month-imputation artifacts). They count as covered above but are excluded from every duration figure; restricting completeness to valid-order rows gives CE 52.0% · EA 56.5% · EIS 32.3%.</p>
+<p>Reading the table: for CE and EA the <strong>decision</strong> is well covered (81–91%) and the <strong>initiation</strong> is the scarce endpoint; EIS is the reverse — initiations are well covered (a Notice of Intent is required) but decision coverage is only 42.2%. For duration context, the headline medians on complete timelines are CE 20 days (n = 27,275), EA 117 days (n = 1,736), EIS 1,021 days (n = 1,329); duration n’s are slightly below the complete counts because year-granularity endpoints are excluded from durations (see the duration-frame definition in <a href="date_sourcing.html">Date Sourcing &amp; Provenance</a>).</p>
 <section id="the-denominator-the-full-inventory" class="level3">
 <h3 class="anchored" data-anchor-id="the-denominator-the-full-inventory">The denominator: the full inventory</h3>
-<p>The table’s 61,881 projects are the <strong>complete NEPATEC 2.0 project inventory</strong> — coverage denominators and the report’s headline project count are the same universe. This holds by construction since 2026-07-15: the pipeline’s universe reconciliation (<code>reconcile_universe</code> in <code>05_select_dates.py</code>, EIS-only in earlier runs) now covers all three process types, so the 628 CE and 66 EA projects whose documents yield <strong>zero date candidates</strong> appear in the output as <code>missing_both</code> stubs rather than silently vanishing. (Earlier published figures used the 61,187-project pipeline universe; the harmonization added only dateless stubs, so every date, duration, and median is unchanged.)</p>
+<p>The table’s 61,881 projects are the <strong>complete NEPATEC 2.0 project inventory</strong> — coverage denominators and the report’s headline project count are the same universe. This holds by construction since 2026-07-15: the pipeline’s universe reconciliation (<code>reconcile_universe</code> in <code>05_select_dates.py</code>, EIS-only in earlier runs) now covers all three process types, so the 628 CE and 65 EA projects whose documents yield <strong>zero date candidates</strong> appear in the output as <code>missing_both</code> stubs rather than silently vanishing. (Earlier published figures used the 61,187-project pipeline universe; the harmonization added only dateless stubs, so every date, duration, and median is unchanged.)</p>
 </section>
 </section>
 <section id="main-reason-for-low-coverage-per-review-process" class="level2">
@@ -4667,8 +4667,8 @@ vertical-align: -.125em;
 </section>
 <section id="where-the-no-dates-come-from" class="level2">
 <h2 class="anchored" data-anchor-id="where-the-no-dates-come-from">Where the no-dates come from</h2>
-<p><strong>Projects with no date at all</strong> (<code>missing_both</code>): CE 4.7% · EA 12.0% · EIS 31.3% of each process’s population. EIS is the structural outlier.</p>
-<p><strong>Zero-candidate projects</strong> — projects whose documents produced no date candidates at all, materialized as <code>missing_both</code>: EIS 403 (9.8%; 41 of the 753 clean-energy EIS), CE 628 (1.1%), EA 66 (2.1%). Reading the EIS set, they are <strong>non-milestone documents</strong> — EPA/agency comment letters, draft-review correspondence, short fragments, and a few OCR-garbled scans. A comment letter’s date is not a NEPA milestone, so extracting nothing is the correct behavior.</p>
+<p><strong>Projects with no date at all</strong> (<code>missing_both</code>): CE 4.7% · EA 11.8% · EIS 31.1% of each process’s population. EIS is the structural outlier.</p>
+<p><strong>Zero-candidate projects</strong> — projects whose documents produced no date candidates at all, materialized as <code>missing_both</code>: EIS 401 (9.7%; 41 of the 753 clean-energy EIS), CE 628 (1.1%), EA 65 (2.1%). Reading the EIS set, they are <strong>non-milestone documents</strong> — EPA/agency comment letters, draft-review correspondence, short fragments, and a few OCR-garbled scans. A comment letter’s date is not a NEPA milestone, so extracting nothing is the correct behavior.</p>
 <p><strong>Structural share of the remaining gaps</strong> — a missing endpoint is <em>structural</em> when the project has no candidate of that role anywhere in its documents (nothing for selection or LLM adjudication to pick):</p>
 <table class="table">
 <colgroup>
@@ -4690,52 +4690,52 @@ vertical-align: -.125em;
 <tbody>
 <tr class="odd">
 <td>CE</td>
-<td style="text-align: right;">22,056</td>
-<td style="text-align: right;">20,583 (93%)</td>
+<td style="text-align: right;">22,055</td>
+<td style="text-align: right;">20,584 (93%)</td>
 <td style="text-align: right;">5,276</td>
 <td style="text-align: right;">1,030 (20%)</td>
 </tr>
 <tr class="even">
 <td>EA</td>
-<td style="text-align: right;">1,030</td>
-<td style="text-align: right;">489 (47%)</td>
-<td style="text-align: right;">628</td>
-<td style="text-align: right;">233 (37%)</td>
+<td style="text-align: right;">1,023</td>
+<td style="text-align: right;">481 (47%)</td>
+<td style="text-align: right;">625</td>
+<td style="text-align: right;">231 (37%)</td>
 </tr>
 <tr class="odd">
 <td>EIS</td>
-<td style="text-align: right;">1,559</td>
-<td style="text-align: right;">941 (60%)</td>
-<td style="text-align: right;">2,387</td>
-<td style="text-align: right;">1,283 (54%)</td>
+<td style="text-align: right;">1,545</td>
+<td style="text-align: right;">937 (61%)</td>
+<td style="text-align: right;">2,381</td>
+<td style="text-align: right;">1,277 (54%)</td>
 </tr>
 </tbody>
 </table>
 <p>(An “initiation-role candidate” is an extracted date whose role cue is a clear or proxy initiation; a “decision-role candidate” is a clear/proxy decision or the body-text decision holding category.)</p>
-<p>The <strong>LLM adjudication layer has already been applied</strong>: every completable ambiguous case was sent to Claude Haiku (11,216 cached adjudications; 10,330 projects in the current output carry an LLM-sourced date; the June 2026 full run cost $18.20). The remaining gaps are therefore not “waiting on the LLM” — they are dominated by the structural buckets above.</p>
+<p>The <strong>LLM adjudication layer has already been applied</strong>: every completable ambiguous case was sent to Claude Haiku (11,264 cached adjudications cumulative — 11,216 from the June 2026 full run + 48 from the 2026-07-23 Tier-C restore; 10,334 projects in the current output carry an LLM-sourced date; cumulative cost $18.28). The remaining gaps are therefore not “waiting on the LLM” — they are dominated by the structural buckets above.</p>
 <p>For EA specifically, a June 2026 full-text audit of 100 EA decision-only projects found <strong>82 had no initiation signal anywhere</strong> (no application-received, scoping, NOI, or pre-filing date); several of the remaining 18 signals were not true NEPA initiations (“external scoping was deemed unnecessary”, water-permit applications). EA initiation is genuinely sparse at the source, not under-extracted.</p>
 </section>
 <section id="the-ea-register-anchor-artifact" class="level2">
 <h2 class="anchored" data-anchor-id="the-ea-register-anchor-artifact">The EA register-anchor artifact</h2>
 <p>54% of EA initiation dates (1,112 of 2,053) come from the BLM/DOE register rather than the EA document. Those register “project start” entries are often <strong>late administrative entries made near the decision</strong>, which compresses the measured span. On complete EA timelines (headline duration frame), split by <code>initiation_source_type</code>:</p>
 <ul>
-<li>Register-anchored (<code>metadata</code>): 1,105 projects, <strong>median 60 days</strong> initiation→decision.</li>
-<li>Document-anchored (<code>document_text</code>): 414 projects, <strong>median ~405 days (~13 months)</strong>.</li>
-<li>The remaining ~211 complete EAs have LLM-adjudicated or hand-verified initiations (medians ~180 days, in between).</li>
+<li>Register-anchored (<code>metadata</code>): 1,104 projects, <strong>median 60 days</strong> initiation→decision.</li>
+<li>Document-anchored (<code>document_text</code>): 420 projects, <strong>median ~380 days (~12.5 months)</strong>.</li>
+<li>The remaining ~212 complete EAs have LLM-adjudicated or hand-verified initiations (medians ~180 days, in between).</li>
 </ul>
 <p>Register-based EA durations therefore <strong>understate the true process length</strong> by roughly a factor of six; the document-anchored figure is the more defensible review-length view (the report’s Figure 6 shows both for fossil EAs, where the artifact is strongest).</p>
 </section>
 <section id="eis-the-feis-publication-fallback-and-month-granularity" class="level2">
 <h2 class="anchored" data-anchor-id="eis-the-feis-publication-fallback-and-month-granularity">EIS: the FEIS-publication fallback and month granularity</h2>
 <ul>
-<li>Only <strong>724 of 4,130 EIS (17.5%) have a Record of Decision in the corpus</strong>. The pipeline searches ROD-first (register ROD → ROD-typed document → ROD language in narrative), and only when no ROD exists anywhere falls back to the <strong>Final-EIS publication date</strong> as the decision, flagged <code>decision_is_feis_fallback</code>.</li>
-<li>In the current output, <strong>760 of the 1,743 EIS decisions (44%) are FEIS-publication fallbacks</strong>, and 502 EIS decisions (29%) are month-granularity dates imputed to the 15th (a further 4 are year-only and excluded from durations). Durations built on them are month-precision.</li>
+<li>Only <strong>732 of 4,130 EIS (17.7%) have a Record of Decision in the corpus</strong>. The pipeline searches ROD-first (register ROD → ROD-typed document → ROD language in narrative), and only when no ROD exists anywhere falls back to the <strong>Final-EIS publication date</strong> as the decision, flagged <code>decision_is_feis_fallback</code>.</li>
+<li>In the current output, <strong>757 of the 1,749 EIS decisions (43%) are FEIS-publication fallbacks</strong>, and 503 EIS decisions (29%) are month-granularity dates imputed to the 15th (a further 4 are year-only and excluded from durations). Durations built on them are month-precision.</li>
 <li>Why the gap cannot be cheaply closed (a selection-only fix was tested and abandoned) is documented in <a href="known_issues.html">Known Issues &amp; Deferred Items</a>.</li>
 </ul>
 </section>
 <section id="coverage-in-the-clean-energy-subset" class="level2">
 <h2 class="anchored" data-anchor-id="coverage-in-the-clean-energy-subset">Coverage in the clean-energy subset</h2>
-<p>Complete-timeline coverage for clean-energy (decarbonization) projects: <strong>CE 49.2% (9,554/19,399) · EA 47.6% (273/573) · EIS 42.4% (319/753)</strong>. Note that decarb EIS (42.4%) sits <strong>well above</strong> the EIS aggregate (35.8%) — clean-energy EISs are better documented than the heterogeneous “Other” bucket that drags the aggregate down.</p>
+<p>Complete-timeline coverage for clean-energy (decarbonization) projects: <strong>CE 49.2% (9,554/19,399) · EA 47.8% (274/573) · EIS 43.0% (324/753)</strong>. Note that decarb EIS (43.0%) sits <strong>well above</strong> the EIS aggregate (36.0%) — clean-energy EISs are better documented than the heterogeneous “Other” bucket that drags the aggregate down.</p>
 </section>
 <section id="phase-1-vs-phase-2-the-two-published-figures-are-not-the-same-universe" class="level2">
 <h2 class="anchored" data-anchor-id="phase-1-vs-phase-2-the-two-published-figures-are-not-the-same-universe">Phase 1 vs Phase 2 — the two published figures are not the same universe</h2>
@@ -4757,17 +4757,17 @@ vertical-align: -.125em;
 <tr class="odd">
 <td>CE</td>
 <td style="text-align: right;">5,899/19,399 (30%)</td>
-<td style="text-align: right;">29,915/54,668 (55%)</td>
+<td style="text-align: right;">29,916/54,668 (55%)</td>
 </tr>
 <tr class="even">
 <td>EA</td>
 <td style="text-align: right;">355/573 (62%)</td>
-<td style="text-align: right;">1,794/3,083 (58%)</td>
+<td style="text-align: right;">1,798/3,083 (58%)</td>
 </tr>
 <tr class="odd">
 <td>EIS</td>
 <td style="text-align: right;">362/753 (48%)</td>
-<td style="text-align: right;">1,478/4,130 (36%)</td>
+<td style="text-align: right;">1,487/4,130 (36%)</td>
 </tr>
 </tbody>
 </table>
@@ -4791,14 +4791,14 @@ vertical-align: -.125em;
 <tr class="even">
 <td>EA</td>
 <td style="text-align: right;">355/573 (62.0%)</td>
-<td style="text-align: right;">273/573 (47.6%)</td>
-<td style="text-align: right;">−14.4</td>
+<td style="text-align: right;">274/573 (47.8%)</td>
+<td style="text-align: right;">−14.2</td>
 </tr>
 <tr class="odd">
 <td>EIS</td>
 <td style="text-align: right;">362/753 (48.1%)</td>
-<td style="text-align: right;">319/753 (42.4%)</td>
-<td style="text-align: right;">−5.7</td>
+<td style="text-align: right;">324/753 (43.0%)</td>
+<td style="text-align: right;">−5.1</td>
 </tr>
 </tbody>
 </table>

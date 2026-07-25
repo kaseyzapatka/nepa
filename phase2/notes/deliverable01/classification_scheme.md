@@ -79,10 +79,11 @@ role when the agency is the principal actor or decision-maker, rather than simpl
 of support or one regulatory checkpoint. PMA/TVA projects are elevated above land and permit
 because the agency identity is the clearest nexus signal for those entities.
 
-**Note (verified May 2026 output):** the ordering is empirically inert for `federal_program` —
-no project in the current output carries `federal_program` together with another class in
-`nepa_trigger_multi`, so its position in the hierarchy does not change any project's primary
-classification.
+**Note (updated 2026-07):** the ordering is no longer empirically inert for `federal_program` —
+17 projects in the current published output carry `federal_program` together with another class
+in `nepa_trigger_multi` (7 + federal_funding, 4 + federal_land, 3 + federal_direct_action,
+3 + federal_permit), and in all 17 cases the hierarchy determines the primary
+(federal_program wins).
 
 Examples:
 - If BLM is approving a right-of-way across federal land, `federal_land` is often more informative than `federal_permit`
@@ -111,7 +112,7 @@ Indicative terms: permit, license, authorization, approval, certification, permi
 
 Agencies often associated: USACE, FERC, FAA, FCC, NOAA/NMFS, USFWS
 
-### `federal_action`
+### `federal_direct_action`
 Indicative terms: agency proposes to, the Bureau proposes, the Department proposes, federal action consists of, construct, install, upgrade, operate, implement, federal facility, base operations
 
 Agencies often associated: DoD, VA, USFS, BLM, Bureau of Reclamation, DOE, USACE

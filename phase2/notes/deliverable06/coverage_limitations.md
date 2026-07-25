@@ -44,7 +44,7 @@ The conclusions rest on a few explicit assumptions — here is how each would mo
   typical mileage cap.
 - **A retrieval score ≥ 0.40 is treated as a close CE.** This threshold is what separates
   *adopt/expand* cells (a close CE exists) from *develop* cells (none does); the adopt/expand
-  matches clear it comfortably, so they are insensitive to moving the cut to 0.50.
+  matches clear it comfortably (min 0.4005, most well above 0.50); the two expand-cell scores (0.41, 0.41) sit closer to the line and would flip under a 0.50 cut.
 - **The expand test keys on numeric bounds.** Most matched CEs are qualitative, so no
   *numeric* expand fires for them — but transmission upgrades exceed CE #19's ~25-mile cap,
   so 2 cells resolve to expand. Qualitative coverage elsewhere remains unverified.

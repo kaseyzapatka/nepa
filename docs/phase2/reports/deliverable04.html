@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-07-23">
+<meta name="dcterms.date" content="2026-07-25">
 
 <title>NEPA - NEPA Decarbonization Technology Analysis: Deliverable 4</title>
 <style>
@@ -4649,7 +4649,7 @@ vertical-align: -.125em;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">July 23, 2026</p>
+      <p class="date">July 25, 2026</p>
     </div>
   </div>
   
@@ -4675,13 +4675,13 @@ Key findings
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><strong>Review duration climbs steeply from days to months to years.</strong> Median review duration is 20 days for CE, 117 days (~4 months) for EA, and 1,021 days (~2.8 years) for EIS — the expected complexity ladder, now quantified across the full database (complete timelines; <a href="#fig-duration-intervals">Figure 5</a>).</li>
-<li><strong>Timeline completeness varies sharply by process, and the gaps are structural.</strong> Complete timelines (both an initiation and a decision date) reach 55% for CE, 58% for EA, and 36% for EIS (<a href="#fig-coverage">Figure 3</a>). CE and EA are <em>initiation</em>-limited (no Notice-of-Intent requirement, often no recorded start); EIS is <em>decision</em>-limited — Records of Decision are usually separate documents outside the corpus, so EIS decision coverage is just 42.3%. LLM adjudication of the ambiguous cases meaningfully lifted complete coverage for all three processes.</li>
+<li><strong>Review duration climbs from days to months to years.</strong> Median review duration is 20 days for CE, 117 days (~4 months) for EA, and 1,021 days (~2.8 years) for EIS — the expected complexity ladder, now quantified across the full database (complete timelines; <a href="#fig-duration-intervals">Figure 5</a>).</li>
+<li><strong>Timeline completeness varies by process, and the gaps are structural.</strong> Complete timelines (both an initiation and a decision date) reach 55% for CE, 58% for EA, and 36% for EIS (<a href="#fig-coverage">Figure 3</a>). CE and EA are initiation-limited (no Notice-of-Intent requirement, often no recorded start); EIS is decision-limited — Records of Decision are usually separate documents outside the corpus, so EIS decision coverage is just 42.3%. LLM adjudication of the ambiguous cases meaningfully lifted complete coverage for all three processes.</li>
 <li><strong>Post-FRA, EIS documents got shorter while EAs held steady.</strong> Across all 3,683 EA/EIS projects (all energy types, regulatory pages from the full text), mean EIS length fell from 318 to 269 pages after the Fiscal Responsibility Act, while EA length stayed near 33–39 pages — though the post-FRA window is still small (<a href="#sec-pages">Section 3</a>).</li>
 <li><strong>The longest reviews are prime case-study candidates.</strong> Genuinely protracted reviews — SunZia Southwest Transmission (14.6 yr), Energia Sierra Juarez, Grain Belt Express — are surfaced for CATF investigation and separated from extraction errors (an “initiation” anchored to a historical citation), which are excluded (<a href="#sec-outliers">Section 2.4</a>).</li>
-<li><strong>Offices didn’t speed up — the process did.</strong> CE reviews got dramatically faster across the 2010s, but the decline hit every field office at once regardless of caseload: within any year an office’s accumulated experience is uncorrelated with its speed, and low-volume offices converged to high-volume speed without doing comparable reps. A process change reaching all offices at once — batch processing, procedural streamlining — not office-by-office learning, is the likely driver; a wholly separate DOE register-office corpus reproduces the null independently (<a href="#sec-field-office">Section 5</a>).</li>
+<li><strong>Process change, not office-by-office learning, drove the CE speed-up.</strong> CE reviews got much faster across the 2010s, but the decline hit every field office at once regardless of caseload: within any year an office’s accumulated experience is uncorrelated with its speed, and low-volume offices converged to high-volume speed without doing comparable reps. A process change reaching all offices at once — batch processing, procedural streamlining — not office-by-office learning, is the likely driver; a wholly separate DOE register-office corpus reproduces the null independently (<a href="#sec-field-office">Section 5</a>).</li>
 <li><strong>CEQ rule changes don’t produce clean before/after breaks.</strong> Segmenting reviews by the CEQ rule in effect at decision (1978 rules / 2020 rewrite / 2022 Phase 1 / the provisional post-2024 window) mostly re-slices the same secular trends visible year by year; the post-2024 samples are thin, coverage-confounded, and read as provisional (<a href="#sec-ceq-regime">Section 4</a>).</li>
-<li><strong>Geothermal NEPA is two different worlds, and office-level comparison is off the table.</strong> The <code>Geothermal</code> tag pools BLM western resource reviews (NV/CA/UT) with a much larger body of DOE grant-era research and heat-pump CEs filed nationwide; only a handful of reviews sit in any one BLM field office, so the geothermal analysis is a descriptive office inventory plus a state-cohort map, not an office ranking (<a href="#sec-geothermal">Section 6</a>).</li>
+<li><strong>Geothermal NEPA is two different worlds, and office-level comparison is not feasible.</strong> The <code>Geothermal</code> tag pools BLM western resource reviews (NV/CA/UT) with a much larger body of DOE grant-era research and heat-pump CEs filed nationwide; only a handful of reviews sit in any one BLM field office, so the geothermal analysis is a descriptive office inventory plus a state-cohort map, not an office ranking (<a href="#sec-geothermal">Section 6</a>).</li>
 </ul>
 </div>
 </div>
@@ -4693,7 +4693,7 @@ Key findings
 </section>
 <section id="methodology" class="level1">
 <h1>Methodology</h1>
-<p>This deliverable extends the <a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#timeline-analysis-for-decarbonization-technologies">Phase 1 timeline analysis</a> — which examined review timelines for <em>decarb projects only</em> — to the <strong>entire NEPATEC 2.0 database</strong>, which includes decarb, fossil, and other project types. It does so with a rebuilt extraction pipeline that adds authoritative agency dates and two machine-learning models.</p>
+<p>This deliverable extends the <a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#timeline-analysis-for-decarbonization-technologies">Phase 1 timeline analysis</a> — which examined review timelines for <em>decarb projects only</em> — to the entire NEPATEC 2.0 database, which includes decarb, fossil, and other project types. It does so with a rebuilt extraction pipeline that adds authoritative agency dates and two machine-learning models.</p>
 <section id="how-timeline-dates-are-extracted" class="level2">
 <h2 class="anchored" data-anchor-id="how-timeline-dates-are-extracted">How timeline dates are extracted</h2>
 <p>This section improves on the Phase 1 timeline method. For every project we identify two milestones — the initiation (when the review begins: an application received, a Notice of Intent, or scoping) and the decision (when it concludes: a signature, a Record of Decision, or a Finding of No Significant Impact). The pipeline finds these in five high-level steps:</p>
@@ -4732,10 +4732,10 @@ Key findings
 <section id="how-phase-2-analysis-improves-upon-phase-1" class="level2">
 <h2 class="anchored" data-anchor-id="how-phase-2-analysis-improves-upon-phase-1">How Phase 2 analysis improves upon Phase 1</h2>
 <ul>
-<li><strong>Full-database coverage</strong> — Phase 1 covered decarbonization technology projects only (20,725); Phase 2 covers the entire NEPATEC 2.0 database (61,881 projects).</li>
-<li><strong>API registry dates</strong> — Phase 2 incorporates authoritative dates from <em>BLM and DOE NEPA registers</em> as an authoritative source of official project-start and decision dates. We pull in roughly 37,000 project-matched register dates, which is particularly helpful for CE and EA reviews.</li>
-<li><strong>Cleaner retrieval and granularity handling</strong> — the pipeline uses year-month decision dates (e.g. a Final-EIS cover month) where no better dates are available. (A section-aware retrieval tier retrieves decision/initiation sections directly; a 2026-07-23 re-run of the section index and retrieval chain activated it, adding 21,289 section-tier candidates to the current dataset.)</li>
-<li><strong>Improved classifier <em>AND</em> a ranking model</strong> — Phase 1 used a single date classifier (<code>DeBERTa</code> model); Phase 2 used an improve classifer (<code>SetFit</code>) and adds a dedicated ranking model (<code>LightGBM</code>) that decides which candidate is the operative initiation/decision, sharply improving which candidates get sent to the LLM adjudicating model.</li>
+<li>Full-database coverage — Phase 1 covered decarbonization technology projects only (20,725); Phase 2 covers the entire NEPATEC 2.0 database (61,881 projects).</li>
+<li>API registry dates — Phase 2 incorporates authoritative dates from <em>BLM and DOE NEPA registers</em> as an authoritative source of official project-start and decision dates. We pull in roughly 37,000 project-matched register dates, which is particularly helpful for CE and EA reviews.</li>
+<li>Cleaner retrieval and granularity handling — the pipeline uses year-month decision dates (e.g. a Final-EIS cover month) where no better dates are available. (A section-aware retrieval tier retrieves decision/initiation sections directly; a 2026-07-23 re-run of the section index and retrieval chain activated it, adding 21,289 section-tier candidates to the current dataset.)</li>
+<li>Improved classifier and a ranking model — Phase 1 used a single date classifier (<code>DeBERTa</code>); Phase 2 uses an improved classifier (<code>SetFit</code>) and adds a dedicated ranking model (<code>LightGBM</code>) that decides which candidate is the operative initiation/decision, sharply improving which candidates get sent to the LLM.</li>
 </ul>
 </section>
 <section id="date-provenance" class="level2">
@@ -4758,16 +4758,16 @@ Key findings
 <h1>Timeline analysis</h1>
 <section id="timeline-completeness" class="level2">
 <h2 class="anchored" data-anchor-id="timeline-completeness">Timeline completeness</h2>
-<p><a href="#fig-complete-share">Figure 2</a> shows the share of projects with complete timelines by review process; <a href="#fig-coverage">Figure 3</a> breaks down <em>which</em> component is missing. The patterns differ by process:</p>
+<p><a href="#fig-complete-share">Figure 2</a> shows the share of projects with complete timelines by review process; <a href="#fig-coverage">Figure 3</a> breaks down which component is missing. The patterns differ by process:</p>
 <ul>
-<li><strong>CE</strong> (55% complete): decision coverage is high (90.3%) but initiation coverage is low (59.7%) — most CEs are single-signature determinations with no recorded start.</li>
-<li><strong>EA</strong> (58% complete): the strongest of the three, but still initiation-limited — EAs have no Notice-of-Intent requirement and often skip scoping.</li>
-<li><strong>EIS</strong> (36% complete): initiations are usually documented (an NOI is required), but decision coverage is only 42.3% because Records of Decision are frequently separate documents not in the corpus.</li>
+<li>CE (55% complete): decision coverage is high (90.3%) but initiation coverage is low (59.7%) — most CEs are single-signature determinations with no recorded start.</li>
+<li>EA (58% complete): the strongest of the three, but still initiation-limited — EAs have no Notice-of-Intent requirement and often skip scoping.</li>
+<li>EIS (36% complete): initiations are usually documented (an NOI is required), but decision coverage is only 42.3% because Records of Decision are frequently separate documents not in the corpus.</li>
 </ul>
-<p>Comparison with Phase 1. Phase 1 measured completeness for <em>decarb projects only</em> and reported <a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#fig-complete-share">CE ~30% · EA ~62% · EIS ~48%</a>. On the full database, Phase 2 reaches CE 55% · EA 58% · EIS 36%. CE is <em>higher</em> — the much larger universe is dominated by routine, register-dated determinations — but EA and EIS land below their Phase 1 decarb-only rates, for two reasons this analysis surfaced:</p>
+<p>Comparison with Phase 1. Phase 1 measured completeness for <em>decarb projects only</em> and reported <a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#fig-complete-share">CE ~30% · EA ~62% · EIS ~48%</a>. On the full database, Phase 2 reaches CE 55% · EA 58% · EIS 36%. CE is higher — the much larger universe is dominated by routine, register-dated determinations — but EA and EIS land below their Phase 1 decarb-only rates, for two reasons this analysis surfaced:</p>
 <ul>
-<li><strong>The aggregate is diluted by non-decarb projects.</strong> Phase 1’s denominator was decarb energy; Phase 2’s is everything. Decarbonization EIS alone completes at 42.4% (much closer to Phase 1’s 48%) — it is the heterogeneous “Other” bucket that pulls the EIS aggregate down to 36%.</li>
-<li><strong>The remaining gaps are structural, not fixable by better parsing.</strong> EIS completeness is capped by missing Records of Decision (a separate document, often outside the corpus — decision coverage only 42.3%); CE and EA completeness is capped by missing initiations, because neither requires a Notice of Intent and a start date is frequently never recorded. A minority of EIS “projects” are also comment letters or document fragments with no milestone date to extract.</li>
+<li>The aggregate is diluted by non-decarb projects. Phase 1’s denominator was decarb energy; Phase 2’s is everything. Decarbonization EIS alone completes at 42.4% (much closer to Phase 1’s 48%) — it is the heterogeneous “Other” bucket that pulls the EIS aggregate down to 36%.</li>
+<li>The remaining gaps are structural, not fixable by better parsing. EIS completeness is capped by missing Records of Decision (a separate document, often outside the corpus — decision coverage only 42.3%); CE and EA completeness is capped by missing initiations, because neither requires a Notice of Intent and a start date is frequently never recorded. A minority of EIS “projects” are also comment letters or document fragments with no milestone date to extract.</li>
 </ul>
 <div class="cell">
 <div class="cell-output-display">
@@ -4789,7 +4789,7 @@ Key findings
 </div>
 </div>
 </div>
-<p>Coverage also varies by energy category (<a href="#fig-cov-energy">Figure 4</a>). Notably, decarbonization EIS projects complete at 42.4% — well above the EIS aggregate of 36% — because decarb EISs are better documented than the heterogeneous “Other” bucket that drags the aggregate down.</p>
+<p>Coverage also varies by energy category (<a href="#fig-cov-energy">Figure 4</a>): decarbonization EIS projects complete at 42.4%, well above the EIS aggregate of 36%, because decarb EISs are better documented than the heterogeneous “Other” bucket that drags the aggregate down.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-cov-energy" class="quarto-figure quarto-figure-center anchored">
@@ -4803,7 +4803,7 @@ Key findings
 </section>
 <section id="duration-analysis" class="level2">
 <h2 class="anchored" data-anchor-id="duration-analysis">Duration analysis</h2>
-<p>Durations use <strong>all complete timelines</strong> (both dates present, including those resolved with a proxy date such as a Final-EIS publication date in place of a missing Record of Decision). Month-only dates are imputed to the mid-month 15th.</p>
+<p>Durations use all complete timelines (both dates present, including those resolved with a proxy date such as a Final-EIS publication date in place of a missing Record of Decision). Month-only dates are imputed to the mid-month 15th.</p>
 <p>On that basis, durations track the expected complexity ladder from CE to EA to EIS — a median of about 20 days for CE, 117 days (~4 months) for EA, and 1,021 days (~2.8 years) for EIS (n = 27,275 / 1,736 / 1,329). <a href="#fig-duration-intervals">Figure 5</a> summarises the spread; <a href="#fig-duration-hist">Figure 7</a> shows the full distributions; <a href="#fig-spans">Figure 8</a> plots individual project spans.</p>
 <div class="cell">
 <div class="cell-output-display">
@@ -4817,7 +4817,7 @@ Key findings
 </div>
 <section id="duration-by-review-type" class="level3">
 <h3 class="anchored" data-anchor-id="duration-by-review-type">Duration by review type</h3>
-<p>Splitting duration by energy category (<a href="#fig-dur-energy">Figure 6</a>) exposes a striking artifact: <strong>fossil EAs run far shorter than decarbonization or “other” EAs</strong> — a median of ~40 days, vs ~310 days for Decarb and ~209 days for Other. This is not because fossil EAs are genuinely faster: 84% of them take their start date from the BLM register rather than the document. This is a broad convention across routine BLM oil-and-gas EAs — drilling permits, lease sales, and well-abandonments alike (well-abandonment is 53% of complete fossil EAs, not the whole story) — where the recorded “project start” is a <em>late administrative entry made within days of the decision</em>. Because fossil is the largest EA group (754 of the ~1,730 complete EAs), those artificially short spans pull the overall EA median down. Restricting fossil EAs to the document-anchored starts lifts their median to ~5 months — much closer to the Other and Decarb EAs and the more defensible review-length estimate — but that view survives for only a fraction of them.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>Splitting duration by energy category (<a href="#fig-dur-energy">Figure 6</a>) exposes an artifact: fossil EAs run far shorter than decarbonization or “other” EAs, a median of ~40 days, vs ~310 days for Decarb and ~209 days for Other. This is not because fossil EAs are genuinely faster: 84% of them take their start date from the BLM register rather than the document. This is a broad convention across routine BLM oil-and-gas EAs — drilling permits, lease sales, and well-abandonments alike (well-abandonment is 53% of complete fossil EAs, not the whole story) — where the recorded “project start” is a late administrative entry made within days of the decision. Because fossil is the largest EA group (754 of the ~1,730 complete EAs), those artificially short spans pull the overall EA median down. Restricting fossil EAs to the document-anchored starts lifts their median to ~5 months — much closer to the Other and Decarb EAs and the more defensible review-length estimate — but that view survives for only a fraction of them.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-dur-energy" class="quarto-figure quarto-figure-center anchored">
@@ -4828,7 +4828,7 @@ Key findings
 </div>
 </div>
 </div>
-<p>The full duration distributions (<a href="#fig-duration-hist">Figure 7</a>) show the same complexity ladder as a <em>shape</em>, not just a median: CE durations pile up near zero (most are days-to-weeks determinations), EA spreads out to a year or two, and <strong>EIS is broad and heavy-tailed</strong> — a meaningful mass of reviews runs 3–10+ years. That long EIS tail is real (large, contested reviews spanning multiple administrations) and is examined directly in the outlier case studies below.</p>
+<p>The full duration distributions (<a href="#fig-duration-hist">Figure 7</a>) show the same complexity ladder as a shape, not just a median: CE durations pile up near zero (most are days-to-weeks determinations), EA spreads out to a year or two, and EIS is broad and heavy-tailed, with a meaningful mass of reviews running 3–10+ years. That long EIS tail is real (large, contested reviews spanning multiple administrations) and is examined directly in the outlier case studies below.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-duration-hist" class="quarto-figure quarto-figure-center anchored">
@@ -4853,7 +4853,7 @@ Key findings
 </section>
 <section id="duration-for-solar-projects" class="level3">
 <h3 class="anchored" data-anchor-id="duration-for-solar-projects">Duration for solar projects</h3>
-<p>Phase 1 delivered a solar-only version of the duration analysis; this subsection replicates it on the Phase 2 timeline. For projects tagged <em>Renewable Energy Production – Solar</em>, complete timelines show the same complexity ladder — a median of about 0.7 months for CE (n = 811), ~12 months for EA (n = 58), and ~22 months (1.9 years) for EIS (n = 71). Against the all-decarbonization reference (<a href="#fig-solar-duration">Figure 9</a>, dashed ticks), <strong>solar EIS reviews conclude about a year faster</strong> — ~22 vs ~34 months — while solar EAs run on par with decarbonization EAs generally (~12 vs ~11 months) and CE determinations are indistinguishable (~1 month in both). This replicates the Phase 1 finding for EIS — Phase 1’s solar figure reported ~22 months (n = 66) against Phase 2’s ~22 here (n = 71) — but softens Phase 1’s EA contrast (~13 months solar there) to parity. Two caveats: the solar EA and EIS cells are small (n = 58 and 71), and solar CEs are register-heavy like CEs generally, so the register-anchoring caveats above apply equally here.</p>
+<p>Phase 1 delivered a solar-only version of the duration analysis; this subsection replicates it on the Phase 2 timeline. For projects tagged <em>Renewable Energy Production – Solar</em>, complete timelines show the same complexity ladder — a median of about 0.7 months for CE (n = 811), ~12 months for EA (n = 58), and ~22 months (1.9 years) for EIS (n = 71). Against the all-decarbonization reference (<a href="#fig-solar-duration">Figure 9</a>, dashed ticks), solar EIS reviews conclude about a year faster — ~22 vs ~34 months — while solar EAs run on par with decarbonization EAs generally (~12 vs ~11 months) and CE determinations are indistinguishable (~1 month in both). This replicates the Phase 1 finding for EIS — Phase 1’s solar figure reported ~22 months (n = 66) against Phase 2’s ~22 here (n = 71) — but softens Phase 1’s EA contrast (~13 months solar there) to parity. Two caveats: the solar EA and EIS cells are small (n = 58 and 71), and solar CEs are register-heavy like CEs generally, so the register-anchoring caveats above apply equally here.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-solar-duration" class="quarto-figure quarto-figure-center anchored">
@@ -4867,8 +4867,8 @@ Key findings
 </section>
 <section id="duration-by-technology" class="level3">
 <h3 class="anchored" data-anchor-id="duration-by-technology">Duration by technology</h3>
-<p>Within each energy group, review length also varies sharply by the specific technology — the cleaned <code>tech_group</code> tag that defines the decarbonization-vs-fossil split. <a href="#fig-dur-decarb-tech">Figure 10</a> and <a href="#fig-dur-fossil-tech">Figure 11</a> break duration down by technology for EA and EIS reviews only: CE determinations are uniformly ~1 month across every technology and add no contrast, and the most CE-dominated technologies (biomass and CCS on the decarbonization side, rural energy on the fossil side) have too few substantive reviews to chart at all — itself telling, since their NEPA footprint is almost entirely categorical exclusions.</p>
-<p>Among decarbonization technologies, the ordering tracks physical footprint and contestedness: hydropower (~37 months / 3.1 years) and transmission (~28 months) run longest — large, linear, multi-jurisdiction projects — followed by nuclear (~20), wind (~18), and solar (~19) in the middle band, with geothermal near ~14 months, “other clean” near ~13 months, and energy storage the quickest at ~10 months. Among fossil technologies, coal (~36 months / 3 years) and offshore oil &amp; gas (~26 months) dominate the long end, while <strong>land-based oil &amp; gas is an order of magnitude faster (~2 months, n = 849)</strong> — the same register-anchored well-abandonment and drilling-permit flood that compresses the fossil-EA median noted earlier. The two panels are separate figures on their own horizontal scales; the technologies with the longest tails (hydropower, transmission, coal) are the same large-infrastructure reviews that populate the outlier case studies below.</p>
+<p>Within each energy group, review length also varies by the specific technology — the cleaned <code>tech_group</code> tag that defines the decarbonization-vs-fossil split. <a href="#fig-dur-decarb-tech">Figure 10</a> and <a href="#fig-dur-fossil-tech">Figure 11</a> break duration down by technology for EA and EIS reviews only: CE determinations are uniformly ~1 month across every technology and add no contrast, and the most CE-dominated technologies (biomass and CCS on the decarbonization side, rural energy on the fossil side) have too few substantive reviews to chart at all — itself telling, since their NEPA footprint is almost entirely categorical exclusions.</p>
+<p>Among decarbonization technologies, the ordering tracks physical footprint and contestedness: hydropower (~37 months / 3.1 years) and transmission (~28 months) run longest — large, linear, multi-jurisdiction projects — followed by nuclear (~20), wind (~18), and solar (~19) in the middle band, with geothermal near ~14 months, “other clean” near ~13 months, and energy storage the quickest at ~10 months. Among fossil technologies, coal (~36 months / 3 years) and offshore oil &amp; gas (~26 months) dominate the long end, while land-based oil &amp; gas is an order of magnitude faster (~2 months, n = 849) — the same register-anchored well-abandonment and drilling-permit flood that compresses the fossil-EA median noted earlier. The two panels are separate figures on their own horizontal scales; the technologies with the longest tails (hydropower, transmission, coal) are the same large-infrastructure reviews that populate the outlier case studies below.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-dur-decarb-tech" class="quarto-figure quarto-figure-center anchored">
@@ -4917,25 +4917,25 @@ Key findings
 </section>
 <section id="sec-outliers" class="level2">
 <h2 class="anchored" data-anchor-id="sec-outliers">Timeline outliers: case-study candidates</h2>
-<p>Per the deliverable request, timeline outliers are surfaced for CATF staff to investigate via case studies (including whether NEPA itself was a cause of delay). Outliers are init→decision spans <strong>longer than 5,000 days (~13.7 years)</strong>, produced reproducibly by <code>code/deliverable04/10_outliers.R</code>.</p>
-<p><strong>The critical distinction is real vs. extraction error.</strong> A multi-year span can be a genuinely protracted review <em>or</em> an artifact where the “initiation” was anchored to a historical citation (a facility’s construction date, a reserve’s founding, a prior plan, a regulatory-compliance milestone) rather than the NEPA start. The two are separable only by reading the evidence text, which the outlier table preserves.</p>
+<p>Per the deliverable request, timeline outliers are surfaced for CATF staff to investigate via case studies (including whether NEPA itself was a cause of delay). Outliers are init→decision spans longer than 5,000 days (~13.7 years), produced reproducibly by <code>code/deliverable04/10_outliers.R</code>.</p>
+<p>The distinction that matters is real review versus extraction error. A multi-year span can be a genuinely protracted review or an artifact where the “initiation” was anchored to a historical citation (a facility’s construction date, a reserve’s founding, a prior plan, a regulatory-compliance milestone) rather than the NEPA start. The two are separable only by reading the evidence text, which the outlier table preserves.</p>
 </section>
 <section id="analysis-caveats" class="level2">
 <h2 class="anchored" data-anchor-id="analysis-caveats">Analysis caveats</h2>
 <ul>
-<li><strong>EIS outliers are mostly real.</strong> EIS median duration is already ~3 years; a 14–17-year EIS sits in the legitimate tail (transmission, restoration, resource-management plans genuinely run that long).</li>
-<li><strong>CE outliers are mostly errors</strong> — CEs are fast determinations (median 20 days), so a multi-year CE almost always reflects a mis-extracted initiation. CE outliers are therefore excluded from the client list.</li>
-<li><strong>Initiation dates before ~1990 are a strong error signal.</strong> Of the four EIS outliers with 1980s-or-earlier initiations, three are confirmed errors (the “initiation” is a park founding, a prior lock’s construction-completion date, or a RCRA compliance milestone).</li>
+<li>EIS outliers are mostly real. EIS median duration is already ~3 years; a 14–17-year EIS sits in the legitimate tail (transmission, restoration, resource-management plans genuinely run that long).</li>
+<li>CE outliers are mostly errors — CEs are fast determinations (median 20 days), so a multi-year CE almost always reflects a mis-extracted initiation. CE outliers are therefore excluded from the client list.</li>
+<li>Initiation dates before ~1990 are a strong error signal. Of the four EIS outliers with 1980s-or-earlier initiations, three are confirmed errors (the “initiation” is a park founding, a prior lock’s construction-completion date, or a RCRA compliance milestone).</li>
 </ul>
-<p>The decarb EA/EIS candidates below are the highest-value case studies. <strong>SunZia</strong> (ROW application Sep 2008 → Record of Decision Apr 2023) is the textbook long-permitting saga; Energia Sierra Juarez and Grain Belt Express are similar. <em>Confirmed errors are excluded</em> — e.g. the Palisades Nuclear Restart “19-year” span glues a 2005 license-renewal application to a 2024 restart Record of Decision (two different NEPA actions).</p>
+<p>The decarb EA/EIS candidates below are the highest-value case studies. SunZia (ROW application Sep 2008 to Record of Decision Apr 2023) is the clearest long-permitting case; Energia Sierra Juarez and Grain Belt Express are similar. Confirmed errors are excluded, for example the Palisades Nuclear Restart “19-year” span, which glues a 2005 license-renewal application to a 2024 restart Record of Decision (two different NEPA actions).</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="kssgfijwyg" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="rkbtrusuaa" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#kssgfijwyg .gt_table {
+#rkbtrusuaa .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -4959,7 +4959,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#kssgfijwyg .gt_heading {
+#rkbtrusuaa .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -4970,11 +4970,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#kssgfijwyg .gt_caption {
+#rkbtrusuaa .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#kssgfijwyg .gt_title {
+#rkbtrusuaa .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -4985,7 +4985,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#kssgfijwyg .gt_subtitle {
+#rkbtrusuaa .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -4996,12 +4996,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#kssgfijwyg .gt_bottom_border {
+#rkbtrusuaa .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#kssgfijwyg .gt_col_headings {
+#rkbtrusuaa .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5015,7 +5015,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#kssgfijwyg .gt_col_heading {
+#rkbtrusuaa .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5034,7 +5034,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#kssgfijwyg .gt_column_spanner_outer {
+#rkbtrusuaa .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5045,13 +5045,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#kssgfijwyg .gt_column_spanner_outer:first-child {
+#rkbtrusuaa .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#kssgfijwyg .gt_column_spanner_outer:last-child {
+#rkbtrusuaa .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#kssgfijwyg .gt_column_spanner {
+#rkbtrusuaa .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -5062,7 +5062,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#kssgfijwyg .gt_group_heading {
+#rkbtrusuaa .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5087,7 +5087,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#kssgfijwyg .gt_empty_group_heading {
+#rkbtrusuaa .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5101,13 +5101,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#kssgfijwyg .gt_from_md > :first-child {
+#rkbtrusuaa .gt_from_md > :first-child {
 margin-top: 0;
 }
-#kssgfijwyg .gt_from_md > :last-child {
+#rkbtrusuaa .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#kssgfijwyg .gt_row {
+#rkbtrusuaa .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5125,7 +5125,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#kssgfijwyg .gt_stub {
+#rkbtrusuaa .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5137,7 +5137,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kssgfijwyg .gt_stub_row_group {
+#rkbtrusuaa .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5150,10 +5150,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#kssgfijwyg .gt_row_group_first td {
+#rkbtrusuaa .gt_row_group_first td {
 border-top-width: 2px;
 }
-#kssgfijwyg .gt_summary_row {
+#rkbtrusuaa .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5162,14 +5162,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kssgfijwyg .gt_first_summary_row {
+#rkbtrusuaa .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#kssgfijwyg .gt_first_summary_row.thick {
+#rkbtrusuaa .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#kssgfijwyg .gt_last_summary_row {
+#rkbtrusuaa .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5178,7 +5178,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#kssgfijwyg .gt_grand_summary_row {
+#rkbtrusuaa .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5187,7 +5187,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kssgfijwyg .gt_first_grand_summary_row {
+#rkbtrusuaa .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5196,10 +5196,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#kssgfijwyg .gt_striped {
+#rkbtrusuaa .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#kssgfijwyg .gt_table_body {
+#rkbtrusuaa .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5207,7 +5207,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#kssgfijwyg .gt_footnotes {
+#rkbtrusuaa .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5220,7 +5220,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#kssgfijwyg .gt_footnote {
+#rkbtrusuaa .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -5228,7 +5228,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kssgfijwyg .gt_sourcenotes {
+#rkbtrusuaa .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5241,58 +5241,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#kssgfijwyg .gt_sourcenote {
+#rkbtrusuaa .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kssgfijwyg .gt_left {
+#rkbtrusuaa .gt_left {
 text-align: left;
 }
-#kssgfijwyg .gt_center {
+#rkbtrusuaa .gt_center {
 text-align: center;
 }
-#kssgfijwyg .gt_right {
+#rkbtrusuaa .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#kssgfijwyg .gt_font_normal {
+#rkbtrusuaa .gt_font_normal {
 font-weight: normal;
 }
-#kssgfijwyg .gt_font_bold {
+#rkbtrusuaa .gt_font_bold {
 font-weight: bold;
 }
-#kssgfijwyg .gt_font_italic {
+#rkbtrusuaa .gt_font_italic {
 font-style: italic;
 }
-#kssgfijwyg .gt_super {
+#rkbtrusuaa .gt_super {
 font-size: 65%;
 }
-#kssgfijwyg .gt_footnote_marks {
+#rkbtrusuaa .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#kssgfijwyg .gt_asterisk {
+#rkbtrusuaa .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#kssgfijwyg .gt_indent_1 {
+#rkbtrusuaa .gt_indent_1 {
 text-indent: 5px;
 }
-#kssgfijwyg .gt_indent_2 {
+#rkbtrusuaa .gt_indent_2 {
 text-indent: 10px;
 }
-#kssgfijwyg .gt_indent_3 {
+#rkbtrusuaa .gt_indent_3 {
 text-indent: 15px;
 }
-#kssgfijwyg .gt_indent_4 {
+#rkbtrusuaa .gt_indent_4 {
 text-indent: 20px;
 }
-#kssgfijwyg .gt_indent_5 {
+#rkbtrusuaa .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -5505,7 +5505,7 @@ text-indent: 25px;
 </section>
 <section id="sec-pages" class="level1">
 <h1>Document length &amp; FRA page limits</h1>
-<p>This section builds directly on <a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html">Phase 1 Deliverable 5</a> (“Document Length Over Time and Fiscal Responsibility Act Impact”), which analyzed document length for <em>decarb</em> EA/EIS projects. Here we reproduce that analysis on the <strong>entire Phase 2 EA/EIS corpus, all energy types</strong>, refreshed on Phase 2 LLM-adjudicated decision dates (inclusion requires only a decision date — the time axis and FRA classification depend only on it). Each subsection below links to its Phase 1 counterpart for comparison.</p>
+<p>This section builds directly on <a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html">Phase 1 Deliverable 5</a> (“Document Length Over Time and Fiscal Responsibility Act Impact”), which analyzed document length for <em>decarb</em> EA/EIS projects. Here we reproduce that analysis on the entire Phase 2 EA/EIS corpus, all energy types, refreshed on Phase 2 LLM-adjudicated decision dates (inclusion requires only a decision date — the time axis and FRA classification depend only on it). Each subsection below links to its Phase 1 counterpart for comparison.</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -5517,10 +5517,10 @@ Method &amp; scope
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><strong>Regulatory pages</strong> = body word count ÷ 500, excluding embedded appendices and low-content pages, per 40 C.F.R. § 1508.1(bb) — the measure that matches the FRA limits (EA ≤ 75 pages; EIS ≤ 150, or 300 if extraordinarily complex).<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></li>
-<li>These counts are computed from the actual page text by <code>fra/01_extract_pages.py</code> (a DuckDB pass over <code>phase2/data/processed/{ea,eis}/pages.parquet</code> — 6.1M EIS pages — detecting the appendix boundary and low-content pages), producing regulatory pages for <strong>5,032 EA/EIS projects</strong> (2,765 EA, 2,267 EIS) across all energy types — not just decarbonization.</li>
-<li>The pre/post-FRA analysis below uses the <strong>3,683 projects</strong> that also have a decision date (EA 2,239 / EIS 1,444).</li>
-<li><strong>FRA date = enactment (June 3, 2023)</strong>, matching Phase 1 D5 and the timeline-duration period split above.</li>
+<li>Regulatory pages = body word count ÷ 500, excluding embedded appendices and low-content pages, per 40 C.F.R. § 1508.1(bb) — the measure that matches the FRA limits (EA ≤ 75 pages; EIS ≤ 150, or 300 if extraordinarily complex).<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></li>
+<li>These counts are computed from the actual page text by <code>fra/01_extract_pages.py</code> (a DuckDB pass over <code>phase2/data/processed/{ea,eis}/pages.parquet</code> — 6.1M EIS pages — detecting the appendix boundary and low-content pages), producing regulatory pages for 5,032 EA/EIS projects (2,765 EA, 2,267 EIS) across all energy types — not just decarbonization.</li>
+<li>The pre/post-FRA analysis below uses the 3,683 projects that also have a decision date (EA 2,239 / EIS 1,444).</li>
+<li>FRA date = enactment (June 3, 2023), matching Phase 1 D5 and the timeline-duration period split above.</li>
 </ul>
 </div>
 </div>
@@ -5541,7 +5541,7 @@ Method &amp; scope
 </section>
 <section id="pre-vs-post-fra" class="level2">
 <h2 class="anchored" data-anchor-id="pre-vs-post-fra">Pre vs post-FRA</h2>
-<p>Across all EA/EIS, <strong>EIS regulatory length fell after FRA</strong> (mean 318 → 269 pages; median 261 → 212), while EA length was essentially flat (mean 33 → 39). The post-FRA window is short, so these are provisional (n = 218 EA, 97 EIS). The direction matches the decarb-only Phase 1 result closely (<a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-pre-post">Phase 1 D5 — Pre vs Post FRA</a> and its <a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-distribution">distribution view</a>): Phase 1’s EISs fell from a mean of 368 → 270 regulatory pages, and the all-energy corpus here falls 317 → 269 — landing at essentially the same ~270-page post-FRA EIS mean despite a very different sample. EA stayed flat in both (Phase 1 62 → 57; here 33 → 39), reflecting that EAs were already well under the 75-page limit and had little to compress.</p>
+<p>Across all EA/EIS, EIS regulatory length fell after FRA (mean 318 → 269 pages; median 261 → 212), while EA length was essentially flat (mean 33 → 39). The post-FRA window is short, so these are provisional (n = 218 EA, 97 EIS). The direction matches the decarb-only Phase 1 result closely (<a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-pre-post">Phase 1 D5 — Pre vs Post FRA</a> and its <a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-distribution">distribution view</a>): Phase 1’s EISs fell from a mean of 368 → 270 regulatory pages, and the all-energy corpus here falls 317 → 269 — landing at essentially the same ~270-page post-FRA EIS mean despite a very different sample. EA stayed flat in both (Phase 1 62 → 57; here 33 → 39), reflecting that EAs were already well under the 75-page limit and had little to compress.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-pages-bar" class="quarto-figure quarto-figure-center anchored">
@@ -5552,7 +5552,7 @@ Method &amp; scope
 </div>
 </div>
 </div>
-<p>Breaking the same comparison out by energy category (<a href="#fig-pages-energy">Figure 16</a>) shows the post-FRA EIS decline is broad — it appears in decarbonization <em>and</em> fossil EIS, not just one segment — while EA length is essentially flat across all categories. That consistency makes the EIS drop more credible as a genuine post-FRA effect rather than a composition artifact.</p>
+<p>Breaking the same comparison out by energy category (<a href="#fig-pages-energy">Figure 16</a>) shows the post-FRA EIS decline is broad — it appears in decarbonization and fossil EIS, not just one segment — while EA length is essentially flat across all categories. That consistency makes the EIS drop more credible as a genuine post-FRA effect rather than a composition artifact.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-pages-energy" class="quarto-figure quarto-figure-center anchored">
@@ -5611,11 +5611,11 @@ Method &amp; scope
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="alebxnyrfz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="texbzunndb" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#alebxnyrfz .gt_table {
+#texbzunndb .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -5639,7 +5639,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#alebxnyrfz .gt_heading {
+#texbzunndb .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -5650,11 +5650,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#alebxnyrfz .gt_caption {
+#texbzunndb .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#alebxnyrfz .gt_title {
+#texbzunndb .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -5665,7 +5665,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#alebxnyrfz .gt_subtitle {
+#texbzunndb .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5676,12 +5676,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#alebxnyrfz .gt_bottom_border {
+#texbzunndb .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#alebxnyrfz .gt_col_headings {
+#texbzunndb .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5695,7 +5695,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#alebxnyrfz .gt_col_heading {
+#texbzunndb .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5714,7 +5714,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#alebxnyrfz .gt_column_spanner_outer {
+#texbzunndb .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5725,13 +5725,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#alebxnyrfz .gt_column_spanner_outer:first-child {
+#texbzunndb .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#alebxnyrfz .gt_column_spanner_outer:last-child {
+#texbzunndb .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#alebxnyrfz .gt_column_spanner {
+#texbzunndb .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -5742,7 +5742,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#alebxnyrfz .gt_group_heading {
+#texbzunndb .gt_group_heading {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -5767,7 +5767,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#alebxnyrfz .gt_empty_group_heading {
+#texbzunndb .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5781,13 +5781,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#alebxnyrfz .gt_from_md > :first-child {
+#texbzunndb .gt_from_md > :first-child {
 margin-top: 0;
 }
-#alebxnyrfz .gt_from_md > :last-child {
+#texbzunndb .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#alebxnyrfz .gt_row {
+#texbzunndb .gt_row {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -5805,7 +5805,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#alebxnyrfz .gt_stub {
+#texbzunndb .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5817,7 +5817,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#alebxnyrfz .gt_stub_row_group {
+#texbzunndb .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5830,10 +5830,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#alebxnyrfz .gt_row_group_first td {
+#texbzunndb .gt_row_group_first td {
 border-top-width: 2px;
 }
-#alebxnyrfz .gt_summary_row {
+#texbzunndb .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5842,14 +5842,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#alebxnyrfz .gt_first_summary_row {
+#texbzunndb .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#alebxnyrfz .gt_first_summary_row.thick {
+#texbzunndb .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#alebxnyrfz .gt_last_summary_row {
+#texbzunndb .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5858,7 +5858,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#alebxnyrfz .gt_grand_summary_row {
+#texbzunndb .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5867,7 +5867,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#alebxnyrfz .gt_first_grand_summary_row {
+#texbzunndb .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5876,10 +5876,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#alebxnyrfz .gt_striped {
+#texbzunndb .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#alebxnyrfz .gt_table_body {
+#texbzunndb .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5887,7 +5887,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#alebxnyrfz .gt_footnotes {
+#texbzunndb .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5900,7 +5900,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#alebxnyrfz .gt_footnote {
+#texbzunndb .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -5908,7 +5908,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#alebxnyrfz .gt_sourcenotes {
+#texbzunndb .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5921,58 +5921,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#alebxnyrfz .gt_sourcenote {
+#texbzunndb .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#alebxnyrfz .gt_left {
+#texbzunndb .gt_left {
 text-align: left;
 }
-#alebxnyrfz .gt_center {
+#texbzunndb .gt_center {
 text-align: center;
 }
-#alebxnyrfz .gt_right {
+#texbzunndb .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#alebxnyrfz .gt_font_normal {
+#texbzunndb .gt_font_normal {
 font-weight: normal;
 }
-#alebxnyrfz .gt_font_bold {
+#texbzunndb .gt_font_bold {
 font-weight: bold;
 }
-#alebxnyrfz .gt_font_italic {
+#texbzunndb .gt_font_italic {
 font-style: italic;
 }
-#alebxnyrfz .gt_super {
+#texbzunndb .gt_super {
 font-size: 65%;
 }
-#alebxnyrfz .gt_footnote_marks {
+#texbzunndb .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#alebxnyrfz .gt_asterisk {
+#texbzunndb .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#alebxnyrfz .gt_indent_1 {
+#texbzunndb .gt_indent_1 {
 text-indent: 5px;
 }
-#alebxnyrfz .gt_indent_2 {
+#texbzunndb .gt_indent_2 {
 text-indent: 10px;
 }
-#alebxnyrfz .gt_indent_3 {
+#texbzunndb .gt_indent_3 {
 text-indent: 15px;
 }
-#alebxnyrfz .gt_indent_4 {
+#texbzunndb .gt_indent_4 {
 text-indent: 20px;
 }
-#alebxnyrfz .gt_indent_5 {
+#texbzunndb .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -6054,8 +6054,8 @@ text-indent: 25px;
 <h2 class="anchored" data-anchor-id="fra-page-limit-compliance">FRA page-limit compliance</h2>
 <p>The Fiscal Responsibility Act sets presumptive page limits — 75 pages for an EA and 150 pages for an EIS (300 if the agency documents extraordinary complexity). <a href="#fig-pages-compliance">Figure 21</a> scores the post-FRA EA/EIS projects with a decision date against those limits (regulatory pages).</p>
 <ul>
-<li><strong>EAs comply at a high rate.</strong> 83% of post-FRA EAs (n = 218) fall within the 75-page limit; the 17% that exceed it generally do so modestly rather than dramatically.</li>
-<li><strong>EISs are more mixed, but most are within reach of the complexity ceiling.</strong> Only 32% of post-FRA EISs (n = 97) land within the baseline 150-page limit, but a further 33% sit between 150 and 300 pages — i.e. within the extraordinary-complexity ceiling — so 65% are within the 300-page threshold overall. The remaining 35% exceed even 300 pages, consistent with the long right tail of complex transmission, restoration, and resource-management EISs seen in the duration analysis.</li>
+<li>EAs comply at a high rate. 83% of post-FRA EAs (n = 218) fall within the 75-page limit; the 17% that exceed it generally do so by a small margin.</li>
+<li>EISs are more mixed, but most are within reach of the complexity ceiling. Only 32% of post-FRA EISs (n = 97) land within the baseline 150-page limit, but a further 33% sit between 150 and 300 pages — i.e. within the extraordinary-complexity ceiling — so 65% are within the 300-page threshold overall. The remaining 35% exceed even 300 pages, consistent with the long right tail of complex transmission, restoration, and resource-management EISs seen in the duration analysis.</li>
 </ul>
 <p>Two caveats temper this. First, the post-FRA window is short (218 EA / 97 EIS projects with both a regulatory page count and a decision date), so these rates are provisional and will firm up as more post-FRA decisions land. Second, the FRA limits are presumptive, not absolute — agencies may exceed them with senior-official approval or a documented extraordinary-complexity finding — so “exceeds limit” flags a document for review, not an automatic compliance failure.</p>
 <div class="cell">
@@ -6073,15 +6073,15 @@ text-indent: 25px;
 </section>
 <section id="sec-ceq-regime" class="level1">
 <h1>Review timelines by CEQ regulatory regime</h1>
-<p>NEPA’s procedural rules were rewritten three times in four years. The natural regulatory regimes — keyed to each rule’s effective date — are summarized below. (The FRA, June 3, 2023, is a <em>statutory</em> amendment to NEPA, not a CEQ rule; it is already the pre/post-FRA breakpoint used in the duration and page-length analyses.)</p>
+<p>NEPA’s procedural rules were rewritten three times in four years. The natural regulatory regimes — keyed to each rule’s effective date — are summarized below. (The FRA, June 3, 2023, is a statutory amendment to NEPA, not a CEQ rule; it is already the pre/post-FRA breakpoint used in the duration and page-length analyses.)</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="cdyyxahxjl" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="wjboldwqij" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#cdyyxahxjl .gt_table {
+#wjboldwqij .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -6105,7 +6105,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#cdyyxahxjl .gt_heading {
+#wjboldwqij .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -6116,11 +6116,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#cdyyxahxjl .gt_caption {
+#wjboldwqij .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#cdyyxahxjl .gt_title {
+#wjboldwqij .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -6131,7 +6131,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#cdyyxahxjl .gt_subtitle {
+#wjboldwqij .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -6142,12 +6142,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#cdyyxahxjl .gt_bottom_border {
+#wjboldwqij .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#cdyyxahxjl .gt_col_headings {
+#wjboldwqij .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6161,7 +6161,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#cdyyxahxjl .gt_col_heading {
+#wjboldwqij .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6180,7 +6180,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#cdyyxahxjl .gt_column_spanner_outer {
+#wjboldwqij .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6191,13 +6191,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#cdyyxahxjl .gt_column_spanner_outer:first-child {
+#wjboldwqij .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#cdyyxahxjl .gt_column_spanner_outer:last-child {
+#wjboldwqij .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#cdyyxahxjl .gt_column_spanner {
+#wjboldwqij .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -6208,7 +6208,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#cdyyxahxjl .gt_group_heading {
+#wjboldwqij .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6233,7 +6233,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#cdyyxahxjl .gt_empty_group_heading {
+#wjboldwqij .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -6247,13 +6247,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#cdyyxahxjl .gt_from_md > :first-child {
+#wjboldwqij .gt_from_md > :first-child {
 margin-top: 0;
 }
-#cdyyxahxjl .gt_from_md > :last-child {
+#wjboldwqij .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#cdyyxahxjl .gt_row {
+#wjboldwqij .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6271,7 +6271,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#cdyyxahxjl .gt_stub {
+#wjboldwqij .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6283,7 +6283,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#cdyyxahxjl .gt_stub_row_group {
+#wjboldwqij .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6296,10 +6296,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#cdyyxahxjl .gt_row_group_first td {
+#wjboldwqij .gt_row_group_first td {
 border-top-width: 2px;
 }
-#cdyyxahxjl .gt_summary_row {
+#wjboldwqij .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6308,14 +6308,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#cdyyxahxjl .gt_first_summary_row {
+#wjboldwqij .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#cdyyxahxjl .gt_first_summary_row.thick {
+#wjboldwqij .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#cdyyxahxjl .gt_last_summary_row {
+#wjboldwqij .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6324,7 +6324,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#cdyyxahxjl .gt_grand_summary_row {
+#wjboldwqij .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6333,7 +6333,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#cdyyxahxjl .gt_first_grand_summary_row {
+#wjboldwqij .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6342,10 +6342,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#cdyyxahxjl .gt_striped {
+#wjboldwqij .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#cdyyxahxjl .gt_table_body {
+#wjboldwqij .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6353,7 +6353,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#cdyyxahxjl .gt_footnotes {
+#wjboldwqij .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6366,7 +6366,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#cdyyxahxjl .gt_footnote {
+#wjboldwqij .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -6374,7 +6374,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#cdyyxahxjl .gt_sourcenotes {
+#wjboldwqij .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6387,58 +6387,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#cdyyxahxjl .gt_sourcenote {
+#wjboldwqij .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#cdyyxahxjl .gt_left {
+#wjboldwqij .gt_left {
 text-align: left;
 }
-#cdyyxahxjl .gt_center {
+#wjboldwqij .gt_center {
 text-align: center;
 }
-#cdyyxahxjl .gt_right {
+#wjboldwqij .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#cdyyxahxjl .gt_font_normal {
+#wjboldwqij .gt_font_normal {
 font-weight: normal;
 }
-#cdyyxahxjl .gt_font_bold {
+#wjboldwqij .gt_font_bold {
 font-weight: bold;
 }
-#cdyyxahxjl .gt_font_italic {
+#wjboldwqij .gt_font_italic {
 font-style: italic;
 }
-#cdyyxahxjl .gt_super {
+#wjboldwqij .gt_super {
 font-size: 65%;
 }
-#cdyyxahxjl .gt_footnote_marks {
+#wjboldwqij .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#cdyyxahxjl .gt_asterisk {
+#wjboldwqij .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#cdyyxahxjl .gt_indent_1 {
+#wjboldwqij .gt_indent_1 {
 text-indent: 5px;
 }
-#cdyyxahxjl .gt_indent_2 {
+#wjboldwqij .gt_indent_2 {
 text-indent: 10px;
 }
-#cdyyxahxjl .gt_indent_3 {
+#wjboldwqij .gt_indent_3 {
 text-indent: 15px;
 }
-#cdyyxahxjl .gt_indent_4 {
+#wjboldwqij .gt_indent_4 {
 text-indent: 20px;
 }
-#cdyyxahxjl .gt_indent_5 {
+#wjboldwqij .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -6494,8 +6494,8 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>Everything in this section rests on the same complete-timeline frame as the rest of the deliverable — the 27,275 CE, 1,736 EA, and 1,329 EIS reviews that carry both an initiation and a decision date in day- or month-resolution and valid order (50%, 56%, and 32% of all CE / EA / EIS projects; a few points below the headline completeness in <a href="#fig-complete-share">Figure 2</a>, which also counts year-only and out-of-order dates that duration work excludes). The 1978 bucket is by far the largest not because coverage is fuller there but because it absorbs <em>every</em> decision from the start of the corpus through September 13, 2020 — roughly four decades, with CE activity concentrated in the 2010s. Of the 32,463 CEs decided before the 2020 rule, 17,223 (53%) have both dates — CE decision coverage runs 90% corpus-wide (registers plus determination-form dates) against 60% initiation coverage, so completeness is roughly half, and half of a very long, activity-dense window is still ~17,000 reviews.</p>
-<p>This segmentation is deliberately independent of the two breakpoint sets used above: it complements the <code>reg_period</code> <em>funding</em> eras (ARRA / BIL / IRA) and the FRA <em>statutory</em> split by cutting on the CEQ <em>regulatory</em> rule effective dates instead. Because a review is a span, we assign each one to the rule in effect at its <strong>decision date</strong> — so every figure reads as “reviews <strong>decided under</strong> a regime,” not “reviews governed by” it. The 2024 Phase 2 Rule and its 2025 rescission are folded into one provisional <code>2024+</code> bucket: the rescission window falls far below the n = 30 display floor for every process, the standalone Phase 2 window falls below it for CE, and a single merged bucket keeps the provisional post-2024 period readable rather than a mix of displayed and suppressed cells (counts in the caveats below).</p>
+<p>Everything in this section rests on the same complete-timeline frame as the rest of the deliverable — the 27,275 CE, 1,736 EA, and 1,329 EIS reviews that carry both an initiation and a decision date in day- or month-resolution and valid order (50%, 56%, and 32% of all CE / EA / EIS projects; a few points below the headline completeness in <a href="#fig-complete-share">Figure 2</a>, which also counts year-only and out-of-order dates that duration work excludes). The 1978 bucket is by far the largest not because coverage is fuller there but because it absorbs every decision from the start of the corpus through September 13, 2020 — roughly four decades, with CE activity concentrated in the 2010s. Of the 32,463 CEs decided before the 2020 rule, 17,223 (53%) have both dates — CE decision coverage runs 90% corpus-wide (registers plus determination-form dates) against 60% initiation coverage, so completeness is roughly half, and half of a very long, activity-dense window is still ~17,000 reviews.</p>
+<p>This segmentation is deliberately independent of the two breakpoint sets used above: it complements the <code>reg_period</code> <em>funding</em> eras (ARRA / BIL / IRA) and the FRA <em>statutory</em> split by cutting on the CEQ <em>regulatory</em> rule effective dates instead. Because a review is a span, we assign each one to the rule in effect at its decision date — so every figure reads as “reviews decided under a regime,” not “reviews governed by” it. The 2024 Phase 2 Rule and its 2025 rescission are folded into one provisional <code>2024+</code> bucket: the rescission window falls far below the n = 30 display floor for every process, the standalone Phase 2 window falls below it for CE, and a single merged bucket keeps the provisional post-2024 period readable rather than a mix of displayed and suppressed cells (counts in the caveats below).</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-ceq-regime" class="quarto-figure quarto-figure-center anchored">
@@ -6508,12 +6508,12 @@ text-indent: 25px;
 </div>
 <p>The regime medians move very little for the two smaller-review processes, and what movement there is tracks sample composition rather than any rule:</p>
 <ul>
-<li><strong>CE reviews stay near-instant under every pre-2024 regime</strong> — a median of 0.6, 0.7, and 0.8 months under the 1978, 2020, and 2022 regimes. The <code>2024+</code> bucket reads 37 months, but on only 46 reviews — an artifact of <em>which</em> CE reviews happen to carry a complete, recently-dated timeline, not a regime effect.</li>
-<li><strong>EA medians sit in a narrow 2.2–4-month band</strong> across the three pre-2024 regimes, rising to 8.9 months in the thin <code>2024+</code> bucket (n = 55).</li>
-<li><strong>EIS medians are the longest and the noisiest</strong> — 34 months (1978), 29 (2020), 39 (2022), 27 (<code>2024+</code>, n = 50). The apparent dip under the 2020 regime is a pooling artifact, not evidence that the Trump rule sped EISs up.</li>
-<li><strong>The 1978 bar pools ~42 years and understates recent durations.</strong> Restricting the 1978 rule to its final stretch (2015–2020 decisions) lifts the EIS median from 34 to 40 months — so the pooled 1978 comparator in <a href="#fig-ceq-regime">Figure 23</a> is the <em>wrong</em> reference for a before/after-rule read. Use the year-by-year trend in <a href="#fig-ceq-trend">Figure 24</a> for that intuition instead.</li>
+<li>CE reviews stay near-instant under every pre-2024 regime — a median of 0.6, 0.7, and 0.8 months under the 1978, 2020, and 2022 regimes. The <code>2024+</code> bucket reads 37 months, but on only 46 reviews — an artifact of which CE reviews happen to carry a complete, recently-dated timeline, not a regime effect.</li>
+<li>EA medians sit in a narrow 2.2–4-month band across the three pre-2024 regimes, rising to 8.9 months in the thin <code>2024+</code> bucket (n = 55).</li>
+<li>EIS medians are the longest and the noisiest — 34 months (1978), 29 (2020), 39 (2022), 27 (<code>2024+</code>, n = 50). The apparent dip under the 2020 regime is a pooling artifact, not evidence that the Trump rule sped EISs up.</li>
+<li>The 1978 bar pools ~42 years and understates recent durations. Restricting the 1978 rule to its final stretch (2015–2020 decisions) lifts the EIS median from 34 to 40 months — so the pooled 1978 comparator in <a href="#fig-ceq-regime">Figure 23</a> is the wrong reference for a before/after-rule read. Use the year-by-year trend in <a href="#fig-ceq-trend">Figure 24</a> for that intuition instead.</li>
 </ul>
-<p><a href="#fig-ceq-trend">Figure 24</a> places the CEQ rule dates on the annual median-duration line, alongside the FRA statutory marker. Because durations have drifted secularly (CE especially), the year-by-year view is the honest way to see whether anything changed <em>around</em> a rule date — the regime bars above cannot separate a rule effect from the underlying trend.</p>
+<p><a href="#fig-ceq-trend">Figure 24</a> places the CEQ rule dates on the annual median-duration line, alongside the FRA statutory marker. Because durations have drifted secularly (CE especially), the year-by-year view is the honest way to see whether anything changed around a rule date — the regime bars above cannot separate a rule effect from the underlying trend.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-ceq-trend" class="quarto-figure quarto-figure-center anchored">
@@ -6527,18 +6527,18 @@ text-indent: 25px;
 <section id="analysis-caveats-1" class="level2">
 <h2 class="anchored" data-anchor-id="analysis-caveats-1">Analysis caveats</h2>
 <ul>
-<li><strong>Decided-under, not governed-by.</strong> A multi-year EIS decided in 2022 was scoped and largely conducted under <em>earlier</em> rules; the decision-date assignment is a labeling convenience, not a claim about which regulations shaped the review.</li>
-<li><strong>The post-2024 samples are thin and confounded.</strong> Only 46 CE, 55 EA, and 50 EIS reviews fall in the <code>2024+</code> bucket, and they are entangled with the same coverage ramp that limits the post-FRA split — recently-decided reviews are over-represented by whichever timelines happen to be complete.</li>
-<li><strong>The 2025 rescission window is folded into <code>2024+</code>.</strong> The 2025 rescission window (18 CE, 19 EA, 9 EIS) falls far below the n = 30 display floor for every process; the standalone 2024 Phase 2 window (28 CE, 36 EA, 41 EIS) falls below it for CE, though its EA and EIS counts clear the floor. They are analyzed only as the merged <code>2024+</code> bucket in <a href="#fig-ceq-regime">Figure 23</a> so the provisional post-2024 period reads as one consistent cell rather than a mix of displayed and suppressed windows.</li>
-<li><strong>For a before/after-rule read, use <a href="#fig-ceq-trend">Figure 24</a>, not <a href="#fig-ceq-regime">Figure 23</a>.</strong> The pooled 1978 regime bar spans four decades of secular decline; the year-by-year trend is the only view that can separate a rule date from the underlying drift.</li>
-<li><strong>Associational, not causal.</strong> Nothing here isolates a regulatory effect from composition, agency mix, or calendar time.</li>
+<li>Decided-under, not governed-by. A multi-year EIS decided in 2022 was scoped and largely conducted under earlier rules; the decision-date assignment is a labeling convenience, not a claim about which regulations shaped the review.</li>
+<li>The post-2024 samples are thin and confounded. Only 46 CE, 55 EA, and 50 EIS reviews fall in the <code>2024+</code> bucket, and they are entangled with the same coverage ramp that limits the post-FRA split — recently-decided reviews are over-represented by whichever timelines happen to be complete.</li>
+<li>The 2025 rescission window is folded into <code>2024+</code>. The 2025 rescission window (18 CE, 19 EA, 9 EIS) falls far below the n = 30 display floor for every process; the standalone 2024 Phase 2 window (28 CE, 36 EA, 41 EIS) falls below it for CE, though its EA and EIS counts clear the floor. They are analyzed only as the merged <code>2024+</code> bucket in <a href="#fig-ceq-regime">Figure 23</a> so the provisional post-2024 period reads as one consistent cell rather than a mix of displayed and suppressed windows.</li>
+<li>For a before/after-rule read, use <a href="#fig-ceq-trend">Figure 24</a>, not <a href="#fig-ceq-regime">Figure 23</a>. The pooled 1978 regime bar spans four decades of secular decline; the year-by-year trend is the only view that can separate a rule date from the underlying drift.</li>
+<li>Associational, not causal. Nothing here isolates a regulatory effect from composition, agency mix, or calendar time.</li>
 </ul>
 <hr>
 </section>
 </section>
 <section id="sec-field-office" class="level1">
 <h1>Field-office experience: BLM and DOE</h1>
-<p>A question from the deliverable scope: <strong>do lead-agency offices process NEPA reviews faster as they accumulate experience</strong> — a “learning-curve” effect? We test it on two structurally independent corpora: BLM projects map to the field office that handled them (from case metadata), while DOE projects map to the administering or grant office that processed them (through the CX register). Both arms measure the same thing — whether an office’s review duration falls as its own cumulative caseload grows — on document-anchored, complete CE timelines over each agency’s full window. All conclusions here are associational, not causal.</p>
+<p>The deliverable asks whether lead-agency offices process NEPA reviews faster as they accumulate experience, a “learning-curve” effect. We test it on two structurally independent corpora: BLM projects map to the field office that handled them (from case metadata), while DOE projects map to the administering or grant office that processed them (through the CX register). Both arms measure the same thing — whether an office’s review duration falls as its own cumulative caseload grows — on document-anchored, complete CE timelines over each agency’s full window. All conclusions here are associational, not causal.</p>
 <p>The two arms rest on very different sample sizes (<a href="#fig-fo-inventory">Figure 25</a>). Of 26,016 BLM-led projects, 16,249 parse to a field office and only 31 clear the ≥ 30 document-anchored-CE bar the regression requires; of 32,305 DOE-led projects, 11,707 link to a register office and only 12 clear it. A handful of high-volume offices carries each regression, so the design leans on the calendar control rather than any single office’s trajectory.</p>
 <div class="cell">
 <div class="cell-output-display">
@@ -6550,9 +6550,9 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p><strong>Process change, not office experience, drove the CE speed-up.</strong> CE reviews got dramatically faster across the window, but the decline hit every office at once rather than the busiest offices pulling ahead. Within any given decision year, an office’s accumulated caseload is essentially uncorrelated with its speed — the per-year Spearman correlation between cumulative reviews and duration ranges -0.30 to +0.22, centered on zero — and the quieter half of offices converges to the same speed as the busier half without ever accumulating a comparable caseload (<a href="#fig-fo-convergence">Figure 26</a>). That is the signature of a system-wide change, not office-by-office learning.</p>
-<p>The office fixed-effects regression confirms it formally. The raw gradient looks like a real speed-up — -6.8% per doubling of an office’s caseload (95% CI -13.2% to +0.1%) — but that is the corpus-wide decline in disguise: once each decision year is given its own baseline, the apparent speed-up is gone — for BLM the estimate in fact reverses sign to +11.0% (slower, not faster, per doubling; 95% CI -2.9% to +26.8%, not statistically distinguishable from zero). The DOE arm flattens to genuinely near-zero on its own full window — an apparent -6.2% raw gradient that the calendar control erases to +3.2% (95% CI -4.7% to +11.7%) across 12 administering offices in a wholly separate corpus.</p>
-<p>What cannot be separated is <em>which</em> systemic change did it: register-anchored batch processing, procedural streamlining, or agency-wide practice all reach every office simultaneously and are observationally equivalent. The claim is associational, not causal.</p>
+<p>Process change, not office experience, drove the CE speed-up. CE reviews got much faster across the window, but the decline hit every office at once rather than the busiest offices pulling ahead. Within any given decision year, an office’s accumulated caseload is essentially uncorrelated with its speed — the per-year Spearman correlation between cumulative reviews and duration ranges -0.30 to +0.22, centered on zero — and the quieter half of offices converges to the same speed as the busier half without ever accumulating a comparable caseload (<a href="#fig-fo-convergence">Figure 26</a>). That is the signature of a system-wide change, not office-by-office learning.</p>
+<p>The office fixed-effects regression confirms it formally. The raw gradient looks like a real speed-up, -6.8% per doubling of an office’s caseload (95% CI -13.2% to +0.1%), but that is the corpus-wide decline in disguise. Once each decision year is given its own baseline, the apparent speed-up is gone: for BLM the estimate in fact reverses sign to +11.0% (slower, not faster, per doubling; 95% CI -2.9% to +26.8%, not statistically distinguishable from zero). The DOE arm flattens to genuinely near-zero on its own full window, an apparent -6.2% raw gradient that the calendar control erases to +3.2% (95% CI -4.7% to +11.7%) across 12 administering offices in a wholly separate corpus.</p>
+<p>What cannot be separated is which systemic change did it: register-anchored batch processing, procedural streamlining, or agency-wide practice all reach every office simultaneously and are observationally equivalent. The claim is associational, not causal.</p>
 <p>The convergence in <a href="#fig-fo-convergence">Figure 26</a> is the clearest picture. Offices are ranked by their total document-anchored CE caseload; the busier half is the 16 BLM offices at or above the median, each handling at least 46 reviews, and the quieter half the 15 below. Each line is the median review duration among that half’s decisions in each two-year bin (only bins where the half has at least 10 decisions are shown). The quieter half — which never builds a comparable caseload — still converges to the busier half’s review duration; if reps were what made offices fast, that gap would persist, but instead it closes.</p>
 <div class="cell">
 <div class="cell-output-display">
@@ -6568,11 +6568,11 @@ text-indent: 25px;
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="kfzquxsvrf" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="fyqonszwqz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#kfzquxsvrf .gt_table {
+#fyqonszwqz .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -6596,7 +6596,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#kfzquxsvrf .gt_heading {
+#fyqonszwqz .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -6607,11 +6607,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#kfzquxsvrf .gt_caption {
+#fyqonszwqz .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#kfzquxsvrf .gt_title {
+#fyqonszwqz .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -6622,7 +6622,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#kfzquxsvrf .gt_subtitle {
+#fyqonszwqz .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -6633,12 +6633,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#kfzquxsvrf .gt_bottom_border {
+#fyqonszwqz .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#kfzquxsvrf .gt_col_headings {
+#fyqonszwqz .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6652,7 +6652,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#kfzquxsvrf .gt_col_heading {
+#fyqonszwqz .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6671,7 +6671,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#kfzquxsvrf .gt_column_spanner_outer {
+#fyqonszwqz .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6682,13 +6682,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#kfzquxsvrf .gt_column_spanner_outer:first-child {
+#fyqonszwqz .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#kfzquxsvrf .gt_column_spanner_outer:last-child {
+#fyqonszwqz .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#kfzquxsvrf .gt_column_spanner {
+#fyqonszwqz .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -6699,7 +6699,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#kfzquxsvrf .gt_group_heading {
+#fyqonszwqz .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6724,7 +6724,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#kfzquxsvrf .gt_empty_group_heading {
+#fyqonszwqz .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -6738,13 +6738,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#kfzquxsvrf .gt_from_md > :first-child {
+#fyqonszwqz .gt_from_md > :first-child {
 margin-top: 0;
 }
-#kfzquxsvrf .gt_from_md > :last-child {
+#fyqonszwqz .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#kfzquxsvrf .gt_row {
+#fyqonszwqz .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6762,7 +6762,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#kfzquxsvrf .gt_stub {
+#fyqonszwqz .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6774,7 +6774,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kfzquxsvrf .gt_stub_row_group {
+#fyqonszwqz .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6787,10 +6787,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#kfzquxsvrf .gt_row_group_first td {
+#fyqonszwqz .gt_row_group_first td {
 border-top-width: 2px;
 }
-#kfzquxsvrf .gt_summary_row {
+#fyqonszwqz .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6799,14 +6799,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kfzquxsvrf .gt_first_summary_row {
+#fyqonszwqz .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#kfzquxsvrf .gt_first_summary_row.thick {
+#fyqonszwqz .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#kfzquxsvrf .gt_last_summary_row {
+#fyqonszwqz .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6815,7 +6815,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#kfzquxsvrf .gt_grand_summary_row {
+#fyqonszwqz .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6824,7 +6824,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kfzquxsvrf .gt_first_grand_summary_row {
+#fyqonszwqz .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6833,10 +6833,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#kfzquxsvrf .gt_striped {
+#fyqonszwqz .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#kfzquxsvrf .gt_table_body {
+#fyqonszwqz .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6844,7 +6844,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#kfzquxsvrf .gt_footnotes {
+#fyqonszwqz .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6857,7 +6857,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#kfzquxsvrf .gt_footnote {
+#fyqonszwqz .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -6865,7 +6865,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kfzquxsvrf .gt_sourcenotes {
+#fyqonszwqz .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6878,58 +6878,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#kfzquxsvrf .gt_sourcenote {
+#fyqonszwqz .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kfzquxsvrf .gt_left {
+#fyqonszwqz .gt_left {
 text-align: left;
 }
-#kfzquxsvrf .gt_center {
+#fyqonszwqz .gt_center {
 text-align: center;
 }
-#kfzquxsvrf .gt_right {
+#fyqonszwqz .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#kfzquxsvrf .gt_font_normal {
+#fyqonszwqz .gt_font_normal {
 font-weight: normal;
 }
-#kfzquxsvrf .gt_font_bold {
+#fyqonszwqz .gt_font_bold {
 font-weight: bold;
 }
-#kfzquxsvrf .gt_font_italic {
+#fyqonszwqz .gt_font_italic {
 font-style: italic;
 }
-#kfzquxsvrf .gt_super {
+#fyqonszwqz .gt_super {
 font-size: 65%;
 }
-#kfzquxsvrf .gt_footnote_marks {
+#fyqonszwqz .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#kfzquxsvrf .gt_asterisk {
+#fyqonszwqz .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#kfzquxsvrf .gt_indent_1 {
+#fyqonszwqz .gt_indent_1 {
 text-indent: 5px;
 }
-#kfzquxsvrf .gt_indent_2 {
+#fyqonszwqz .gt_indent_2 {
 text-indent: 10px;
 }
-#kfzquxsvrf .gt_indent_3 {
+#fyqonszwqz .gt_indent_3 {
 text-indent: 15px;
 }
-#kfzquxsvrf .gt_indent_4 {
+#fyqonszwqz .gt_indent_4 {
 text-indent: 20px;
 }
-#kfzquxsvrf .gt_indent_5 {
+#fyqonszwqz .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -6973,18 +6973,18 @@ text-indent: 25px;
 <section id="analysis-caveats-2" class="level2">
 <h2 class="anchored" data-anchor-id="analysis-caveats-2">Analysis caveats</h2>
 <ul>
-<li><strong>Register-anchoring artifact.</strong> Durations rest partly on register/proxy start dates that are late administrative entries; the analysis uses document-anchored initiation dates to limit this, and reports the register-anchored fits only as a flagged sensitivity view.</li>
-<li><strong>Retained pre-2012 artifact rows.</strong> A few early BLM rows are known extraction artifacts — a 9-row batched cluster (office AZ-A010) all sharing one initiation → decision span, and historical-citation “initiations” (e.g. a 7,227-day span anchored to a 1985 citation). Under the symmetric no-filter design both arms keep their full windows, so these rows are retained rather than one-sidedly dropped; they inflate the raw (uncontrolled) BLM estimate only and do not affect the year-controlled result (they show up as the tall early point of the quieter half in <a href="#fig-fo-convergence">Figure 26</a>).</li>
-<li><strong>~38% of BLM projects are unparsed</strong> (37.5%). EISs account for most of the gap — only 7.4% parse (large/programmatic EISs are filed under titles, not DOI-BLM case numbers) — versus 63.9% of CE and 66.8% of EA.</li>
-<li><strong>Project mix within an office.</strong> Short well-abandonment CEs dominate some offices; <code>project_energy_type</code> is a covariate, but a “faster” office could reflect a shift toward simpler actions rather than any change in processing.</li>
-<li><strong>DOE administering offices are not BLM field offices.</strong> They come from the CX register’s <code>office</code> field (grant/program offices such as NETL and Golden), not site-specific case handlers; the DOE arm is a structural replication, not a like-for-like comparison.</li>
+<li>Register-anchoring artifact. Durations rest partly on register/proxy start dates that are late administrative entries; the analysis uses document-anchored initiation dates to limit this, and reports the register-anchored fits only as a flagged sensitivity view.</li>
+<li>Retained pre-2012 artifact rows. A few early BLM rows are known extraction artifacts — a 9-row batched cluster (office AZ-A010) all sharing one initiation → decision span, and historical-citation “initiations” (e.g. a 7,227-day span anchored to a 1985 citation). Under the symmetric no-filter design both arms keep their full windows, so these rows are retained rather than one-sidedly dropped; they inflate the raw (uncontrolled) BLM estimate only and do not affect the year-controlled result (they show up as the tall early point of the quieter half in <a href="#fig-fo-convergence">Figure 26</a>).</li>
+<li>~38% of BLM projects are unparsed (37.5%). EISs account for most of the gap — only 7.4% parse (large/programmatic EISs are filed under titles, not DOI-BLM case numbers) — versus 63.9% of CE and 66.8% of EA.</li>
+<li>Project mix within an office. Short well-abandonment CEs dominate some offices; <code>project_energy_type</code> is a covariate, but a “faster” office could reflect a shift toward simpler actions rather than any change in processing.</li>
+<li>DOE administering offices are not BLM field offices. They come from the CX register’s <code>office</code> field (grant/program offices such as NETL and Golden), not site-specific case handlers; the DOE arm is a structural replication, not a like-for-like comparison.</li>
 </ul>
 <hr>
 </section>
 </section>
 <section id="sec-geothermal" class="level1">
 <h1>Geothermal review timelines by BLM field office</h1>
-<p><strong>The <code>Geothermal</code> tag spans two worlds that should never be pooled, and the by-office slice the deliverable asked for is too thin to compare.</strong> Of 873 geothermal projects only 109 are BLM-led, only 61 carry a parseable field-office code, and only 39 of those have a complete timeline — spread across 21 offices whose busiest holds just 9 complete reviews, well below any floor for a duration comparison. The analysis is therefore a descriptive office inventory plus a cohort-level state map, and it focuses on CE reviews (the substantive EA/EIS record is a handful of projects — see the caveats).</p>
+<p>The <code>Geothermal</code> tag spans two worlds that should never be pooled, and the by-office slice the deliverable asked for is too thin to compare. Of 873 geothermal projects only 109 are BLM-led, only 61 carry a parseable field-office code, and only 39 of those have a complete timeline — spread across 21 offices whose busiest holds just 9 complete reviews, well below any floor for a duration comparison. The analysis is therefore a descriptive office inventory plus a cohort-level state map, and it focuses on CE reviews (the substantive EA/EIS record is a handful of projects — see the caveats).</p>
 <p>The two worlds are BLM western-resource geothermal — leases, exploration, and power plants concentrated in NV, CA, and UT, median CE 34 days — versus the much larger body of 743 Department of Energy projects: ARRA-era heat-pump and research categorical exclusions filed nationwide, including states with no geothermal resource base, median CE just 8 days with a 2010–2012 decision surge. Pooling a resource-development review with a research-grant CE would be meaningless, so every number here is read within a cohort, never across. (Office-code recovery is a dead end: only 2 of the 48 unmatched BLM projects carry any office-like code.)</p>
 <section id="the-office-inventory" class="level2">
 <h2 class="anchored" data-anchor-id="the-office-inventory">The office inventory</h2>
@@ -7017,10 +7017,10 @@ text-indent: 25px;
 <section id="analysis-caveats-3" class="level2">
 <h2 class="anchored" data-anchor-id="analysis-caveats-3">Analysis caveats</h2>
 <ul>
-<li><strong>Two worlds, one tag.</strong> “Geothermal” pools BLM western resource development with DOE grant-era heat-pump and research CEs; the split median (34 days for BLM vs 8 days for everything else) is a composition artifact, not a process finding. Every number here should be read within a cohort, never across.</li>
-<li><strong>Office-level is descriptive only.</strong> With a busiest office of 9 complete reviews (2 of them document-anchored), no office clearing the ≥ 10-review floor, and ~44.0% of BLM geothermal projects unparsed (48 of 109, office recovery a dead end), the inventory cannot support a duration comparison, a learning-curve test, or any office ranking.</li>
-<li><strong>Register artifact, and DOE offices are not field offices.</strong> Durations rest partly on register/proxy start dates (the document-anchored counts isolate the artifact-free reviews, and they are even thinner); separately, the 456 DOE-tier projects with a named office link to administering / grant-program offices in the CX register (the Golden Field Office, NETL, EERE-HQ), not to BLM-style field offices — the DOE-office panel is an inventory of a different kind of unit, not a BLM-vs-DOE office comparison.</li>
-<li><strong>Small-n everywhere, associational.</strong> The map’s per-state medians rest on small samples, and only 22 complete geothermal EA/EIS timelines exist corpus-wide (their individual durations remain in <code>d4_geothermal_timeline_points.csv</code>); nothing here isolates a causal effect of office, agency, or geography.</li>
+<li>Two worlds, one tag. “Geothermal” pools BLM western resource development with DOE grant-era heat-pump and research CEs; the split median (34 days for BLM vs 8 days for everything else) is a composition artifact, not a process finding. Every number here should be read within a cohort, never across.</li>
+<li>Office-level is descriptive only. With a busiest office of 9 complete reviews (2 of them document-anchored), no office clearing the ≥ 10-review floor, and ~44.0% of BLM geothermal projects unparsed (48 of 109, office recovery largely infeasible), the inventory cannot support a duration comparison, a learning-curve test, or any office ranking.</li>
+<li>Register artifact, and DOE offices are not field offices. Durations rest partly on register/proxy start dates (the document-anchored counts isolate the artifact-free reviews, and they are even thinner); separately, the 456 DOE-tier projects with a named office link to administering / grant-program offices in the CX register (the Golden Field Office, NETL, EERE-HQ), not to BLM-style field offices — the DOE-office panel is an inventory of a different kind of unit, not a BLM-vs-DOE office comparison.</li>
+<li>Small-n everywhere, associational. The map’s per-state medians rest on small samples, and only 22 complete geothermal EA/EIS timelines exist corpus-wide (their individual durations remain in <code>d4_geothermal_timeline_points.csv</code>); nothing here isolates a causal effect of office, agency, or geography.</li>
 </ul>
 <hr>
 </section>
@@ -7058,7 +7058,7 @@ text-indent: 25px;
 <span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> phase2/code/deliverable04/geothermal/02_create_figures.R</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>Outputs are written to <code>phase2/output/deliverable04/</code> (<code>figures/</code>, <code>diagnostics/</code>).</p>
 <hr>
-<p><em>Draft generated 2026-07-23 | NEPA Decarbonization Technology Analysis — Phase 2, Deliverable 4</em></p>
+<p><em>Draft generated 2026-07-25 | NEPA Decarbonization Technology Analysis — Phase 2, Deliverable 4</em></p>
 
 
 </section>
@@ -7067,7 +7067,7 @@ text-indent: 25px;
 <div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p>The EA panel’s magenta Fossil (doc-anchored) row recomputes the fossil-EA duration using only <em>document-stated</em> initiation dates (<code>initiation_source_type ≠ register</code>), setting aside the BLM register’s administrative “project start” entries that compress the register-anchored median to ~40 days. Its ~5-month median is the more defensible estimate of true review length, but it survives for only 119 of the 754 complete fossil EAs — the register is the sole start-date signal for the other 635. Both rows are shown so the coverage-versus-plausibility trade-off is explicit; CE and EIS are unaffected by this issue and keep their three standard energy rows.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>The EA panel’s magenta Fossil (doc-anchored) row recomputes the fossil-EA duration using only document-stated initiation dates (<code>initiation_source_type ≠ register</code>), setting aside the BLM register’s administrative “project start” entries that compress the register-anchored median to ~40 days. Its ~5-month median is the more defensible estimate of true review length, but it survives for only 119 of the 754 complete fossil EAs — the register is the sole start-date signal for the other 635. Both rows are shown so the coverage-versus-plausibility trade-off is explicit; CE and EIS are unaffected by this issue and keep their three standard energy rows.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn2"><p>We use <em>regulatory</em> pages rather than raw PDF page counts because raw counts substantially overstate the length the statute limits — they include embedded appendices and sparse pages (covers, maps, dividers). Mean raw pages run roughly 2× regulatory pages for EAs and higher for EISs, so a raw count cannot be compared to the 75/150-page limits.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->

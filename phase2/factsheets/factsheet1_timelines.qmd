@@ -259,7 +259,7 @@ outliers |>
   kable(align = "l")
 ```
 
-The strongest case-study candidates — SunZia Southwest Transmission (right-of-way application September 2008 → Record of Decision April 2023), Energia Sierra Juarez, Grain Belt Express, and Cushman Hydroelectric — are exactly the protracted, multi-administration reviews that dominate the permitting-reform debate. *\[Short case studies on 1–2 of these to be added by CATF if timing allows; otherwise a follow-up research product.\]*
+The table itself is dominated by land-management planning EISs (resource management plans, travel plans, conservation plans) rather than individual energy projects. Among energy projects, the strongest case-study candidates are SunZia Southwest Transmission (right-of-way application September 2008 → Record of Decision April 2023), Energia Sierra Juarez, Grain Belt Express, and Cushman Hydroelectric — exactly the protracted, multi-administration reviews that dominate the permitting-reform debate. Cushman's 18.1-year span (a 1992 notice of intent through a 2010 record of decision for the same FERC relicensing action) was flagged by our automated date-triage and subsequently verified by hand against the final EIS's own procedural history. *\[Short case studies on 1–2 of these to be added by CATF if timing allows; otherwise a follow-up research product.\]*
 
 # Conclusion and Policy Implications
 

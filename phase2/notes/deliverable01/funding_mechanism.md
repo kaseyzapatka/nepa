@@ -3,19 +3,28 @@
 
 ## Current Schema And Cues
 
-| Label | Count | Logic | Examples of text cues |Summary |
+*Updated 2026-07-25 from the published output (`federal_funding_detail_summary.csv`, n = 9,210
+Funding-primary projects; mechanism priority order in `FUNDING_MECHANISM_PRIORITY`,
+`01_extract_nepa_trigger.py` lines ~1145–1155).*
+
+| Label | Count | Logic | Examples of text cues | Summary |
 |---|---:|---|---|---|
-| Grant/Award | 5,194 | Matches explicit grant or award terms. | `grant`, `grants`, `award`, `awards`, `DOE grant`, `federal grant`, `grant award`, `selected for funding`. | A project where the evidence identifies a grant or award, but not a more specific higher-priority mechanism such as loan guarantee, cooperative agreement, or formula grant. |
-| Unknown Funding Type | 2,692 | The project was classified as funding-triggered, but the sidecar did not find a recognized mechanism cue in its funding evidence windows. | Blank sidecar evidence; FOA header only; manual funding label without a mechanism; model-based funding label without extractable funding text. | Funding may be real, but the instrument type was not identified. This is the weakest bucket and should be treated as unresolved, not as a meaningful funding mechanism. |
-| Formula Grant | 555 | Matches formula grant language or EECBG. | `formula grant`, `formula-based grant`, `formula award`, `EECBG`, `State Energy Program Formula Grants`. | A grant allocated by formula, often through DOE block-grant or state-energy-program channels. |
-| Generic Funding | 201 | Matches broad funding language but no explicit instrument. | `DOE would provide funds`, `DOE funding`, `federal funding`, `recipient of federal funding`, `would receive federal funds`. | The text clearly says federal money supports the project, but does not say whether the vehicle is a grant, loan, cooperative agreement, etc. |
-| Revolving Loan | 131 | Matches revolving loan language. | `revolving loan`, `Revolving Loan Fund`, `Energy Bank Revolving Loan Program`. | A loan mechanism where repayments replenish a fund for future lending. |
-| Financial Assistance | 71 | Matches the formal phrase `financial assistance`. | `financial assistance`, `active financial assistance agreement`, `provide financial assistance`. | Formal federal financial-assistance language, but not specific enough to call it a grant, loan, or cooperative agreement unless those cues also appear. |
-| Loan Guarantee | 59 | Matches loan guarantee language. | `loan guarantee`, `guaranteed loan`, `issue a loan guarantee`, `provide a loan guarantee to`. | The federal role is backing or guaranteeing a loan rather than directly granting funds. |
-| Cooperative Agreement | 50 | Matches cooperative agreement language. | `cooperative agreement`, `under the terms of the cooperative agreement`, `cooperative agreement with`. | A specific federal assistance instrument with substantial agency involvement. This outranks cost-share if both are present. |
-| Cost Share | 13 | Matches cost-share language, but only becomes primary if no higher-priority mechanism is found. | `cost share`, `cost-shared arrangement`, `federal cost share`, `cost share funds`. | A financing structure where federal and non-federal parties split costs. It is not always the instrument itself, so many cost-share projects are counted under Grant/Award or Cooperative Agreement instead. |
+| EERE Grant (PMC-ND Form) | 3,350 | Matches the EERE PMC-ND standard-form grant boilerplate (regex `pmc_nd_form`). | PMC-ND form headers and standard EERE grant-determination language. | DOE EERE grants issued on the standardized PMC-ND CX form — the single largest mechanism; split out from Grant/Award because the form itself identifies the instrument. |
+| Grant/Award | 2,717 | Matches explicit grant or award terms (no higher-priority mechanism). | `grant`, `grants`, `award`, `awards`, `DOE grant`, `federal grant`, `grant award`, `selected for funding`. | A project where the evidence identifies a grant or award, but not a more specific higher-priority mechanism. |
+| Unknown Funding Type | 2,091 | Funding-triggered, but no recognized mechanism cue in the funding evidence windows. | Blank sidecar evidence; FOA header only; manual funding label without a mechanism. | Funding may be real, but the instrument type was not identified. Treat as unresolved, not as a meaningful mechanism. |
+| Formula Grant | 577 | Matches formula grant language or EECBG. | `formula grant`, `formula-based grant`, `formula award`, `EECBG`, `State Energy Program Formula Grants`. | A grant allocated by formula, often through DOE block-grant or state-energy-program channels. |
+| ARPA-E Award | 200 | Matches ARPA-E award language (regex `arpa_e`). | `ARPA-E`, `Advanced Research Projects Agency–Energy` award language. | ARPA-E research awards, split out from Grant/Award by the agency-specific instrument language. |
+| Revolving Loan | 130 | Matches revolving loan language. | `revolving loan`, `Revolving Loan Fund`, `Energy Bank Revolving Loan Program`. | A loan mechanism where repayments replenish a fund for future lending. |
+| Loan Guarantee | 60 | Matches loan guarantee language. | `loan guarantee`, `guaranteed loan`, `issue a loan guarantee`. | The federal role is backing or guaranteeing a loan rather than directly granting funds. |
+| Cooperative Agreement | 58 | Matches cooperative agreement language. | `cooperative agreement`, `under the terms of the cooperative agreement`. | A specific federal assistance instrument with substantial agency involvement. Outranks cost-share if both are present. |
+| Financial Assistance | 10 | Matches the formal phrase `financial assistance` with no more specific instrument. | `financial assistance`, `active financial assistance agreement`. | Formal federal financial-assistance language, not specific enough to name the instrument. |
+| Cost Share | 9 | Matches cost-share language; primary only if no higher-priority mechanism found. | `cost share`, `cost-shared arrangement`, `federal cost share`. | A financing structure where federal and non-federal parties split costs; most cost-share projects are counted under a more specific mechanism. |
+| Generic Funding | 8 | Matches broad funding language but no explicit instrument (lowest priority). | `DOE would provide funds`, `federal funding`, `would receive federal funds`. | Clearly federal money, but no instrument named and no other cue matched — now rare because PMC-ND/ARPA-E capture most former members of this bucket. |
 
 ## Proposed Tighter Schema
+
+*(Note: this proposal predates the `pmc_nd_form` and `arpa_e` categories above and is retained
+as a design sketch — any future consolidation should start from the current 11-category schema.)*
 
 | Label | Combines current labels/cues | Logic | Examples of cues | Rationale for change |
 |---|---|---|---|---|

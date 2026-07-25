@@ -58,5 +58,8 @@ quarto render phase2/factsheets/factsheet1_timelines.qmd --to docx
 - FS1: CEQ-regulatory-regime duration segmentation is flagged "in progress"
   (D4 report section is a proposal, not yet built).
 - FS1: outlier case studies (SunZia etc.) marked as CATF-to-add.
+- FS5: the "significance line" ladder renders as a markdown table; an HTML comment in the
+  `.qmd` notes the designed D2-report graphic should replace it once exported as a
+  standalone figure (source-file note only, invisible in the rendered docx).
 - Website publication (adding these to `_quarto.yml` render targets + navbar)
   is deliberately deferred — tbd.

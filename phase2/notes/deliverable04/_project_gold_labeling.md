@@ -51,7 +51,7 @@ true date but it isn't among the candidates, put it in `notes` and set the id to
 
 ## Hard rules
 
-1. **Append to one CSV** — `phase2/output/deliverable04/project_gold_sample.csv` is the single source
+1. **Append to one CSV** — `phase2/training/deliverable04/ranker.csv` is the single source
    of truth. Only fill blank rows; never overwrite a filled pick.
 2. **Pick by `candidate_id`** from the options view; dates are derived for you in Step 3.
 3. **Dedup by `project_id`**; never relabel a project already done.
@@ -59,8 +59,8 @@ true date but it isn't among the candidates, put it in `notes` and set the id to
 5. Resumable — apply in chunks; guard-on-blank makes re-runs idempotent.
 
 Files:
-- Picks (sole source): `phase2/output/deliverable04/project_gold_sample.csv`
-- Options view (read-only aid): `phase2/output/deliverable04/project_gold_options.txt`
+- Picks (sole source): `phase2/training/deliverable04/ranker.csv`
+- Options view: retired after the pass (regenerate from git history if the pass is ever re-run)
 - Candidate pool (read-only): `phase2/data/analysis/timeline/timeline_candidates.parquet`
 - Codebook: `phase2/notes/deliverable04/date_sourcing.md`
 - End-to-end gold output (Step 5): `phase2/data/analysis/timeline/gold/timeline_gold_projects.parquet`
@@ -84,7 +84,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 CAND = ROOT / "phase2/data/analysis/timeline/timeline_candidates.parquet"
-SAMPLE = ROOT / "phase2/output/deliverable04/project_gold_sample.csv"
+SAMPLE = ROOT / "phase2/training/deliverable04/ranker.csv"
 OPTIONS = ROOT / "phase2/output/deliverable04/project_gold_options.txt"
 PER_PROCESS = 100
 SEED = 42
@@ -165,7 +165,7 @@ PICKS = [
      "decision_candidate_id": "none", "notes": "init=earliest scoping NOI; no precise ROD date"},
     # ... one per project in this chunk ...
 ]
-sample = ROOT / "phase2/output/deliverable04/project_gold_sample.csv"
+sample = ROOT / "phase2/training/deliverable04/ranker.csv"
 cand = pd.read_parquet(ROOT / "phase2/data/analysis/timeline/timeline_candidates.parquet")
 cmap = cand.set_index("candidate_id")[["parsed_date", "date_granularity"]].to_dict("index")
 
@@ -191,7 +191,7 @@ CONDA_DEFAULT_ENV=nepa python phase2/output/deliverable04/apply_project_gold_<ch
 
 ```python
 import pandas as pd
-df = pd.read_csv("phase2/output/deliverable04/project_gold_sample.csv")
+df = pd.read_csv("phase2/training/deliverable04/ranker.csv")
 print("projects:", len(df), "| filled:",
       int((df["initiation_candidate_id"].fillna('').str.strip() != "").sum()))
 print(df["process_type"].value_counts().to_dict())
@@ -219,7 +219,7 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 import pandas as pd
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
-sample = pd.read_csv(ROOT / "phase2/output/deliverable04/project_gold_sample.csv", dtype=str,
+sample = pd.read_csv(ROOT / "phase2/training/deliverable04/ranker.csv", dtype=str,
                      keep_default_na=False)
 cand = pd.read_parquet(ROOT / "phase2/data/analysis/timeline/timeline_candidates.parquet")
 cmap = cand.set_index("candidate_id")[["parsed_date", "date_granularity"]].to_dict("index")

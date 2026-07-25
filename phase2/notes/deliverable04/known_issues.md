@@ -2,7 +2,7 @@
 title: "D4: Known Issues & Deferred Items"
 ---
 
-*As of 2026-07-15 (pipeline run `timeline_run_at` 2026-07-14). Everything under "Fixed in this pass" is committed, and the published report is rendered from the corrected data.*
+*As of 2026-07-24. Everything under "Fixed in this pass" is committed, and the published report is rendered from the corrected data.*
 
 This is the record of what was consciously **deferred** in D4 and why. The reader-facing caveats that bear on interpreting the numbers live on the [Coverage & Limitations](coverage_limitations.html) page. Nothing below changes the headline medians, which are robust to these tails. Companion pages: [Coverage & Limitations](coverage_limitations.html) and [Date Sourcing & Provenance](date_sourcing.html).
 

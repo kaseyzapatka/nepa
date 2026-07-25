@@ -4610,10 +4610,10 @@ vertical-align: -.125em;
 <p>These examples are <strong>not</strong> training data — the NLI model is zero-shot and runs without them. They serve two specific purposes:</p>
 <section id="validate-nli-hypothesis-templates" class="level3">
 <h3 class="anchored" data-anchor-id="validate-nli-hypothesis-templates">1. Validate NLI hypothesis templates</h3>
-<p>Before running at scale, score each positive example through the NLI model using the hypothesis templates defined in <code>tier4_refactor_spec.md</code>. The correct class hypothesis should score <strong>≥ 0.75</strong>. If a positive example scores below this on its correct class, adjust the hypothesis wording before proceeding.</p>
+<p>Before running at scale, score each positive example through the NLI model using the <code>HYPOTHESIS_TEMPLATES</code> defined in <code>01_extract_nepa_trigger.py</code> (the <code>tier4_refactor_spec.md</code> working document referenced here previously no longer exists). The correct class hypothesis should score <strong>≥ 0.75</strong>. If a positive example scores below this on its correct class, adjust the hypothesis wording before proceeding.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Quick validation loop (run once before full corpus)</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sentence_transformers <span class="im">import</span> CrossEncoder</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> CrossEncoder(<span class="st">&quot;cross-encoder/nli-MiniLM2-L6-H768&quot;</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> CrossEncoder(<span class="st">&quot;cross-encoder/nli-deberta-v3-base&quot;</span>)</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>chunk <span class="op">=</span> <span class="st">&quot;DOE is proposing to provide federal funding...&quot;</span></span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>hypothesis <span class="op">=</span> <span class="st">&quot;This text shows that a federal agency is funding this project.&quot;</span></span>
@@ -4685,17 +4685,20 @@ Chunk: Rational for determination:
 DOE is proposing to provide federal funding to the Contra Costa Economic Partnership to support local and regional efforts to address and achieve measurable improvements in market conditions for both commercial and residential rooftop photovoltaic (PV) solar arrays.
 
 DOE funding would be used to develop and implement a transparent, consistent, and expedient permitting and interconnection process for residential and small commercial rooftop PV systems throughout all participating jurisdictions.</code></pre>
+<blockquote class="blockquote">
+<p><strong>⚠️ Historical note (2026-07-25):</strong> the worked examples below predate the PMA/TVA carve-out and the <code>federal_action</code> → <code>federal_direct_action</code> rename. Ten of the example projects (all three <code>federal_program</code> examples, all three <code>federal_land</code> positives, two <code>federal_direct_action</code> examples, the <code>federal_permit</code> positive, and the RMP boundary case) now resolve to <code>pma</code> as primary in the published output because their lead agency is BPA/WAPA/SEPA/SWPA/TVA. The <em>text-cue reasoning</em> each example teaches remains valid for non-PMA projects; do not use these projects’ IDs as class ground truth without checking <code>projects_nepa_trigger.parquet</code> first.</p>
+</blockquote>
 </section>
 </section>
-<section id="federal_action" class="level3">
-<h3 class="anchored" data-anchor-id="federal_action">federal_action</h3>
+<section id="federal_direct_action" class="level3">
+<h3 class="anchored" data-anchor-id="federal_direct_action">federal_direct_action</h3>
 <section id="example-1-1" class="level4">
 <h4 class="anchored" data-anchor-id="example-1-1">Example 1</h4>
 <pre class="text"><code>Rule family: T1a_DOE_action
 Project ID: 55785ab38769051f617b47da1931e34f
-Suggested class: federal_action
+Suggested class: federal_direct_action
 
-Why: The description presents DOE as the proposing agency for direct construction and operation work at NREL. This is the type of DOE-led facility action that should support a true federal_action label.
+Why: The description presents DOE as the proposing agency for direct construction and operation work at NREL. This is the type of DOE-led facility action that should support a true federal_direct_action label.
 
 Chunk: The Department of Energy (DOE) prepared this Final Supplemental EA to assess the potential environmental effects resulting from the proposed improvements to the RFHP. Specifically, the DOE proposes to develop, construct and operate a woodchip fuel storage silo at the National Renewable Energy Laboratory’s (NREL) South Table Mountain (STM) site in Golden, Colorado.</code></pre>
 </section>
@@ -4703,7 +4706,7 @@ Chunk: The Department of Energy (DOE) prepared this Final Supplemental EA to ass
 <h4 class="anchored" data-anchor-id="example-2-1">Example 2</h4>
 <pre class="text"><code>Rule family: T1a_DOE_action
 Project ID: 05233996-c065-d1d6-4b6a-aebd57c4282f
-Suggested class: federal_action
+Suggested class: federal_direct_action
 
 Why: Western is not just funding or authorizing someone else here. The text says Western itself will construct, demolish, and install substation infrastructure. That is clean direct-action language.
 
@@ -4713,7 +4716,7 @@ Chunk: Western Area Power Administration (Western) will construct a new control 
 <h4 class="anchored" data-anchor-id="example-3-1">Example 3</h4>
 <pre class="text"><code>Rule family: T1a_DOE_action
 Project ID: cd41bb62-9377-d1e4-8038-0d32c2001811
-Suggested class: federal_action
+Suggested class: federal_direct_action
 
 Why: This is another clean direct-action example because Western is the entity that will construct the communications building and do the associated site work.
 
@@ -4862,13 +4865,13 @@ Chunk: This final Environmental Impact Statement (EIS) describes a number of alt
 <section id="ambiguous-boundary-rule-families" class="level2">
 <h2 class="anchored" data-anchor-id="ambiguous-boundary-rule-families">Ambiguous / boundary rule families</h2>
 <p>These are not simple positives or negatives. Save chunks that help distinguish between plausible classes.</p>
-<section id="doe-funding-vs-federal_action" class="level3">
-<h3 class="anchored" data-anchor-id="doe-funding-vs-federal_action">DOE funding vs federal_action</h3>
+<section id="doe-funding-vs-federal_direct_action" class="level3">
+<h3 class="anchored" data-anchor-id="doe-funding-vs-federal_direct_action">DOE funding vs federal_direct_action</h3>
 <section id="example-1-6" class="level4">
 <h4 class="anchored" data-anchor-id="example-1-6">Example 1</h4>
 <pre class="text"><code>Rule family: T1a_DOE_funding
 Project ID: 97fca3873618664c1ca208c1874ebff7
-Suggested class: boundary case between federal_funding and federal_action
+Suggested class: boundary case between federal_funding and federal_direct_action
 
 Why: The title and opening language frame the project as DOE funding, but the description also says DOE’s proposed action under NEPA is the design, construction, and operation of the FRIB. This is a useful example of why DOE metadata alone is not enough.
 
@@ -4953,7 +4956,7 @@ American Recovery and Reinvestment Act: [x]</code></pre>
 <h4 class="anchored" data-anchor-id="example-1-9">Example 1</h4>
 <pre class="text"><code>Rule family: T1a_BLM_action
 Project ID: 6997b8a719abdf2633b890254d964252
-Suggested class: boundary case between federal_land and federal_action
+Suggested class: boundary case between federal_land and federal_direct_action
 
 Why: This text is why BLM is difficult. It is about federal conveyances and perpetual ROWs, so it has both land-authorization and federal-decision language.
 

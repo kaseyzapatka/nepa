@@ -140,28 +140,28 @@ large_finance_amounts <- if (has_large_finance_table) {
 ::: {.callout-note}
 ## Key Findings
 
-- **Funding is the dominant NEPA trigger**, accounting for `r comma(n_funding)` projects
-  (`r pct(n_funding)`). DOE's grant and loan guarantee portfolio is the single largest
+- **Funding is the dominant NEPA trigger, accounting for `r comma(n_funding)` projects
+  (`r pct(n_funding)`).** DOE's grant and loan guarantee portfolio is the single largest
   source of decarbonization NEPA reviews.
-- **Land** is the second-largest class at `r comma(n_land)` projects (`r pct(n_land)`)—BLM
-  and Forest Service right-of-way and special use permits for utility-scale renewables on
+- **Land is the second-largest class, at `r comma(n_land)` projects (`r pct(n_land)`).** These
+  are BLM and Forest Service right-of-way and special use permits for utility-scale renewables on
   public land.
-- **PMA/TVA** is third at `r comma(n_pma)` projects (`r pct(n_pma)`)—the federal power
+- **PMA/TVA is third, at `r comma(n_pma)` projects (`r pct(n_pma)`).** The federal power
   marketing administrations (BPA, WAPA, SEPA, SWPA) and the Tennessee Valley Authority
-  acting as project proponent for transmission and power infrastructure.
-- **Direct Action** is fourth at `r comma(n_direct)` projects (`r pct(n_direct)`), driven
-  overwhelmingly by DOE building, operating, and modifying its own facilities—national
+  act as project proponent for transmission and power infrastructure.
+- **Direct Action is fourth, at `r comma(n_direct)` projects (`r pct(n_direct)`).** It is driven
+  overwhelmingly by DOE building, operating, and modifying its own facilities, including national
   laboratories and site operations.
-- **Review process profiles differ sharply by trigger**: Categorical Exclusions are dominated
-  by Funding (DOE's CE authority for grants); Environmental Impact Statements skew toward
-  Land and PMA/TVA; Environmental Assessments show the most balanced trigger mix.
-- **Trigger class predicts regulatory intensity**: Funding projects are overwhelmingly CEs;
-  Land and Permit generate proportionally more EAs and EISs—land disturbance and regulatory
-  licensing carry heavier review burdens than financial assistance.
-- **Technology patterns reflect nexus logic**: Transmission has the highest PMA/TVA share
+- **Review process profiles differ by trigger class.** Categorical Exclusions are dominated
+  by Funding (DOE's CE authority for grants), Environmental Impact Statements skew toward
+  Land and PMA/TVA, and Environmental Assessments show the most balanced trigger mix.
+- **Trigger class predicts regulatory intensity.** Funding projects are overwhelmingly CEs,
+  while Land and Permit generate proportionally more EAs and EISs, reflecting the heavier
+  review burden that land disturbance and regulatory licensing carry relative to financial assistance.
+- **Technology patterns reflect nexus logic.** Transmission has the highest PMA/TVA share
   (BPA and WAPA build and maintain federal lines); Solar and Wind split between Land (BLM
-  right-of-way) and Funding (DOE grants); CCS and Energy Storage skew toward Funding via DOE
-  emerging technology programs.
+  right-of-way) and Funding (DOE grants); and CCS and Energy Storage skew toward Funding via DOE
+  emerging-technology programs.
 :::
 
 This report delivers:
@@ -183,7 +183,7 @@ wins as the primary; lower-priority matches are retained as secondary triggers.
 | Trigger | Federal Nexus |
 |:-|:---|
 | **Program** | A programmatic EIS, land-use plan, or rulemaking umbrella covers the action — the NEPA review is at the policy or program level |
-| **Direct Action** | The federal agency *is* the proposer — building, operating, or managing the project (e.g., agency construction, national laboratory operations, military facilities) |
+| **Direct Action** | The federal agency is the proposer — building, operating, or managing the project (e.g., agency construction, national laboratory operations, military facilities) |
 | **PMA/TVA** | A federal power marketing administration (BPA, WAPA, SEPA, SWPA) or the Tennessee Valley Authority is the acting agency — building, upgrading, or maintaining federal power and transmission infrastructure |
 | **Property Transaction** | A land exchange, disposal, or conveyance of federal property is the triggering event |
 | **Land** | A private or state actor seeks a right-of-way, special use permit, or lease on federal land (BLM, National Forest) |
@@ -205,10 +205,10 @@ Secondary triggers are stored separately in the `nepa_trigger_secondary` field; 
 
 ## Workflow
 
-The approach spends effort where it is needed: cheap deterministic rules classify everything
-they can, machine-learning models take the bulk that rules cannot reach, and a
-carefully-audited LLM pass handles only the hardest residue — with every automated judgment
-gated, logged, and reproducible.
+The approach spends effort where it is needed. Cheap deterministic rules classify everything
+they can; machine-learning models take the bulk that rules cannot reach; and a carefully
+audited LLM pass handles only the hardest residue. Every automated judgment is gated, logged,
+and reproducible.
 
 ```{=html}
 <div style="max-width:660px;margin:1.25rem auto;">
@@ -355,12 +355,12 @@ accompany any reuse of this data are collected on the
 # Trigger Distribution Overview
 
 @fig-trigger-counts shows the total number of decarbonization projects in each primary trigger
-class. **Funding** is by far the largest class—DOE's vast grant and loan guarantee portfolio
+class. Funding is by far the largest class: DOE's grant and loan guarantee portfolio
 generates more NEPA reviews than any other federal nexus. Land is second, reflecting
 utility-scale renewables sited on BLM and National Forest lands under right-of-way or special
-use permits. PMA/TVA is third—the federal power marketing administrations (BPA, WAPA) and
-TVA building and operating transmission and generation infrastructure directly. Direct
-Action is fourth, driven almost entirely by DOE actions at its own facilities—national
+use permits. PMA/TVA is third, as the federal power marketing administrations (BPA, WAPA) and
+TVA build and operate transmission and generation infrastructure directly. Direct
+Action is fourth, driven almost entirely by DOE actions at its own facilities, including national
 laboratories and site operations.
 
 Permit, Program, and Property Transaction together account for
@@ -382,14 +382,14 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig1_trigger_counts.png"))
 ## How triggers distribute across CE, EA, and EIS
 
 @fig-trigger-by-process shows what share of each review process is driven by each trigger class.
-The three processes reveal strikingly different trigger profiles:
+The three processes reveal distinct trigger profiles:
 
-- **Categorical Exclusions** are dominated by Funding—DOE's clean energy grant and loan
-  programs generate an enormous volume of low-complexity actions that qualify for CE-level review.
-- **Environmental Assessments** show a more balanced mix: Land (BLM/USFS right-of-way grants
+- Categorical Exclusions are dominated by Funding—DOE's clean energy grant and loan
+  programs generate a high volume of low-complexity actions that qualify for CE-level review.
+- Environmental Assessments show a more balanced mix: Land (BLM/USFS right-of-way grants
   for solar and wind) and PMA/TVA (federal transmission projects) each contribute
   meaningfully alongside Funding.
-- **Environmental Impact Statements** skew heavily toward Land, PMA/TVA, and Permit—larger,
+- Environmental Impact Statements skew heavily toward Land, PMA/TVA, and Permit—larger,
   more complex projects requiring full EIS review tend to be sited on public lands, be
   federally constructed transmission, or carry FERC licensing.
 - Unknowns are now a small residual across all three processes (`r pct(n_unknown)` of the
@@ -405,19 +405,19 @@ The three processes reveal strikingly different trigger profiles:
 knitr::include_graphics(file.path(OUTPUT_DIR, "fig2_trigger_by_process.png"))
 ```
 
-## What review process does each trigger class use?
+## Typical review pathway by trigger class
 
 @fig-process-by-trigger inverts the view: for each trigger class, it shows the share of
-projects that went through CE, EA, or EIS review. This reveals the *typical regulatory pathway*
+projects that went through CE, EA, or EIS review. This reveals the typical regulatory pathway
 associated with each nexus type.
 
-- **Funding** is overwhelmingly resolved at the CE level—consistent with DOE's categorical
+- Funding is overwhelmingly resolved at the CE level—consistent with DOE's categorical
   exclusion authority for grants and financial assistance that don't individually require
   significant analysis.
-- **Direct Action**, **Property Transaction**, and **PMA/TVA** are likewise overwhelmingly
+- Direct Action, Property Transaction, and PMA/TVA are likewise overwhelmingly
   CE-level reviews, owing to the routine, transactional nature of these actions—facility
   maintenance, conveyances, and line upgrades that require less rigorous review.
-- **Land, Program, and Permit** produce substantially more EAs and EISs per project than
+- Land, Program, and Permit produce substantially more EAs and EISs per project than
   Funding, Direct Action, and Property Transaction, reflecting the environmental scrutiny
   attached to land disturbance, programming, and regulatory licensing.
 
@@ -439,7 +439,7 @@ least one **secondary** trigger, a second nexus the pipeline detected but ranked
 primary. These secondary labels are stored in `nepa_trigger_secondary`; this section
 cross-tabulates them to show which nexuses co-occur and where multi-label projects concentrate.
 
-## Which trigger classes co-occur?
+## Which trigger classes co-occur
 
 @fig-secondary-cooccurrence pairs each multi-label project's primary trigger (rows) against its
 secondary trigger(s) (columns). The structure is overwhelmingly dominated by a single pattern.
@@ -486,7 +486,7 @@ secondary_combos |>
               container.width = "100%", table.width = "100%")
 ```
 
-## Where do multi-label projects concentrate?
+## Where multi-label projects concentrate
 
 Multi-label projects are not spread evenly. @fig-secondary-rates shows the share carrying a
 secondary trigger by review process and by energy technology.
@@ -513,18 +513,18 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig14_secondary_multilabel_rates.
 
 # Trigger Class × Review Status
 
-The natural next question is how trigger class interacts with the *kind* of NEPA review a
-project received. The **review-type** axis — CE vs. EA vs. EIS — is covered in
+The natural next question is how trigger class interacts with the kind of NEPA review a
+project received. The review-type axis — CE vs. EA vs. EIS — is covered in
 [Trigger Type by Review Process](#trigger-type-by-review-process) above. This section addresses
-the **programmatic vs. tiered** dimension: whether a review stands alone or tiers from an
+the programmatic vs. tiered dimension: whether a review stands alone or tiers from an
 umbrella programmatic document.
 
 ::: {.callout-note title="Data source"}
-A portfolio-wide programmatic/tiered classifier does **not** exist in Phase 2. D2's outputs
+A portfolio-wide programmatic/tiered classifier does not exist in Phase 2. D2's outputs
 (significance determinations, regulatory regimes) do not carry a programmatic/tiered flag. The
 only committed programmatic/tiered signal is D6's FONSI-enrichment `is_tiered` / `tiers_from`
 field, which is populated for the FONSI-enriched subset. The cross-tab below uses that
-(correct) source and is scoped accordingly; a full-portfolio tiering classifier remains
+source and is scoped accordingly; a full-portfolio tiering classifier remains
 deferred (see [Coverage & Limitations](../notes/deliverable01/coverage_limitations.html)).
 :::
 
@@ -584,7 +584,7 @@ FONSI-subset signal, not a portfolio rate, and should be read as directional.
 For portfolio-scale context, D2's `project_regime` output assigns each EA/EIS project a
 regulatory regime keyed to the CEQ rule in force at its decision date. The table below
 cross-tabulates trigger class against that regime for the `r comma(regime_n_universe)` EA/EIS
-projects with a regime assignment. This is a *regulatory-vintage* axis, distinct from the
+projects with a regime assignment. This is a regulatory-vintage axis, distinct from the
 programmatic/tiered question above.
 
 ```{r}
@@ -632,13 +632,13 @@ agency names collapses the ~18+ distinct agencies into a legible set of ~8 entit
 The heatmap reads row by row: each row sums to 100%, showing how a given department's projects
 are distributed across trigger classes. For example:
 
-- **Department of Energy** projects are largely Funding—DOE's primary mechanism for
+- Department of Energy projects are largely Funding—DOE's primary mechanism for
   decarbonization investment is grant and loan programs—with sizable PMA/TVA and Direct
   Action shares from the power marketing administrations housed within DOE and from DOE's
   own facility and laboratory actions.
-- **Department of the Interior** (primarily BLM) projects skew toward Land, as expected
+- Department of the Interior (primarily BLM) projects skew toward Land, as expected
   given BLM's public land jurisdiction.
-- **Department of Agriculture** (Forest Service) mirrors Interior but at smaller scale—
+- Department of Agriculture (Forest Service) mirrors Interior but at smaller scale—
   National Forest special use permits for biomass, wind, and transmission lines.
 
 ```{r}
@@ -658,15 +658,15 @@ technologies with at least 50 projects. Technology assignment uses the first mat
 clean-energy NEPATEC tag per project (e.g., a project tagged Solar + Utilities is assigned
 to Solar).
 
-- **Solar** and **Wind (Onshore)** projects are driven mainly by Land and Funding—utility-scale
+- Solar and Wind (Onshore) projects are driven mainly by Land and Funding—utility-scale
   renewables either sit on BLM land or receive DOE financial assistance.
-- **Transmission** shows the highest PMA/TVA share, consistent with the Power Marketing
+- Transmission shows the highest PMA/TVA share, consistent with the Power Marketing
   Administrations (BPA, WAPA) building and maintaining federal transmission infrastructure.
-- **Nuclear Technology** shows the highest Direct Action share—DOE national laboratory and
+- Nuclear Technology shows the highest Direct Action share—DOE national laboratory and
   site actions dominate this category.
-- **Hydropower** shows a distinctive mix of PMA/TVA (federal hydropower and transmission
+- Hydropower shows a distinctive mix of PMA/TVA (federal hydropower and transmission
   operations) and Permit (FERC licensing for non-federal hydro) alongside Funding.
-- **Carbon Capture & Storage** and **Energy Storage** skew toward Funding, reflecting DOE's
+- Carbon Capture & Storage and Energy Storage skew toward Funding, reflecting DOE's
   active grant program for emerging technologies.
 
 ```{r}
@@ -682,12 +682,12 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig5_trigger_by_technology.png"))
 # Federal Funding Deep Dive
 
 The `r comma(n_funding)` Funding-primary projects (`r pct(n_funding)` of the portfolio) warrant
-closer examination of *how* federal money flows and *how much* each mechanism typically awards.
+closer examination of how federal money flows and how much each mechanism typically awards.
 The figures below use a funding details sidecar produced by the funding mechanism extractor.
 
 ## Funding Mechanism Types
 
-@fig-funding-mechanism breaks down Funding-primary projects by the *type* of federal financial
+@fig-funding-mechanism breaks down Funding-primary projects by the type of federal financial
 instrument: grant, loan guarantee, cooperative agreement, cost-share, etc. This reveals the
 dominant instruments DOE and other agencies use to trigger NEPA review.
 
@@ -788,15 +788,15 @@ large_finance_amounts |>
 
 ## State-Level Dominant Trigger
 
-@fig-choropleth shows the *dominant* trigger class in each state — the trigger type with the most
+@fig-choropleth shows the dominant trigger class in each state — the trigger type with the most
 projects in that state. The map captures broad regional patterns:
 
-- **Funding** dominates most states, consistent with DOE's nationwide grant footprint.
-- **Land** dominates in the intermountain West (Nevada, Utah, Wyoming, Montana,
+- Funding dominates most states, consistent with DOE's nationwide grant footprint.
+- Land dominates in the intermountain West (Nevada, Utah, Wyoming, Montana,
   Arizona, and New Mexico)—states with high proportions of BLM land and active solar and wind development.
-- **PMA/TVA** dominates states with significant federal power authority infrastructure—
+- PMA/TVA dominates states with significant federal power authority infrastructure—
   Washington and Oregon (BPA) and Colorado and Nebraska (WAPA).
-- **Direct Action** dominates Idaho, West Virginia, and South Carolina—states anchored by
+- Direct Action dominates Idaho, West Virginia, and South Carolina—states anchored by
   DOE national laboratories and site operations (INL, NETL, Savannah River).
 
 Note that dominant trigger is determined by project count, not by area or capacity. A state

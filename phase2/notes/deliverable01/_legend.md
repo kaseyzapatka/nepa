@@ -11,7 +11,7 @@ Most rule IDs follow:
 Examples:
 
 - `T1a_BLM_land`
-- `T1a_DOE_funding`
+- `T1a_DOE_funding` (provisional; superseded downstream)
 - `T1b_special_use`
 - `T2_doc_title_peis`
 - `T3_sec404`
@@ -46,11 +46,11 @@ The final segment usually indicates either:
 - `T1a_BLM_land`
   - Tier 1a used BLM metadata and assigned `federal_land`
 
-- `T1a_DOE_action`
-  - Tier 1a used DOE metadata and assigned `federal_action`
+- `T1a_DOE_direct_action`
+  - Tier 1a used DOE metadata plus verb-context evidence and assigned a provisional `federal_direct_action` candidate (route_policy=tier4_candidate; never a final published rule_id — DOE-ambiguous rows are re-adjudicated downstream)
 
 - `T1a_DOE_funding`
-  - Tier 1a used DOE metadata and assigned `federal_funding`
+  - Tier 1a used DOE metadata plus funding-cue evidence and assigned a provisional `federal_funding` candidate (route_policy=tier4_candidate; 0 rows carry this as a final rule_id in the current output)
 
 - `T1b_special_use`
   - Tier 1b matched `special use permit` or similar language
@@ -85,8 +85,8 @@ These are the rule families where example collection is most useful for auditing
 
 ### 1. DOE boundary cases
 
-- `T1a_DOE_action`
-- `T1a_DOE_funding`
+- `T1a_DOE_direct_action` (provisional)
+- `T1a_DOE_funding` (provisional)
 
 Why:
 
