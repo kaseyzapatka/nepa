@@ -38,7 +38,6 @@ nepa/
 │   ├── output/                # Deliverable outputs (report-input CSVs are tracked)
 │   ├── reports/               # Quarto reports
 │   ├── runbooks/              # Pipeline runbooks
-│   ├── tests/                 # Unit tests
 │   └── training/              # Model training labels and locked sample IDs
 ├── presentations/             # RevealJS slides (CATF stakeholder presentation)
 ```
