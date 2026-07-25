@@ -309,6 +309,7 @@ percent of matching text). That match then resolves the cell to a verdict by a t
 
 ```{mermaid}
 %%| fig-align: center
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
 flowchart TD
   A["For each tech × action cell:<br/>is there a close matching CE?"]
   A -->|no| D["<b>Develop</b><br/>no CE exists — write a new one"]
