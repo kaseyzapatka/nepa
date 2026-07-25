@@ -1,8 +1,8 @@
 # Phase 2 Factsheets — "NEPA by the Numbers"
 
 Client-facing factsheets built from the Phase 2 deliverable reports, per
-`admin/factsheets/phase2/outline.docx`. Styling follows the Phase 1 factsheet
-(`admin/factsheets/phase1/Phase1_final.docx`, rendered from
+[`outline.md`](outline.md). Styling follows the Phase 1 factsheet
+(the final Phase 1 factsheet set, rendered from
 `phase1/reports/key_insights.qmd`) via `catf-reference.docx`.
 
 | File | Outline | Sources |

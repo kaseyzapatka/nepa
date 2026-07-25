@@ -284,7 +284,7 @@ cite the Recovery Act by name, versus a negligible rate outside it. The Recovery
 peak in 2010 and decay over the following years as stimulus obligations wound down — the citation curve
 tracks the disbursement curve.
 
-**BIL and IRA follow a more muted pattern.** Their citation rates rise after passage relative to baseline,
+BIL and IRA follow a more muted pattern. Their citation rates rise after passage relative to baseline,
 confirming a real association, but the absolute rate within CEs stays low — these laws are seldom named
 in a one-page categorical exclusion. They surface far more often in larger reviews: IRA is cited in
 `r pct1(ira_eis_win)` of post-IRA EISs (vs `r pct1(ira_eis_base)` before), and BIL in
