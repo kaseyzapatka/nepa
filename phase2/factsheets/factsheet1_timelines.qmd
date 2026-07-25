@@ -97,22 +97,22 @@ outliers <- read_csv(file.path(d4_diag, "d4_duration_outliers_client.csv"), show
 ::: {.callout-note}
 ## Key Findings
 
-- **NEPA review duration climbs from days to months to years as review intensity increases.** Median review duration is **`r dmed("CE")` days for Categorical Exclusions (CEs)**, **`r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months) for Environmental Assessments (EAs)**, and **`r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25, 1)` years) for Environmental Impact Statements (EISs)**.
+- **NEPA review duration climbs from days to months to years as review intensity increases.** The median Categorical Exclusion (CE) is resolved in `r dmed("CE")` days, the median Environmental Assessment (EA) in `r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months), and the median Environmental Impact Statement (EIS) in `r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25, 1)` years).
 - **Decarbonization and fossil energy projects take broadly similar time within each review process.** The apparent fossil-EA speed advantage is a data artifact (administrative start dates recorded near the decision), not a real difference in review length.
 - **Post-FRA, EIS documents got shorter, but reviews have not yet gotten measurably faster.** Mean EIS length fell from `r pgv("EIS","Pre-FRA","mean_pages")` to `r pgv("EIS","Post-FRA","mean_pages")` regulatory pages after the Fiscal Responsibility Act of 2023, while median durations are statistically unchanged — though the post-FRA sample is still small.
 - **The longest reviews are real, and they are concentrated in EISs.** Genuinely protracted reviews — SunZia Southwest Transmission (14.6 years), Grain Belt Express, Energia Sierra Juarez, Cushman Hydroelectric — are candidates for case-study investigation; multi-year *CE* "durations," by contrast, are almost always extraction errors.
-- **Better federal timeline data would improve every finding in this fact sheet.** No federal data source systematically records when NEPA reviews start and end; every date here was recovered from document text or agency registers. Agency adoption of the CEQ NEPA and Permitting Data and Technology Standard would make timeline analysis dramatically more complete.
+- **Better federal timeline data would improve every finding in this fact sheet.** No federal data source systematically records when NEPA reviews start and end; every date here was recovered from document text or agency registers. Agency adoption of the CEQ NEPA and Permitting Data and Technology Standard would make timeline analysis substantially more complete.
 :::
 
 ---
 
 # Introduction
 
-Few questions in permitting policy attract more attention than how long NEPA reviews take. The **Fiscal Responsibility Act of 2023 (FRA)** wrote timeline targets directly into statute — one year for an EA, two years for an EIS — along with presumptive page limits. The regulatory ground has also shifted repeatedly: the Council on Environmental Quality (CEQ) rewrote its NEPA implementing regulations in 2020, revised them again in 2022 and 2024, and then rescinded them entirely in 2025 following *Marin Audubon Society v. FAA* and Executive Order 14154, returning procedural detail to individual agencies. Most recently, the Supreme Court's decision in *Seven County Infrastructure Coalition v. Eagle County* (2025) narrowed the scope of judicial review of NEPA analyses, with implications for how much analysis agencies feel compelled to produce.
+Few questions in permitting policy attract more attention than how long NEPA reviews take. The Fiscal Responsibility Act of 2023 (FRA) wrote timeline targets directly into statute — one year for an EA, two years for an EIS — along with presumptive page limits. The regulatory ground has also shifted repeatedly: the Council on Environmental Quality (CEQ) rewrote its NEPA implementing regulations in 2020 and revised them again in 2022 and 2024, then rescinded them entirely in 2025 following *Marin Audubon Society v. FAA* and Executive Order 14154, returning procedural detail to individual agencies. Most recently, the Supreme Court's decision in *Seven County Infrastructure Coalition v. Eagle County* (2025) narrowed the scope of judicial review of NEPA analyses, with implications for how much analysis agencies feel compelled to produce.
 
 Against that backdrop, empirical evidence on NEPA timelines remains thin. Prior studies have documented multi-year EIS timelines \[cite the Phase 1 report's timelines literature — RFF et al.\], but most rely on the small EIS population or hand-collected samples. Because roughly 95% of NEPA actions are resolved through CEs and EAs — for which no central timeline data exist — the full distribution of NEPA review durations has been largely unmeasured. Policymakers assessing the FRA's reforms, CE expansion proposals, and further statutory changes need that baseline.
 
-This fact sheet reports review timelines extracted from **NEPATEC 2.0**, the largest assembled corpus of NEPA documents, covering **61,881 projects** across CEs, EAs, and EISs — with a focus on decarbonization technologies (solar, wind, transmission, geothermal, storage, nuclear, and related infrastructure) and comparisons to fossil energy projects.
+This fact sheet reports review timelines extracted from NEPATEC 2.0, the largest assembled corpus of NEPA documents, covering 61,881 projects across CEs, EAs, and EISs — with a focus on decarbonization technologies (solar, wind, transmission, geothermal, storage, nuclear, and related infrastructure) and comparisons to fossil energy projects.
 
 # Methodology
 
@@ -122,7 +122,7 @@ The timeline analysis covers the full NEPATEC 2.0 database. Energy-technology co
 
 ## How dates were extracted
 
-No federal data source systematically records NEPA start and end dates, so we recovered them from the documents themselves. For every project we identify two milestones — the **initiation** (application received, Notice of Intent, or scoping start) and the **decision** (signature, Record of Decision, or Finding of No Significant Impact). A machine-learning pipeline extracts every candidate date from every document, classifies its role, ranks candidates, anchors on authoritative BLM/DOE register dates where available (~40,000 official dates), and sends only the hardest cases to a large language model for adjudication. A project's timeline is **complete** when both dates are found.
+No federal data source systematically records NEPA start and end dates, so we recovered them from the documents themselves. For every project we identify two milestones: the initiation (application received, Notice of Intent, or scoping start) and the decision (signature, Record of Decision, or Finding of No Significant Impact). A machine-learning pipeline extracts every candidate date from every document, classifies its role, ranks candidates, anchors on authoritative BLM/DOE register dates where available (~40,000 official dates), and sends only the hardest cases to a large language model for adjudication. A project's timeline is complete when both dates are found.
 
 ## Data completeness
 
@@ -145,7 +145,7 @@ All duration findings below use complete timelines only. Because incompleteness 
 
 ## Review duration by process
 
-Durations track the expected complexity ladder. The median CE is resolved in **`r dmed("CE")` days**; the median EA in **`r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months)**; the median EIS in **`r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25, 1)` years)** (n = `r fmt_n(dn("CE"))` / `r fmt_n(dn("EA"))` / `r fmt_n(dn("EIS"))` complete timelines).
+Durations track the expected complexity ladder. The median CE is resolved in `r dmed("CE")` days; the median EA in `r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months); the median EIS in `r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25, 1)` years) (n = `r fmt_n(dn("CE"))` / `r fmt_n(dn("EA"))` / `r fmt_n(dn("EIS"))` complete timelines).
 
 ```{r}
 #| label: fig-duration-process
@@ -163,11 +163,11 @@ The full distributions show the same ladder as a *shape*, not just a median: CE 
 include_fig("fig_d4_duration_histogram.png")
 ```
 
-## Fossil vs. decarbonization: basically the same amount of time
+## Fossil and decarbonization projects take broadly similar time within each process
 
 Within each review process, decarbonization and fossil projects take broadly similar time. Decarbonization and fossil EISs have similar median durations (~`r round(emed("Clean","EIS"))` vs. ~`r round(emed("Fossil","EIS"))` months), and CE determinations are fast for everyone.
 
-The one visible gap — fossil EAs appearing far faster (~`r round(emed("Fossil","EA"))` month median vs. ~`r round(emed("Clean","EA"))` months for decarbonization) — is a **data artifact, not a real speed difference**: 84% of fossil EAs take their start date from the BLM register, where the recorded "project start" is frequently a late administrative entry made within days of the decision. Restricting fossil EAs to document-stated start dates lifts their median to roughly five months, much closer to the decarbonization figure.
+The one visible gap — fossil EAs appearing far faster (~`r round(emed("Fossil","EA"))` month median vs. ~`r round(emed("Clean","EA"))` months for decarbonization) — is a data artifact rather than a real speed difference: 84% of fossil EAs take their start date from the BLM register, where the recorded "project start" is frequently a late administrative entry made within days of the decision. Restricting fossil EAs to document-stated start dates lifts their median to roughly five months, much closer to the decarbonization figure.
 
 ```{r}
 #| label: fig-duration-energy
@@ -178,7 +178,7 @@ include_fig("fig_d4_duration_summary_intervals_by_energy.png")
 
 ## Duration by technology
 
-Breaking durations down by technology (EA and EIS panels below; CE medians are under a month for every technology) shows the same conclusion at finer grain: **no decarbonization technology faces systematically longer reviews than its fossil counterparts within the same process.** Wind EISs sit at the high end with a long upper tail, coal EISs at a similar level; solar EISs conclude faster than the decarbonization average.
+Breaking durations down by technology (EA and EIS panels below; CE medians are under a month for every technology) shows the same conclusion at finer grain: no decarbonization technology faces systematically longer reviews than its fossil counterparts within the same process. Wind EISs sit at the high end with a long upper tail, coal EISs at a similar level; solar EISs conclude faster than the decarbonization average.
 
 ```{r}
 #| label: fig-duration-tech
@@ -238,10 +238,10 @@ include_fig("fig_d4_pages_pre_post_fra.png")
 
 ## Timeline outliers: the longest reviews
 
-The right tail matters for policy: the highest-profile NEPA controversies involve reviews measured in decades. We flagged every review longer than ~13.7 years and read the evidence behind each. The critical distinction is **real versus extraction error**:
+The right tail matters for policy: the highest-profile NEPA controversies involve reviews measured in decades. We flagged every review longer than ~13.7 years and read the evidence behind each. The distinction that matters is between genuinely long reviews and extraction errors:
 
-- **EIS outliers are mostly real.** EIS median duration is already ~3 years; a 14–17-year EIS sits in the legitimate tail. Transmission, restoration, and resource-management EISs genuinely run that long.
-- **CE outliers are mostly errors.** CEs are fast determinations, so a multi-year CE almost always reflects a mis-extracted start date (typically a decades-old citation — an original land grant, a covering programmatic review — selected as the initiation). These are flagged and excluded.
+- EIS outliers are mostly real. EIS median duration is already ~3 years; a 14–17-year EIS sits in the legitimate tail. Transmission, restoration, and resource-management EISs genuinely run that long.
+- CE outliers are mostly errors. CEs are fast determinations, so a multi-year CE almost always reflects a mis-extracted start date (typically a decades-old citation — an original land grant, a covering programmatic review — selected as the initiation). These are flagged and excluded.
 
 ```{r}
 #| label: tbl-outliers
@@ -259,7 +259,7 @@ outliers |>
   kable(align = "l")
 ```
 
-The strongest case-study candidates — **SunZia Southwest Transmission** (right-of-way application September 2008 → Record of Decision April 2023), **Energia Sierra Juarez**, **Grain Belt Express**, and **Cushman Hydroelectric** — are exactly the protracted, multi-administration reviews that dominate the permitting-reform debate. *\[Short case studies on 1–2 of these to be added by CATF if timing allows; otherwise a follow-up research product.\]*
+The strongest case-study candidates — SunZia Southwest Transmission (right-of-way application September 2008 → Record of Decision April 2023), Energia Sierra Juarez, Grain Belt Express, and Cushman Hydroelectric — are exactly the protracted, multi-administration reviews that dominate the permitting-reform debate. *\[Short case studies on 1–2 of these to be added by CATF if timing allows; otherwise a follow-up research product.\]*
 
 # Conclusion and Policy Implications
 
@@ -267,7 +267,7 @@ The strongest case-study candidates — **SunZia Southwest Transmission** (right
 
 **It is too early to see the FRA's timeline reforms in the duration data — but document length is already responding.** EIS page counts dropped meaningfully post-FRA while durations held steady. Whether shorter documents eventually translate into shorter reviews is a question the data can answer in another year or two of decisions. *\[Findings from the CEQ-regulatory-regime segmentation to be added once that analysis is complete.\]*
 
-**The single highest-value reform for understanding NEPA timelines is better data.** Every date in this analysis had to be recovered from document text or agency registers because no federal system records when reviews begin and end — and structural gaps (missing Records of Decision, unrecorded CE/EA start dates) cap what any extraction method can achieve. Agency adoption of the **CEQ NEPA and Permitting Data and Technology Standard** — recording initiation, milestones, and decision dates as structured metadata — would make complete, real-time timeline accountability possible not just for researchers but for the agencies themselves.
+**The single highest-value reform for understanding NEPA timelines is better data.** Every date in this analysis had to be recovered from document text or agency registers because no federal system records when reviews begin and end — and structural gaps (missing Records of Decision, unrecorded CE/EA start dates) cap what any extraction method can achieve. Agency adoption of the CEQ NEPA and Permitting Data and Technology Standard — recording initiation, milestones, and decision dates as structured metadata — would make complete, real-time timeline accountability possible not just for researchers but for the agencies themselves.
 
 ---
 

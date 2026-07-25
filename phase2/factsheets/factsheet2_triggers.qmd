@@ -61,14 +61,14 @@ has_funding_detail <- file.exists(funding_detail_path)
 - **Federal funding is the dominant NEPA trigger for decarbonization projects** — `r fmt_n(tn("Funding"))` of `r fmt_n(n_total)` projects (`r percent(tshare("Funding"), accuracy = 0.1)`). DOE's grant and loan portfolio generates more decarbonization NEPA reviews than any other federal nexus.
 - **But funding-triggered reviews are almost entirely categorically excluded** — `r percent(pshare("Funding", "CE"), accuracy = 1)` are resolved through CEs. Exempting federal funding from NEPA would therefore mostly eliminate paperwork determinations that already conclude in days or weeks, not the environmental reviews that delay projects.
 - **The triggers that produce heavyweight reviews are land and permits, not money.** Projects triggered by federal land access or federal permits generate proportionally far more EAs and EISs — land disturbance and regulatory licensing carry the review burden.
-- **Trigger patterns follow institutional logic**: transmission projects skew toward the federal power marketing administrations, solar and wind split between BLM land and DOE funding, and emerging technologies (storage, CCS) are funding-driven.
+- **Trigger patterns follow institutional logic.** Transmission projects skew toward the federal power marketing administrations, solar and wind split between BLM land and DOE funding, and emerging technologies (storage, CCS) are funding-driven.
 :::
 
 ---
 
 # Introduction
 
-Multiple NEPA reform proposals would narrow the *scope* of what triggers federal environmental review — most prominently, proposals to exempt federal financial assistance (grants and loans) from the definition of a "major federal action." Yet to our knowledge there has been no prior systematic accounting of **how many reviews each kind of federal nexus actually generates**, or what level of review those triggered actions receive. Without that baseline, it is impossible to say what a scope-narrowing reform would actually exempt.
+Multiple NEPA reform proposals would narrow the *scope* of what triggers federal environmental review — most prominently, proposals to exempt federal financial assistance (grants and loans) from the definition of a "major federal action." Yet to our knowledge there has been no prior systematic accounting of how many reviews each kind of federal nexus actually generates, or what level of review those triggered actions receive. Without that baseline, it is impossible to say what a scope-narrowing reform would actually exempt.
 
 This fact sheet provides that accounting for the decarbonization portfolio: for each of `r fmt_n(n_total)` decarbonization projects in NEPATEC 2.0, we classify *why* NEPA applied — the federal hook that brought the project into environmental review.
 
@@ -76,7 +76,7 @@ This fact sheet provides that accounting for the decarbonization portfolio: for 
 
 ## Scope and trigger definitions
 
-The analysis covers all `r fmt_n(n_total)` decarbonization projects in NEPATEC 2.0. Each is assigned one **primary trigger** — the federal nexus that brought it under NEPA:
+The analysis covers all `r fmt_n(n_total)` decarbonization projects in NEPATEC 2.0. Each is assigned one primary trigger — the federal nexus that brought it under NEPA:
 
 | Trigger | Federal Nexus |
 |:---|:------|
@@ -96,7 +96,7 @@ Triggers were classified by a five-tier pipeline that starts with deterministic 
 
 ## Funding dominates the trigger distribution
 
-Nearly half of all decarbonization NEPA reviews exist because a federal agency provided money. **Land** is second (`r percent(tshare("Land"), accuracy = 0.1)`) — utility-scale renewables on BLM and National Forest land — followed by **PMA/TVA** (`r percent(tshare("PMA/TVA"), accuracy = 0.1)`) and **Direct Action** (`r percent(tshare("Direct Action"), accuracy = 0.1)`, dominated by DOE's own facilities and laboratories).
+Nearly half of all decarbonization NEPA reviews exist because a federal agency provided money. Land access is second (`r percent(tshare("Land"), accuracy = 0.1)`), reflecting utility-scale renewables on BLM and National Forest land, followed by the power marketing administrations and TVA (`r percent(tshare("PMA/TVA"), accuracy = 0.1)`) and direct federal action (`r percent(tshare("Direct Action"), accuracy = 0.1)`), the latter dominated by DOE's own facilities and laboratories.
 
 ```{r}
 #| label: fig-trigger-counts
@@ -105,9 +105,9 @@ Nearly half of all decarbonization NEPA reviews exist because a federal agency p
 include_fig("fs2_trigger_counts.png")
 ```
 
-## Trigger type by review process
+## Each review process draws on a different trigger mix
 
-The three review processes have sharply different trigger profiles. CEs are dominated by funding — DOE's clean energy grant and loan programs generate an enormous volume of low-complexity actions. EAs show the most balanced mix. EISs skew toward land, PMA/TVA, and permits: the larger, more contested projects tend to be sited on public land, federally built, or federally licensed.
+The three review processes have distinct trigger profiles. CEs are dominated by funding — DOE's clean energy grant and loan programs generate a high volume of low-complexity actions. EAs show the most balanced mix. EISs skew toward land, PMA/TVA, and permits: the larger, more contested projects tend to be sited on public land, federally built, or federally licensed.
 
 ```{r}
 #| label: fig-trigger-by-process
@@ -116,9 +116,9 @@ The three review processes have sharply different trigger profiles. CEs are domi
 include_fig("fig2_trigger_by_process.png")
 ```
 
-## What review pathway does each trigger produce?
+## Trigger class predicts the level of review
 
-Inverting the view reveals the finding with the most policy weight: **trigger class predicts regulatory intensity.** Funding-triggered projects are `r percent(pshare("Funding", "CE"), accuracy = 1)` CEs. Land- and permit-triggered projects generate substantially more EAs and EISs — `r percent(pshare("Land", "EA") + pshare("Land", "EIS"), accuracy = 1)` and `r percent(pshare("Permit", "EA") + pshare("Permit", "EIS"), accuracy = 1)` respectively.
+Read the other way, the same data reveal a sharp split by trigger: funding-triggered projects are `r percent(pshare("Funding", "CE"), accuracy = 1)` CEs, while land- and permit-triggered projects generate substantially more EAs and EISs — `r percent(pshare("Land", "EA") + pshare("Land", "EIS"), accuracy = 1)` and `r percent(pshare("Permit", "EA") + pshare("Permit", "EIS"), accuracy = 1)` respectively.
 
 ```{r}
 #| label: fig-process-by-trigger
@@ -127,7 +127,7 @@ Inverting the view reveals the finding with the most policy weight: **trigger cl
 include_fig("fs2_process_by_trigger.png")
 ```
 
-## Trigger by department
+## Department jurisdiction shapes the trigger mix
 
 Department patterns follow jurisdiction: DOE projects are largely funding-triggered (with sizable PMA and direct-action shares from the power administrations and national laboratories housed within DOE); Interior (primarily BLM) skews toward land; Agriculture (Forest Service) mirrors Interior at smaller scale.
 
@@ -138,7 +138,7 @@ Department patterns follow jurisdiction: DOE projects are largely funding-trigge
 include_fig("fig4_department_trigger_heatmap.png")
 ```
 
-## Trigger by energy technology
+## Technology mirrors the same nexus logic
 
 Technology patterns reflect the same nexus logic. Solar and onshore wind split between land (BLM rights-of-way) and funding (DOE grants). Transmission has the highest PMA/TVA share — BPA and WAPA build and maintain federal lines. Carbon capture and energy storage skew heavily toward funding, reflecting DOE's grant programs for emerging technologies. Hydropower is distinctive for its permit share (FERC licensing of non-federal dams).
 
@@ -149,9 +149,9 @@ Technology patterns reflect the same nexus logic. Solar and onshore wind split b
 include_fig("fig5_trigger_by_technology.png")
 ```
 
-## How much federal money is involved?
+## Few documents disclose a funding amount, and those that do skew small
 
-For funding-triggered projects, we also extracted the dollar amounts where documents state them. **An important caveat: most NEPA documents do not report an award figure** — only a fraction of funding-triggered reviews contain an extractable amount, so the distribution below describes typical award sizes among reviews that disclose them, not the full portfolio. With that caution, the extracted amounts show most disclosed grant-scale awards falling in the tens of thousands to low millions of dollars, with loan guarantees and cooperative agreements reaching far higher.
+For funding-triggered projects, we also extracted the dollar amounts where documents state them, though most NEPA documents do not report an award figure. Only a fraction of funding-triggered reviews contain an extractable amount, so the distribution below describes typical award sizes among reviews that disclose them, not the full portfolio. With that caution, the extracted amounts show most disclosed grant-scale awards falling in the tens of thousands to low millions of dollars, with loan guarantees and cooperative agreements reaching far higher.
 
 ```{r}
 #| label: fig-funding-amounts
@@ -162,7 +162,7 @@ include_fig("fig11_funding_amount_distribution.png")
 
 # Conclusion and Policy Implications
 
-**Nearly half of all decarbonization NEPA reviews are triggered by federal funding — but those reviews are almost entirely categorically excluded (`r percent(pshare("Funding", "CE"), accuracy = 1)`).** A reform that exempted federal financial assistance from NEPA would therefore remove a large *number* of reviews while barely touching the reviews that take meaningful time: the median CE concludes in under a month, and funding-triggered projects rarely escalate to an EA or EIS. Exempting funding is unlikely to produce a newfound burst of speed for decarbonization deployment.
+**Nearly half of all decarbonization NEPA reviews are triggered by federal funding — but those reviews are almost entirely categorically excluded (`r percent(pshare("Funding", "CE"), accuracy = 1)`).** A reform that exempted federal financial assistance from NEPA would therefore remove a large *number* of reviews while barely touching the reviews that take meaningful time: the median CE concludes in under a month, and funding-triggered projects rarely escalate to an EA or EIS. Exempting funding is unlikely to produce meaningful acceleration for decarbonization deployment.
 
 The reviews that consume time and attention — EAs and EISs for projects on federal land, federally built transmission, and federally licensed facilities — arise from triggers that scope-narrowing proposals generally do not (and realistically cannot) touch. Reformers focused on accelerating decarbonization deployment should weigh the administrative savings of trigger exemptions against their limited effect on the heavyweight reviews, and consider whether the same effort directed at land- and permit-triggered pathways — or at the programmatic and tiering tools examined in our other fact sheets — would buy more speed.
 

@@ -70,22 +70,22 @@ n_case_dep    <- cstats$n_case_specific_dependent[1]
 ::: {.callout-note}
 ## Key Findings
 
-- **Every clean-energy Finding of No Significant Impact (FONSI) was systematically screened for categorical exclusion (CE) opportunities.** Placing all `r fmt_n(n_fonsi)` decarbonization FONSIs on a technology × action grid and matching each cell against the `r fmt_n(n_ce)` existing federal CEs yields **`r n_adopt` adopt, `r n_expand` expand, and `r n_new` develop** candidate cells — no category was hand-picked.
+- **Every clean-energy Finding of No Significant Impact (FONSI) was systematically screened for categorical exclusion (CE) opportunities.** Placing all `r fmt_n(n_fonsi)` decarbonization FONSIs on a technology × action grid and matching each cell against the `r fmt_n(n_ce)` existing federal CEs yields `r n_adopt` adopt, `r n_expand` expand, and `r n_new` develop candidate cells — no category was hand-picked.
 - **The single strongest opportunity is expanding an existing transmission CE.** `r n_tx_up` bounded, low-impact transmission-upgrade FONSIs across `r tx_states` states match TVA's existing exclusions for in-corridor work — but long rebuilds exceed the CE's ~25-mile cap. Widening that mileage limit is the highest-volume, best-evidenced move.
 - **Adopting a peer agency's CE — now explicitly authorized by the FRA — is well-precedented.** `r fmt_n(n_xdup)` existing CEs already have a near-twin at another agency, forming `r n_xclust` shared action families. Cross-agency convergence on shared CEs is how the landscape already works.
-- **Most decarbonization FONSIs (`r percent(mit_share, accuracy = 1)`) rely on committed mitigation, and that mitigation language is project-specific** — no mitigation phrasing recurs across projects. A defensible new CE must encode recurring *significance thresholds* as design criteria, not copy any project's mitigation commitments.
-- **The number of FONSIs is too small to justify specific brand-new CEs today, but the method scales.** With more data — a bigger corpus and post-FRA records — the same machinery can systematically surface CE candidates for expert review.
+- **Most decarbonization FONSIs (`r percent(mit_share, accuracy = 1)`) rely on committed mitigation, and that mitigation language is project-specific** — no mitigation phrasing recurs across projects. A defensible new CE must encode recurring significance thresholds as design criteria, not copy any project's mitigation commitments.
+- **The number of FONSIs is too small to justify specific brand-new CEs today, but the method scales.** With more data — a bigger corpus and post-FRA records — the same machinery can surface CE candidates for expert review.
 :::
 
 ---
 
 # Introduction
 
-**Categorical exclusions are NEPA's fastest pathway — and its most common one.** A CE covers a *class* of actions that an agency has determined, based on experience, does not individually or cumulatively have significant environmental effects. Once a class is established in an agency's NEPA procedures, individual actions in that class are documented in days or weeks rather than the months (EA) or years (EIS) that bespoke analysis requires. The integrity of the tool depends on the class being genuinely low-impact — a CE is a determination backed by evidence and expert judgment, not a loophole.
+Categorical exclusions are NEPA's fastest pathway, and its most common one. A CE covers a class of actions that an agency has determined, based on experience, does not individually or cumulatively have significant environmental effects. Once a class is established in an agency's NEPA procedures, individual actions in that class are documented in days or weeks rather than the months (EA) or years (EIS) that bespoke analysis requires. The integrity of the tool depends on the class being genuinely low-impact — a CE is a determination backed by evidence and expert judgment, not a loophole.
 
-Historically, establishing a regulatory CE has been slow: an agency must assemble evidence that a class of actions is reliably insignificant (often from its own record of EAs that consistently ended in FONSIs), propose it, and take it through notice-and-comment. The **Fiscal Responsibility Act of 2023 changed the landscape** by expressly authorizing any agency to *adopt another agency's* existing CE — a shortcut that makes the existing federal CE catalog a shared resource rather than a set of agency silos.
+Historically, establishing a regulatory CE has been slow: an agency must assemble evidence that a class of actions is reliably insignificant (often from its own record of EAs that consistently ended in FONSIs), propose it, and take it through notice-and-comment. The Fiscal Responsibility Act of 2023 changed the landscape by expressly authorizing any agency to adopt another agency's existing CE — a shortcut that makes the existing federal CE catalog a shared resource rather than a set of agency silos.
 
-That creates a data problem that is now solvable. Which classes of actions are agencies *repeatedly* reviewing through full EAs that *reliably* end in "no significant impact"? Which of those already have a matching CE at another agency? **NEPATEC 2.0 and machine learning make it possible to answer these questions systematically for the first time**: every decarbonization FONSI can be read, classified by technology and action, matched against the complete federal CE catalog, and sorted into three opportunity types — **expand** an existing CE whose size bound is too tight, **adopt** a CE another agency already holds, or **develop** a new CE where none exists.
+That creates a data problem that is now solvable. Which classes of actions are agencies repeatedly reviewing through full EAs that reliably end in "no significant impact"? Which of those already have a matching CE at another agency? NEPATEC 2.0 and machine learning make it possible to answer these questions systematically for the first time: every decarbonization FONSI can be read, classified by technology and action, matched against the complete federal CE catalog, and sorted into three opportunity types — expand an existing CE whose size bound is too tight, adopt a CE another agency already holds, or develop a new CE where none exists.
 
 ```{r}
 #| label: fig-coverage-grid
@@ -94,19 +94,19 @@ That creates a data problem that is now solvable. Which classes of actions are a
 include_fig("fig_d6_coverage_grid.png")
 ```
 
-All verdicts below are **candidates pending verification against current eCFR and agency CE text** — a prioritized review list for subject-matter experts, not legal conclusions.
+All verdicts below are candidates pending verification against current eCFR and agency CE text — a prioritized review list for subject-matter experts, not legal conclusions.
 
 # Expanding Existing CEs
 
 ## Methodology
 
-From the `r fmt_n(n_fonsi)` decarbonization FONSIs, a language model labeled each project's *action* (new-build, upgrade, maintenance, demonstration, etc.) and judged whether the action is inherently small, routine, and low-impact — the "CE-shaped" subset (`r fmt_n(n_ce_shaped)` projects: in-corridor work, previously disturbed land, no major new construction). Each technology × action cell was then matched by text similarity against all `r fmt_n(n_ce)` existing federal CEs. A cell resolves to **expand** when a close CE exists but the FONSIs' own stated sizes exceed the CE's numeric limit.
+From the `r fmt_n(n_fonsi)` decarbonization FONSIs, a language model labeled each project's action (new-build, upgrade, maintenance, demonstration, etc.) and judged whether the action is inherently small, routine, and low-impact — the "CE-shaped" subset (`r fmt_n(n_ce_shaped)` projects: in-corridor work, previously disturbed land, no major new construction). Each technology × action cell was then matched by text similarity against all `r fmt_n(n_ce)` existing federal CEs. A cell resolves to expand when a close CE exists but the FONSIs' own stated sizes exceed the CE's numeric limit.
 
-## Findings: raise the mileage cap on the transmission CE
+## Raising the mileage cap on the transmission CE is the strongest expand case
 
-The strongest single opportunity in the entire screen: **`r n_tx_up` in-corridor transmission upgrade FONSIs** — reconductoring, rebuilding, and uprating existing lines within existing rights-of-way — across `r tx_states` Western states, run by BLM, DOE, and the power marketing administrations as full EAs. TVA already categorically excludes exactly this work under two exclusions: **CE #17** (modify in place — reconductoring, equipment swaps; no length limit) and **CE #19** (rebuild within the existing right-of-way — capped at **25 miles**).
+The strongest single opportunity in the screen involves `r n_tx_up` in-corridor transmission upgrade FONSIs — reconductoring, rebuilding, and uprating existing lines within existing rights-of-way — across `r tx_states` Western states, run by BLM, DOE, and the power marketing administrations as full EAs. TVA already categorically excludes exactly this work under two exclusions: CE #17 (modify in place — reconductoring, equipment swaps; no length limit) and CE #19 (rebuild within the existing right-of-way — capped at 25 miles).
 
-The catch is the cap. The in-corridor rebuilds in our data run a ~28-mile *median* — some far longer — against CE #19's 25-mile limit. So the move is not simply to adopt TVA's CE as-is, but to **expand its mileage bound** (or write the adopted version with a higher cap) so it covers the work agencies are demonstrably approving as insignificant anyway.
+The catch is the cap. The in-corridor rebuilds in our data run a ~28-mile median — some far longer — against CE #19's 25-mile limit. So the move is not simply to adopt TVA's CE as-is, but to expand its mileage bound (or write the adopted version with a higher cap) so it covers the work agencies are demonstrably approving as insignificant anyway.
 
 ```{r}
 #| label: fig-sizes
@@ -115,15 +115,15 @@ The catch is the cap. The in-corridor rebuilds in our data run a ~28-mile *media
 include_fig("fig_d6_sizes.png")
 ```
 
-Notably, this is nearly the *only* numeric expand case possible: of the `r fmt_n(n_ce)` existing federal CEs, just `r n_bounds` state any explicit numeric limit at all. The rest bound their scope with words ("routine," "minor," "within existing facilities") — so most expansion questions are qualitative-coverage questions that require reading the CE text, not arithmetic.
+This is also nearly the only numeric expand case possible: of the `r fmt_n(n_ce)` existing federal CEs, just `r n_bounds` state any explicit numeric limit at all. The rest bound their scope with words ("routine," "minor," "within existing facilities") — so most expansion questions are qualitative-coverage questions that require reading the CE text, not arithmetic.
 
 # Adopting Other Agencies' CEs
 
 ## Methodology
 
-The same grid resolves a cell to **adopt** when a close matching CE exists — but at a *different* agency than the ones running the EAs. To test whether cross-agency adoption is realistic, we also compared every existing CE against every other by text similarity, flagging near-duplicates held at multiple agencies.
+The same grid resolves a cell to adopt when a close matching CE exists — but at a different agency than the ones running the EAs. To test whether cross-agency adoption is realistic, we also compared every existing CE against every other by text similarity, flagging near-duplicates held at multiple agencies.
 
-## Findings: adoption is how the CE landscape already works
+## Adoption is already how the CE landscape works
 
 The existing catalog — `r fmt_n(n_ce)` CEs across `r n_units` federal agency units — is heavily redundant in exactly the way the FRA's adoption authority anticipates. Laid out by text similarity, the CEs form recognizable cross-agency families: real property and rights-of-way, geophysical surveys and data collection, routine maintenance, procurement, hazardous-materials handling.
 
@@ -134,7 +134,7 @@ The existing catalog — `r fmt_n(n_ce)` CEs across `r n_units` federal agency u
 include_fig("fig_d6_ce_scatter.png")
 ```
 
-**`r fmt_n(n_xdup)` CEs have a near-twin at a different agency**, forming **`r n_xclust` shared action families**. When an action is genuinely low-impact, agencies converge on nearly identical exclusions — adoption formalizes what the landscape already does informally.
+`r fmt_n(n_xdup)` CEs have a near-twin at a different agency, forming `r n_xclust` shared action families. When an action is genuinely low-impact, agencies converge on nearly identical exclusions — adoption formalizes what the landscape already does informally.
 
 The CE authorities that decarbonization and fossil projects actually cite are similarly concentrated: a small set of workhorse exclusions (DOE's financial-assistance CEs, BLM's oil-and-gas pathways) carries most of the volume.
 
@@ -145,7 +145,7 @@ The CE authorities that decarbonization and fossil projects actually cite are si
 include_fig("fig4_top_ce_codes.png")
 ```
 
-For the decarbonization FONSI grid, `r n_adopt` cells resolve to *adopt* — though most rest on thin evidence (only `r n_adopt_sub` have two or more CE-shaped FONSIs). Treat the table below as a menu of matches to verify, not a set of robust findings:
+For the decarbonization FONSI grid, `r n_adopt` cells resolve to adopt — though most rest on thin evidence (only `r n_adopt_sub` have two or more CE-shaped FONSIs). Treat the table below as a menu of matches to verify, not a set of robust findings:
 
 ```{r}
 #| label: tbl-adopt
@@ -163,23 +163,23 @@ verdicts |>
   kable(align = "l")
 ```
 
-One timing caveat: nearly all of these FONSIs predate the FRA's June 2023 adoption authority — agencies ran full EAs because the shortcut did not yet exist. The findings identify where adoption review is *likely worthwhile*; confirming that agencies still process these actions as EAs post-FRA is the required next check.
+One timing caveat: nearly all of these FONSIs predate the FRA's June 2023 adoption authority — agencies ran full EAs because the shortcut did not yet exist. The findings identify where adoption review is likely worthwhile; confirming that agencies still process these actions as EAs post-FRA is the required next check.
 
 # Developing New CEs
 
 ## Methodology
 
-A cell resolves to **develop** when the FONSIs recur but no existing CE comes close (text-similarity match below the 0.40 reference line for every CE in the catalog). These are the gaps invisible to any approach that starts from existing CE categories.
+A cell resolves to develop when the FONSIs recur but no existing CE comes close (text-similarity match below the 0.40 reference line for every CE in the catalog). These are the gaps invisible to any approach that starts from existing CE categories.
 
-## Findings: real gaps exist, but keep them high-level for now
+## Real gaps exist, but the evidence supports keeping them high-level
 
-`r n_new` cells resolve to develop, `r n_dev_codif` of them codifiable as a physical action class. The cross-cutting standout is **demonstration and pilot facilities**, which recur as a gap for wind, nuclear, and other clean-energy projects — one new CE could cover small-scale research and demonstration installations across technologies. (The method discriminates: for geothermal and biomass, the same demonstration action already has a matchable CE, so it resolves to *adopt* instead.)
+`r n_new` cells resolve to develop, `r n_dev_codif` of them codifiable as a physical action class. The cross-cutting standout is demonstration and pilot facilities, which recur as a gap for wind, nuclear, and other clean-energy projects — one new CE could cover small-scale research and demonstration installations across technologies. (The method discriminates: for geothermal and biomass, the same demonstration action already has a matchable CE, so it resolves to adopt instead.)
 
-We deliberately stop short of recommending specific new CEs. The FONSI counts behind each develop cell are small — enough to flag a recurring pattern, not enough to constitute the evidence record a rulemaking would need. The right reading is methodological: **this machinery can systematically surface where new CEs are worth building, and it will get sharper as more data accumulates**, particularly post-FRA records and a corpus extending beyond decarbonization.
+We deliberately stop short of recommending specific new CEs. The FONSI counts behind each develop cell are small — enough to flag a recurring pattern, not enough to constitute the evidence record a rulemaking would need. The right reading is methodological: this machinery can surface where new CEs are worth building, and it will get sharper as more data accumulates — particularly post-FRA records and a corpus extending beyond decarbonization.
 
 # Mitigated FONSIs
 
-A large majority of decarbonization FONSIs — **`r fmt_n(n_mit)` of `r fmt_n(n_fonsi)` (`r percent(mit_share, accuracy = 1)`)** — are *mitigated* FONSIs: the "no significant impact" finding depends on committed mitigation rather than the action being inherently benign, and in `r fmt_n(n_case_dep)` of those the commitment is case-specific.
+A large majority of decarbonization FONSIs — `r fmt_n(n_mit)` of `r fmt_n(n_fonsi)` (`r percent(mit_share, accuracy = 1)`) — are mitigated FONSIs: the "no significant impact" finding depends on committed mitigation rather than the action being inherently benign, and in `r fmt_n(n_case_dep)` of those the commitment is case-specific.
 
 ```{r}
 #| label: fig-mitigated
@@ -188,17 +188,17 @@ A large majority of decarbonization FONSIs — **`r fmt_n(n_mit)` of `r fmt_n(n_
 include_fig("fig_d6_mitigated_overall.png")
 ```
 
-We tested whether the mitigation itself follows patterns that could be codified — and found **there are none**. Breaking every committed-mitigation summary into phrases and counting recurrence across projects, no mitigation phrase repeats: the measures are written project by project (SHPO consultation here, raptor-nest buffers there, site-specific erosion plans elsewhere). What *does* recur is (1) the **resource areas** mitigation protects — consistently biological, soils, water, and cultural — and (2) the agencies' explicit **significance thresholds** ("would be significant if it exceeded X"), which repeat across projects and are the natural, codifiable bounds for any new or expanded CE.
+We tested whether the mitigation itself follows patterns that could be codified, and found none. Breaking every committed-mitigation summary into phrases and counting recurrence across projects, no mitigation phrase repeats: the measures are written project by project (SHPO consultation, raptor-nest buffers, site-specific erosion plans). What does recur is (1) the resource areas mitigation protects — consistently biological, soils, water, and cultural — and (2) the agencies' explicit significance thresholds ("would be significant if it exceeded X"), which repeat across projects and are the natural, codifiable bounds for any new or expanded CE.
 
-The design implication: a CE built from this evidence base cannot rely on case-by-case mitigation commitments — it must **encode the recurring protections as standing design criteria** and exclude actions that would hinge on project-specific mitigation.
+The design implication is that a CE built from this evidence base cannot rely on case-by-case mitigation commitments; it must encode the recurring protections as standing design criteria and exclude actions that would hinge on project-specific mitigation.
 
 # Conclusion and Policy Implications
 
 **The federal government should invest in expanding NEPATEC — and consider responsible use of AI to identify CE candidates.** This analysis demonstrates a repeatable pattern: machine reading of the FONSI record can surface where agencies repeatedly conclude "no significant impact" for the same class of action, match those classes against the full federal CE catalog, and rank expand/adopt/develop opportunities — work that would take a policy team months per agency to do by hand. Three implications follow:
 
-1. **Act on the transmission case.** The in-corridor transmission upgrade finding is well-evidenced, maps to a specific existing CE, and has a specific fix (raise the mileage cap). It is the natural first candidate for expert verification.
-2. **Use the FRA's adoption authority systematically, not opportunistically.** The catalog's `r n_xclust` shared action families show adoption is normal practice; the candidate list here gives agencies a place to start looking.
-3. **Keep humans in the loop.** Every machine-identified candidate is a *screening* result. The appropriate model is AI-assisted triage feeding subject-matter-expert review and ordinary rulemaking process — the analysis narrows the haystack; experts confirm the needle.
+1. Act on the transmission case. The in-corridor transmission upgrade finding is well-evidenced, maps to a specific existing CE, and has a specific fix (raise the mileage cap). It is the natural first candidate for expert verification.
+2. Use the FRA's adoption authority systematically, not opportunistically. The catalog's `r n_xclust` shared action families show adoption is normal practice; the candidate list here gives agencies a place to start looking.
+3. Keep humans in the loop. Every machine-identified candidate is a screening result. The appropriate model is AI-assisted triage feeding subject-matter-expert review and ordinary rulemaking process — the analysis narrows the field of candidates, and experts confirm which ones hold up.
 
 More data makes all of this better. A NEPATEC that continuously ingests agency records — with the structured metadata contemplated by CEQ's NEPA and Permitting Data and Technology Standard — would turn CE identification from a one-time research exercise into standing capability.
 
