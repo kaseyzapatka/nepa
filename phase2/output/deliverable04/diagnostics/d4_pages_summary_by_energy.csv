@@ -1,0 +1,13 @@
+process_type,energy,fra_period,mean_pages,median_pages,n
+EA,Decarb,Pre-FRA,49,35,311
+EA,Decarb,Post-FRA,51,46,33
+EA,Fossil,Pre-FRA,18,7,735
+EA,Fossil,Post-FRA,33,7,79
+EA,Other,Pre-FRA,40,24,975
+EA,Other,Post-FRA,41,27,106
+EIS,Decarb,Pre-FRA,374,287,281
+EIS,Decarb,Post-FRA,252,201,27
+EIS,Fossil,Pre-FRA,350,301,248
+EIS,Fossil,Post-FRA,232,198,11
+EIS,Other,Pre-FRA,288,244,818
+EIS,Other,Post-FRA,284,229,59

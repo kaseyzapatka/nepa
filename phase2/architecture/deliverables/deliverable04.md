@@ -26,7 +26,7 @@
 | `05b_rank.py` | **Learned selection ranker.** LightGBM LambdaRank — one ranker per head (init, decision). Consumes the full feature set (classifier probabilities + structural signals) and writes `learned_init_score`/`learned_decision_score` back to `timeline_candidates.parquet`. `--apply` flag writes scores; `--train`/`--eval` train and evaluate. |
 | `05_select_dates.py` | Two-pass scoring and selection of best decision and initiation dates per project. **Variant B** logic: authoritative BLM/DOE register initiations are admitted regardless of ranking score and preferred over document text. Month-decision sliver routing (EA/EIS month-granularity decisions with explicit ROD/FEIS cues route to LLM adjudication). EIS tiered-decision: ROD-first, FEIS-fallback. Guard 2: calibrated initiation eligibility for EA/EIS (`T_INIT_CAL = 0.5`). Non-destructive write-back. Writes `timeline_project_dates.parquet` and the manual review queue. Appends `missing_both` universe-completeness stubs via `reconcile_universe()` (generalized 2026-07-15 from EIS-only `reconcile_eis_universe` to all processes); `--reconcile-only` applies just that step to an already-published parquet without re-selecting. |
 | `05c_inject_ground_truth.py` | Terminal step that injects human-verified dates from `ranker.csv` directly into `timeline_project_dates.parquet` without re-running selection. `--scope all` (default) injects all verified rows; `--scope train` injects only training rows, leaving test rows as pipeline output for honest end-to-end evaluation. |
-| `06_adjudicate_llm.py` | **Full-scale LLM adjudication** using Claude Haiku (`claude-haiku-4-5-20251001`). Scope gate: projects missing ≥1 slot where the missing slot has a candidate (11,207 projects on the 2026-06-17 full run: CE 8,625 / EA 901 / EIS 1,681; +9 incremental calls on 2026-07-13, 11,216 cumulative). Two modes: candidate-packet adjudication and document-recovery. ThreadPoolExecutor concurrency (threads only around the API call; main thread handles all writes). Incremental checkpoint every 50. Pre-run safety backup to `timeline_project_dates.pre_adj_<UTC>.parquet`. Credit-safety: fail-fast on ≥3 consecutive billing errors; 429 rate-limit errors classified as transient (never billing). API key via macOS Keychain. Not part of `run_pipeline.py`'s automated stages (billable — run separately). |
+| `06_adjudicate_llm.py` | **Full-scale LLM adjudication** using Claude Haiku (`claude-haiku-4-5-20251001`). Scope gate: projects missing ≥1 slot where the missing slot has a candidate (11,207 projects on the 2026-06-17 full run: CE 8,625 / EA 901 / EIS 1,681; +9 incremental calls on 2026-07-13; +48 on the 2026-07-23 Tier-C restore; 11,264 cumulative). Two modes: candidate-packet adjudication and document-recovery. ThreadPoolExecutor concurrency (threads only around the API call; main thread handles all writes). Incremental checkpoint every 50. Pre-run safety backup to `timeline_project_dates.pre_adj_<UTC>.parquet`. Credit-safety: fail-fast on ≥3 consecutive billing errors; 429 rate-limit errors classified as transient (never billing). API key via macOS Keychain. Not part of `run_pipeline.py`'s automated stages (billable — run separately). |
 | `07_validate.py` | Prepare annotatable review packets from the 100-project sample or run granularity-aware validation against filled gold labels. |
 | `run_pipeline.py` | **Single canonical orchestrator** for a full corpus run (`02` → `08_create_figures.R`). `--select` flag runs selection-only sub-pipeline in minutes. Replaces the retired sharded `_run.py`. |
 | `08_create_figures.R` | Produce headline duration tables, FRA-breakpoint comparisons, coverage diagnostics, proxy-sensitivity summaries, and all figures. Negative-duration rows (`decision_date < initiation_date`) are reclassified to `invalid_order` **at source** (in `05_select_dates.py`/`05c_inject_ground_truth.py`, fixed 2026-07-13) — `08_create_figures.R` no longer patches them; it only **asserts** the order invariant holds and `stop()`s loudly if it doesn't. |
@@ -34,7 +34,7 @@
 | `10_outliers.R` | **Timeline duration-outlier deliverable.** Surfaces all projects with `duration_days > 5,000` or negative durations. Heuristic `suspect_error` triage flag (pre-1985 initiation, year-granularity initiation, early LLM-picked initiation). Writes `d4_duration_outliers.csv` (all processes, full provenance) and `d4_duration_outliers_client.csv` (EA/EIS only, likely-real, client-facing columns). |
 | `fra/01_extract_pages.py` | Compute FRA regulatory page counts (40 C.F.R. § 1508.1(bb): body word count / 500, excluding embedded appendices + low-content pages) for ALL EA/EIS projects regardless of energy type. Streams pages via DuckDB; never loads pages into Python. Covers 5,032 projects (2,765 EA / 2,267 EIS). Output: `phase2/data/analysis/deliverable04/projects_page_counts.parquet`. |
 | `fra/02_create_figures.R` | FRA pre/post analysis on the 3,678 projects with a decision date. Produces document-length over time, pre/post-FRA bars, by-energy segmentation, distribution, page-limit compliance, and raw-vs-regulatory comparison. FRA date: 2023-06-03 (enactment). `fra/` now contains only these two scripts — the duration-comparison scripts formerly numbered `fra/03`/`fra/04` were relocated to the top-level `code/deliverable04/` directory (see below) so they run alongside `08_create_figures.R` rather than inside the FRA sub-pipeline. |
-| `08_create_figures_solar.R` | Solar duration analysis (Phase 2 re-creation of the Phase 1 solar timeline figures, added 2026-07-15; relocated from `fra/03_create_figures_solar.R`). Restricts the 08-identical headline duration frame to `Renewable Energy Production - Solar`-tagged projects (solar tag + decarb scope from Phase 2 `projects_combined.parquet`) and plots intervals with all-decarbonization reference medians (EA/EIS). Deliberately does NOT use the parquet's stale `duration_days` column. Outputs: `fig_d4_solar_duration.png`, `d4_solar_duration.csv` (solar n: CE 812 / EA 60 / EIS 70; medians ~0.7 / ~12 / ~21 months vs decarb ~0.7 / ~10 / ~33). |
+| `08_create_figures_solar.R` | Solar duration analysis (Phase 2 re-creation of the Phase 1 solar timeline figures, added 2026-07-15; relocated from `fra/03_create_figures_solar.R`). Restricts the 08-identical headline duration frame to `Renewable Energy Production - Solar`-tagged projects (solar tag + decarb scope from Phase 2 `projects_combined.parquet`) and plots intervals with all-decarbonization reference medians (EA/EIS). Recomputes duration from the raw dates rather than reading the parquet's `duration_days` column — that column is current as of the 2026-07-24 finalize fix, but this frame additionally applies the month→15th midpoints the raw column intentionally omits. Outputs: `fig_d4_solar_duration.png`, `d4_solar_duration.csv` (solar n: CE 812 / EA 60 / EIS 70; medians ~0.7 / ~12 / ~21 months vs decarb ~0.7 / ~10 / ~33). |
 | `08_create_figures_technology.R` | Duration-by-technology analysis (relocated from `fra/04_create_figures_duration.R`): two interval figures (decarbonization and fossil technologies on separate horizontal scales) using the cleaned `tech_group`/`energy_group` tags from `deliverable03/projects_nepa_reviews.parquet` — the same variable that defines the Decarb-vs-Fossil split. |
 | `ceq_regime/01_build_tables.py` | Segments the headline duration frame by the **CEQ regulatory regime** in effect at the decision date (primary) or initiation date (sensitivity) — a new axis independent of `reg_period` (funding eras) and the FRA statutory split. Five-level fine regime (`1978`, `2020_trump`, `2022_phase1`, `2024_phase2`, `2025_rescission`) plus a 4-level collapsed regime (`2024_phase2` + `2025_rescission` merged into `2024_phase2_plus`, since both are individually too thin: `MIN_N = 30`). Replicates `08_create_figures.R`'s headline frame verbatim (documented `# SYNC` comment) and hard-checks its own per-process totals against `d4_duration_summary.csv`, exiting nonzero on any mismatch. Writes 3 CSVs: `d4_duration_by_ceq_regime.csv`, `d4_duration_by_ceq_regime_initiation.csv`, `d4_ceq_regime_composition.csv`. |
 | `ceq_regime/02_create_figures.R` | Figures only (no data construction) from the CSVs above: (1) `fig_d4_duration_by_ceq_regime.png` — interval chart (p10–p90/IQR/median) by collapsed regime, faceted by process, with a dashed 2015–2020 "recent 1978-rule" comparator tick; (2) `fig_d4_duration_trend_ceq_regime.png` — annual median-duration trend line with CEQ rule effective-date markers (navy dashed) and the FRA statutory marker (grey dotted) shown distinctly; (3) `fig_d4_ceq_regime_timeline.png` — an orientation-only horizontal timeline of the five CEQ regimes (monochromatic blue ramp, no data). |
@@ -194,7 +194,7 @@ Analysis parquets are written under `phase2/data/analysis/timeline/` (pipeline o
 | File | Description |
 |---|---|
 | `timeline/timeline_project_dates.parquet` | One row per project: selected initiation and decision dates, granularity, confidence, proxy flags, duration, `timeline_status`, `has_rod`, `decision_is_feis_fallback`, `final_eis_*` fields, `route_to_llm`, `timeline_llm_run_at` |
-| `timeline/timeline_api_adjudications.parquet` | One row per LLM adjudication call: model, tokens, cost, response JSON, guardrail flags, selected candidate IDs. 11,216 rows cumulative (11,207 from the 2026-06-17 full run + 9 incremental calls on 2026-07-13). |
+| `timeline/timeline_api_adjudications.parquet` | One row per LLM adjudication call: model, tokens, cost, response JSON, guardrail flags, selected candidate IDs. 11,264 rows cumulative (11,207 from the 2026-06-17 full run + 9 on 2026-07-13 + 48 on the 2026-07-23 Tier-C restore). |
 | `timeline/timeline_candidates.parquet` | One row per date-context candidate: all extracted date evidence with scoring components, role pre-labels, classifier scores, calibrated classifier scores, `learned_init_score`/`learned_decision_score` from 05b |
 | `timeline/timeline_context_packets.parquet` | One row per retrieved context span: retrieval audit trail with tier, reason, scores |
 | `timeline/timeline_document_index.parquet` | One row per project-document: document role scores, scan priority, Tier A eligibility flags |
@@ -249,7 +249,7 @@ Produces `timeline_context_packets.parquet`. Pages are loaded via DuckDB (`read_
 
 **Tier B — Page slices.** For `priority_1` and `priority_2` documents only. CE documents with <= 20 pages: scan all pages (`ce_small_doc_all_pages`). CE documents with 21–50 pages: scan all pages (`ce_expanded_all_pages`). All other documents: first 3 + last 3 pages plus top-3 pages by initiation score and top-3 by decision score. Decision score includes a 2x multiplier for signature-cue matches (`SIGNATURE_CUES`).
 
-**Tier C — Section retrieval.** Sections with `heading_title` matching `DECISION_SECTION_CUES` or `INITIATION_SECTION_CUES` are retrieved; sections matching `NEGATIVE_SECTION_CUES` are skipped. CE documents with <= 20 pages bypass section retrieval entirely (Tier B is sufficient for short CE forms).
+**Tier C — Section retrieval.** Sections with `heading_title` matching `DECISION_SECTION_CUES` or `INITIATION_SECTION_CUES` are retrieved; sections matching `NEGATIVE_SECTION_CUES` are skipped. CE documents with <= 20 pages bypass section retrieval entirely (Tier B is sufficient for short CE forms). **Restored 2026-07-23:** the published 2026-07-15 candidates build had run without a current `document_sections.parquet` (zero `source_tier = "section"` rows); a desktop re-run of `00b_sections.py` + the retrieval/extraction chain rebuilt the section index, so `timeline_candidates.parquet` now contains 21,289 `source_tier = "section"` rows. Net effect on final coverage is small (+14 complete timelines vs the published build), as most section candidates lose selection to higher-tier candidates.
 
 **Tier D — Page keyword scoring.** Scores all pages in `priority_1`, `priority_2`, and `priority_3` documents by `INITIATION_CUES` + `DECISION_CUES` matches; takes the top 10 by `retrieval_score`. Deduplicates against Tier B/C by `context_hash`, keeping the higher-tier packet.
 
@@ -357,7 +357,7 @@ Implements two-pass selection to avoid circular chronology scoring. **Variant B*
 - `invalid_order` — decision before initiation (excludes same-year `nepa_case_year` artifact)
 - `manual_review` — flagged for human resolution
 
-`duration_days` is populated only when both selected dates have `date_granularity == "day"`.
+`duration_days` is populated only when both selected dates have `date_granularity == "day"` (ordered, status not `invalid_order`); month/year-granularity endpoints leave it null by design, since an exact day count is undefined. It is computed by a single shared **`finalize_duration_days()` pass** (`_finalize_duration.py`), which both `05_select_dates.py` (tail of selection, after midpoint imputation + order normalization) and `06_adjudicate_llm.py` (end of its apply step) call, so the column always reflects the final date columns regardless of which writer ran last. **Fix 2026-07-24:** before this pass existed, `06`'s apply step recomputed `timeline_status` after injecting an adjudication-recovered date but never recomputed `duration_days`, leaving 3,124 complete day/day rows (CE 2,849 / EA 110 / EIS 165; CE median 7 days) with a stale null. The keyless `05_select_dates.py --finalize-durations-only` entrypoint (never constructs an API client) repaired the published parquet in place on 2026-07-24 — backup `timeline_project_dates.pre_finalize_<UTC>.parquet`, non-null durations 23,922 → 27,046; the 5,245 month/year-granularity complete rows correctly stayed null and no previously-non-null value changed. See Known Issues.
 
 Manual corrections from `timeline_manual_corrections.parquet` are applied after deterministic selection, with `manual_override` added to `timeline_flags`.
 
@@ -399,7 +399,7 @@ Uses Claude Haiku (`claude-haiku-4-5-20251001`, Anthropic API) in two modes.
 
 **Audit columns:** `timeline_llm_run_at` is set per-row (ISO-8601 UTC) only when the LLM changed a date for that project.
 
-**Full run results (2026-06-17, + 9 incremental calls 2026-07-13):** 11,216 API calls cumulative, \$18.20 total cost, 0 errors. CE 8,633 (\$13.79) / EA 901 (\$1.44) / EIS 1,682 (\$2.97). Projects with `timeline_llm_run_at` set after the 2026-07-14 selection rebuild + reapply: CE 8,396 / EA 845 / EIS 1,508 (see Run Results for the full explanation of the count shift vs. the original 06-17 figures).
+**Full run results (2026-06-17, + 9 incremental calls 2026-07-13, + 48 on the 2026-07-23 Tier-C restore):** 11,264 API calls cumulative, \$18.28 total cost, 1 JSON-parse error (0 billing/HTTP errors). CE 8,645 (\$13.81) / EA 915 (\$1.46) / EIS 1,704 (\$3.01). Projects with `timeline_llm_run_at` set after the 2026-07-23 selection rebuild + reapply: CE 8,395 / EA 848 / EIS 1,514 (see Run Results for the full explanation of the count shift vs. the original 06-17 figures).
 
 **API key:** via macOS Keychain prompt-on-access (standard `anthropic.Anthropic()` constructor; key not stored in code or environment files).
 
@@ -477,7 +477,7 @@ Produces 6 figures and 3 diagnostic CSVs under `phase2/output/deliverable04/`:
 
 ### 08_create_figures_solar.R and 08_create_figures_technology.R — Solar and Technology Duration Cuts
 
-Relocated to the top level of `code/deliverable04/` from `fra/03_create_figures_solar.R` and `fra/04_create_figures_duration.R` (2026-07-17 commit "relocate duration scripts out of fra/") because neither reads FRA page counts — both are pure cuts of the `08_create_figures.R` headline duration frame and belong alongside it, not inside the FRA sub-pipeline. `08_create_figures_solar.R` re-creates the Phase 1 solar-only timeline figure on the Phase 2 corpus (`Renewable Energy Production - Solar` tag, all-decarbonization reference medians); `08_create_figures_technology.R` breaks EA/EIS duration down by the cleaned `tech_group` tag from D3's `projects_nepa_reviews.parquet`, on two separate horizontal scales for decarbonization and fossil technologies (CE is omitted — uniformly ~1 month across every technology, no contrast). Both read `timeline_project_dates.parquet` directly rather than the parquet's `duration_days` column, so they stay in sync with `08_create_figures.R`'s frame even if that column goes stale.
+Relocated to the top level of `code/deliverable04/` from `fra/03_create_figures_solar.R` and `fra/04_create_figures_duration.R` (2026-07-17 commit "relocate duration scripts out of fra/") because neither reads FRA page counts — both are pure cuts of the `08_create_figures.R` headline duration frame and belong alongside it, not inside the FRA sub-pipeline. `08_create_figures_solar.R` re-creates the Phase 1 solar-only timeline figure on the Phase 2 corpus (`Renewable Energy Production - Solar` tag, all-decarbonization reference medians); `08_create_figures_technology.R` breaks EA/EIS duration down by the cleaned `tech_group` tag from D3's `projects_nepa_reviews.parquet`, on two separate horizontal scales for decarbonization and fossil technologies (CE is omitted — uniformly ~1 month across every technology, no contrast). Both read `timeline_project_dates.parquet` directly and recompute duration from the raw dates rather than reading the parquet's `duration_days` column, so they stay in sync with `08_create_figures.R`'s frame and additionally apply the month→15th midpoints the raw column omits (that column is itself finalized as of the 2026-07-24 fix; see Known Issues).
 
 ### ceq_regime/01_build_tables.py — CEQ Regulatory-Regime Segmentation
 
@@ -617,7 +617,7 @@ The five-tier retrieval architecture separates the decision of what text to read
 
 Signature-block cues (`SIGNATURE_CUES` regex) double the decision page score, pulling bottom-of-document CE approval blocks to the top of the selection.
 
-**Tier C** skips CE documents with <= 20 pages entirely (short CE forms have unreliable headings). For longer documents it only retrieves sections with `heading_title` matching `INITIATION_SECTION_CUES` or `DECISION_SECTION_CUES`. Sections matching `NEGATIVE_SECTION_CUES` (references, bibliography, appendix, table of contents) are skipped before scoring.
+**Tier C** skips CE documents with <= 20 pages entirely (short CE forms have unreliable headings). For longer documents it only retrieves sections with `heading_title` matching `INITIATION_SECTION_CUES` or `DECISION_SECTION_CUES`. Sections matching `NEGATIVE_SECTION_CUES` (references, bibliography, appendix, table of contents) are skipped before scoring. (Restored in the 2026-07-23 build — see the Tier C note in the retrieval section.)
 
 **Tier D** scores all pages in `priority_1`, `priority_2`, and `priority_3` documents, then takes the top 10 by composite score. This is a sweep pass that catches high-signal pages missed by Tier B position heuristics.
 
@@ -690,7 +690,7 @@ The hierarchy ensures CE description dates with initiation/decision language (su
 
 <!-- d4-run-results: pull this section into the D4 report -->
 
-Most recent full corpus run: 2026-07-14 (`run_pipeline.py --select`: `timeline_run_at` 05:08–05:23 UTC, covering `05b_rank` → `05_select_dates` → `05c_inject_ground_truth`; `06_adjudicate_llm.py` was then re-applied at 05:27 UTC to restore LLM-sourced completions on top of the freshly-rebuilt selection — see LLM Adjudication table below), **followed by a 2026-07-15 universe-reconciliation pass** (`05_select_dates.py --reconcile-only`, using the newly-generalized `reconcile_universe()` — see Module Architecture) that additively appended 628 CE + 66 EA zero-candidate `missing_both` stub rows (all pre-existing rows are byte-identical; nothing was re-derived or overwritten). This run picked up the 2026-07-13 source-level fix to negative-duration handling (`normalize_invalid_order()`; see Known Issues). Total rows in `timeline_project_dates.parquet`: **61,881** (CE 54,668 / EA 3,083 / EIS 4,130) — up from 61,187 solely due to the 694 reconciliation stubs; EIS was already fully reconciled and is unchanged.
+Most recent full corpus run: **2026-07-23 (Tier-C section-retrieval restore)** — a desktop re-run of `00b_sections.py` + the retrieval/extraction chain rebuilt the section index (zero `source_tier = "section"` rows in the published 2026-07-15 build → **21,289** section candidates now), then `05b_rank` → `05_select_dates` → `05c_inject_ground_truth` re-selected and `06_adjudicate_llm.py` was re-applied, adding **48 new adjudication calls** (~\$0.08) for the newly-surfaced section candidates. Net effect on coverage is small (moved <0.3pp per process; ~254 date refinements; +14 complete timelines), because most section candidates lose selection to higher-tier candidates. This built on the **2026-07-14** selection rerun (`run_pipeline.py --select`, `05b_rank` → `05_select_dates` → `05c_inject_ground_truth`) and the **2026-07-15** universe-reconciliation pass (`05_select_dates.py --reconcile-only`, using the generalized `reconcile_universe()` — see Module Architecture) that additively appended 628 CE + 66 EA zero-candidate `missing_both` stub rows, and picks up the 2026-07-13 source-level fix to negative-duration handling (`normalize_invalid_order()`; see Known Issues). Total rows in `timeline_project_dates.parquet`: **61,881** (CE 54,668 / EA 3,083 / EIS 4,130) — unchanged by the Tier-C restore (which refines dates within existing rows but adds no rows); the row count reached 61,881 via the 2026-07-15 reconciliation stubs (up from 61,187).
 
 ### Timeline Status by Process (parquet as-written, fixed at source, post-reconciliation)
 
@@ -698,9 +698,9 @@ Most recent full corpus run: 2026-07-14 (`run_pipeline.py --select`: `timeline_r
 
 | Process | complete_clear | complete_with_proxy | missing_initiation | missing_decision | missing_both | invalid_order | manual_review | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| CE | 12,713 | 15,692 | 19,477 | 2,697 | 2,579 | 1,412 | 98 | 54,668 |
-| EA | 1,587 | 149 | 661 | 259 | 369 | 58 | — | 3,083 |
-| EIS | 423 | 901 | 265 | 1,093 | 1,294 | 154 | — | 4,130 |
+| CE | 12,712 | 15,692 | 19,476 | 2,697 | 2,579 | 1,414 | 98 | 54,668 |
+| EA | 1,594 | 148 | 660 | 262 | 363 | 56 | — | 3,083 |
+| EIS | 428 | 904 | 262 | 1,098 | 1,283 | 155 | — | 4,130 |
 
 Verified: zero rows with `timeline_status in ('complete_clear','complete_with_proxy')` and `decision_date < initiation_date` remain in the parquet (the invariant `08_create_figures.R` now asserts).
 
@@ -710,9 +710,9 @@ Two different "complete" definitions are both in use downstream — report narra
 
 | Process | complete_clear + complete_with_proxy (status-based, used for duration analysis) | pct | both dates present regardless of order (`d4_complete_share.csv`, headline "% complete") | pct |
 |---|---:|---:|---:|---:|
-| CE | 28,405 | 52.0% | 29,915 | 54.7% |
-| EA | 1,736 | 56.3% | 1,794 | 58.2% |
-| EIS | 1,324 | 32.1% | 1,478 | 35.8% |
+| CE | 28,404 | 52.0% | 29,916 | 54.7% |
+| EA | 1,742 | 56.5% | 1,798 | 58.3% |
+| EIS | 1,332 | 32.3% | 1,487 | 36.0% |
 
 The right-hand ("headline") columns additionally count `invalid_order` and `manual_review` rows, since both dates are present there too (just out of order, or pending human review) — this is the `timeline_complete = !is.na(initiation_date) & !is.na(decision_date)` definition computed in `08_create_figures.R`'s Fig 5 and persisted to `d4_complete_share.csv` so the report narrative and the figure cite the same numbers. **Note:** the `d4_*` diagnostics were regenerated from the reconciled parquet on 2026-07-15 (denominators 54,668/3,083/4,130). The diagnostics CSVs are untracked, so a checkout whose copies predate 2026-07-15 still carries the old 61,187-universe denominators — rerun `08_create_figures.R` (or copy the regenerated CSVs) there before re-rendering the report, or its inline coverage numbers will revert.
 
@@ -723,8 +723,8 @@ Denominators grew (CE/EA) from the reconciliation stubs; the numerator (projects
 | Process | Total | With decision date | Pct with decision date |
 |---|---:|---:|---:|
 | CE | 54,668 | 49,392 | 90.3% |
-| EA | 3,083 | 2,455 | 79.6% |
-| EIS | 4,130 | 1,743 | 42.2% |
+| EA | 3,083 | 2,458 | 79.7% |
+| EIS | 4,130 | 1,749 | 42.3% |
 
 ### Duration Medians (unaffected by reconciliation)
 
@@ -732,23 +732,23 @@ The reconciliation stubs carry no dates, so `duration_days` distributions are un
 
 | Process | n | Median days |
 |---|---:|---:|
-| CE | 27,278 | 20 |
-| EA | 1,730 | 116 |
-| EIS | 1,321 | 1,008 |
+| CE | 27,275 | 20 |
+| EA | 1,736 | 117 |
+| EIS | 1,329 | 1,021 |
 
-### LLM Adjudication (06_adjudicate_llm.py — cumulative through 2026-07-13)
+### LLM Adjudication (06_adjudicate_llm.py — cumulative through 2026-07-23)
 
 | Metric | Value |
 |---|---|
-| Total API calls (cumulative) | 11,216 (11,207 from the 2026-06-17 full run + 9 new calls on 2026-07-13) |
-| Cost (cumulative) | \$18.20 (the 9 new calls added ~\$0.003; effectively free — mostly cache hits) |
-| CE / EA / EIS calls | 8,633 / 901 / 1,682 |
-| API errors | 0 |
+| Total API calls (cumulative) | 11,264 (11,207 from the 2026-06-17 full run + 9 on 2026-07-13 + 48 on the 2026-07-23 Tier-C restore) |
+| Cost (cumulative) | \$18.28 (the 48 Tier-C calls added ~\$0.08) |
+| CE / EA / EIS calls | 8,645 / 915 / 1,704 |
+| API errors | 1 JSON-parse error (`Extra data…`, 2026-07-24 batch); 0 billing/HTTP errors |
 | Model | `claude-haiku-4-5-20251001` |
 | Workers | 24 (Tier-2 account) |
-| Projects with `timeline_llm_run_at` set (post 2026-07-14 rebuild) | CE 8,396 / EA 845 / EIS 1,508 |
+| Projects with `timeline_llm_run_at` set (post 2026-07-23 rebuild) | CE 8,395 / EA 848 / EIS 1,514 |
 
-The 2026-07-14 selection rerun (`05`/`05c`) does not itself know about prior LLM adjudications — it rebuilds `timeline_project_dates.parquet` from candidates. `06_adjudicate_llm.py` was re-applied immediately afterward (05:27 UTC) to restore the LLM-sourced completions on top of the rebuilt file; because the candidate pool and prompts were unchanged, nearly all of this was a same-day cache replay (SHA-1 cache key on `project_id | candidate_ids | model`), plus the 9 genuinely new calls dated 2026-07-13. The small count changes vs. the 2026-06-17 run (e.g. CE 8,518 → 8,396) reflect a handful of projects that the improved 05/05c selection now resolves without LLM help, so 06's completable-gate no longer routes them.
+The 2026-07-14 and 2026-07-23 selection reruns (`05`/`05c`) do not themselves know about prior LLM adjudications — they rebuild `timeline_project_dates.parquet` from candidates. `06_adjudicate_llm.py` was re-applied immediately afterward each time to restore LLM-sourced completions on top of the rebuilt file; because the candidate pool and prompts were largely unchanged, nearly all of this was a cache replay (SHA-1 cache key on `project_id | candidate_ids | model`), plus the genuinely new calls (9 on 2026-07-13, 48 on the 2026-07-23 Tier-C restore where new section candidates changed some packet compositions). The small count changes vs. the 2026-06-17 run reflect a handful of projects that the improved 05/05c selection now resolves without LLM help, so 06's completable-gate no longer routes them.
 
 ### Tier A Metadata Source Contributions (register runs 2026-05-29)
 
@@ -771,7 +771,7 @@ Total output: 5,032 rows (EA 2,765 / EIS 2,267). `regulatory_pages` is null for 
 
 ### Classifier Model and Calibration Status
 
-The candidate classifier currently in production is `salvage_20260609T042302Z` (trained 2026-06-09, three heads, SetFit head-only fit salvaged from a checkpoint), scored across `timeline_candidates.parquet` on 2026-06-16 (451,928 of the 689,424 candidate rows scored; the rest — `role_confidence_score == 5.0` register/strong-cue rows, plus `review`/`reject` roles — are exempt). Per `classifier_meta.json`, the frozen test split (938 rows of 5,361 labeled candidates in `classifier.csv`; 4,423 train / 938 test) gives:
+The candidate classifier currently in production is `salvage_20260609T042302Z` (trained 2026-06-09, three heads, SetFit head-only fit salvaged from a checkpoint; model files and `classifier_meta.json` last written 2026-06-16 — the model itself was not retrained by the Tier-C restore). It was re-scored across the rebuilt `timeline_candidates.parquet` during the 2026-07-23 Tier-C restore; all **710,328** candidate rows now carry `p_initiation`/`p_decision`/`p_feis` scores (up from 689,424 rows pre-restore, +21,289 of them being the newly-retrieved `source_tier = "section"` candidates). Per `classifier_meta.json`, the frozen test split (938 rows of 5,361 labeled candidates in `classifier.csv`; 4,423 train / 938 test) gives:
 
 | Head | Precision | Recall | F1 | TP | FP | FN |
 |---|---:|---:|---:|---:|---:|---:|
@@ -838,7 +838,7 @@ The `final_eis` head is markedly weaker (fewer positives: 148 of 5,361 labeled r
 | `document_id` | object | Source document, nullable |
 | `page_number` | object | Source page, nullable |
 | `retrieval_tier` | object | `tier_a` through `tier_e` |
-| `source_tier` | object | `metadata`, `page_slice`, `section`, `page_keyword`, `recovery` |
+| `source_tier` | object | `metadata`, `page_slice`, `section`, `page_keyword`, `recovery` (`section` restored in the 2026-07-23 build — 21,289 rows) |
 | `candidate_source_type` | object | Semantic source: `ce_determination`, `fonsi`, `application_received`, etc. |
 | `raw_date_text` | object | Matched date string from regex |
 | `parsed_date` | object (date) | Normalized date value |
@@ -914,6 +914,8 @@ The `final_eis` head is markedly weaker (fewer positives: 148 of 5,361 labeled r
 - **Underlying EIS ROD coverage is sparse and inconsistently labeled.** A 2026-06-08 audit of the 4,130 EIS projects in `projects_combined.parquet` found only 582 projects (14.1%) with "ROD" or "Record of Decision" in `document_title` or `file_name`, 574 (13.9%) with `document_type_clean = "ROD"`, and 608 (14.7%) meeting either definition. Thus 3,522 EIS projects have no ROD signal in the available document names or standardized type, and some combined FEIS/ROD documents are classified only as FEIS or OTHER. Separately, 872 projects (21.1%) lack all three primary EIS record types (FEIS, DEIS, and ROD), broadly consistent with the NEPATEC 2.0 documentation's "about 25%" limitation. Missing ROD dates therefore reflect corpus retrieval/grouping and document-type classification as well as D4 extraction performance; absence of a local ROD record must not be interpreted as evidence that the underlying project had no ROD.
 
 - **Negative-duration handling is fixed at source (2026-07-13), not patched at analysis time.** Rows where `decision_date < initiation_date` (mostly month-imputation artifacts: a month-granular initiation imputed to the 15th landing a few days after a same-month day-level decision) are reclassified to `invalid_order` by `normalize_invalid_order()` in `05_select_dates.py` and `_normalize_invalid_order()` in `05c_inject_ground_truth.py`, so `timeline_project_dates.parquet` is written already-correct. The former `08_create_figures.R` runtime stopgap was removed; `08_create_figures.R` now only asserts the invariant and `stop()`s if it is ever violated again. The 2026-07-14 run confirms zero remaining violations. Historical note: the pre-fix parquet (through 2026-06-17) had ~233 `complete_*` rows (CE 223 / EA 1 / EIS 9) violating this ordering, silently patched by the old R-side filter.
+
+- **Stale `duration_days` after adjudication is fixed at source (2026-07-24).** `06_adjudicate_llm.py`'s apply step recomputed `timeline_status` when it injected an adjudication-recovered date but never recomputed `duration_days`, so 3,124 complete day-granularity rows (CE 2,849 / EA 110 / EIS 165; CE median 7 days) that gained a valid day/day date pair from adjudication kept a **null duration**. Fixed by a shared, idempotent `finalize_duration_days()` pass (`_finalize_duration.py`) now called at the tail of `05_select_dates.py` and the end of `06_adjudicate_llm.py`'s apply step; it re-derives the column for all rows under the same gate 05 always used (both dates present, both `date_granularity == "day"`, ordered, status not `invalid_order`). The published parquet was repaired in place on 2026-07-24 via the keyless `05_select_dates.py --finalize-durations-only` entrypoint (backup `timeline_project_dates.pre_finalize_<UTC>.parquet`): non-null durations 23,922 → 27,046, the 5,245 month/year-granularity complete rows stayed null by design, and no previously-non-null value changed. Downstream impact was confined to `factsheet_figures.R`, the one consumer that read the column directly (`col_select` + `!is.na`); it had silently excluded these rows. **Factsheet reconciliation (re-run 2026-07-24, base R 4.2.3, exit 0):** with the 2,849 short-duration CE rows now in the frame, the factsheet's CE medians in `fs1_duration_by_energy.csv` dropped toward the D4-report values — Clean CE 20→18 days (n 7,621→8,485), Fossil CE 30→26 (n 3,875→4,606), Other CE 18→17 (n 10,450→11,707); EA/EIS medians moved ≤2 days on the ~110 EA / ~165 EIS rows also backfilled. `fs1_duration_by_technology.csv` shifted analogously and gained two thin tech×process groups (Decarbonization Wind/EA n=17, Utilities/EIS n=15) that crossed its min-n threshold once coverage rose; `fs1_duration_by_process.png` and `fs1_duration_by_technology.png` were regenerated. The D4 R figure scripts all recompute duration from raw dates and were never affected.
 
 - **EIS decision coverage gap (42.2% raw, well below Phase 1 75.2%).** Root cause: three compounding factors. First, many EIS projects have all documents scored as `scan_priority = "defer"` because no document title or type matches the decision or initiation score dictionaries. Second, `EIS_DETERMINISTIC_DOC_ROD = False` in the current production run — document-text ROD tiers are disabled because the 2026-06-08 precision audit found them unreliable (high false-positive rate from ROD-doc pages that are EO citations / chapter covers). Third, the FEIS-fallback path (`EIS_TIERED_DECISION = True`) partially compensates but only for the ~908 `complete_with_proxy` EIS projects. Enabling document-text ROD tiers (after classifier/ranker validation) is the planned path to improve coverage.
 

@@ -1,0 +1,7 @@
+process_type,endpoint_source_type,n_projects,n_with_endpoint,n_feis_proxy,n_day_duration,median_endpoint_days
+CE,decision,49392,49392,0,24836,19
+CE,NA,5276,0,0,0,NA
+EA,decision,2458,2458,0,1511,93
+EA,NA,625,0,0,0,NA
+EIS,decision,1749,1749,756,699,966
+EIS,NA,2381,0,1,0,NA

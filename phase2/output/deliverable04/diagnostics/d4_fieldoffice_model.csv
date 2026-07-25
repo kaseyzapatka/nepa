@@ -1,0 +1,7 @@
+agency,frame,process,anchor,threshold,n_reviews,n_offices,pct_per_doubling_raw,pct_lo_raw,pct_hi_raw,beta_log_cum,ci_low,ci_high,pct_per_doubling,pct_lo,pct_hi,note
+BLM,full,CE,Document,30,1757,31,-6.8,-13.2,0.1,0.1501,-0.0422,0.3425,11,-2.9,26.8,"PRIMARY: document-anchored, office FE + calendar + energy"
+BLM,full,CE,Register,30,6395,69,10.7,8,13.5,0.1388,0.0641,0.2136,10.1,4.5,16,Sensitivity: register-anchored (artifact-prone start dates)
+BLM,full,EA,Document,30,0,0,NA,NA,NA,NA,NA,NA,NA,NA,NA,not estimated: 0 offices >= 30 (need >=2); 0 reviews
+BLM,full,EA,Register,10,947,24,-6.5,-11.2,-1.5,-0.1227,-0.3111,0.0656,-8.2,-19.4,4.7,"EA exploratory: register-anchored, relaxed >=10 threshold (artifact-prone)"
+DOE,full,CE,Document,30,4821,12,-6.2,-9.9,-2.4,0.0449,-0.0698,0.1596,3.2,-4.7,11.7,"DOE PRIMARY: document-anchored, office FE + calendar + energy"
+DOE,full,CE,Register,30,77,2,16.6,-10.2,51.4,0.1133,-0.5994,0.826,8.2,-34,77.3,DOE register-anchored: too thin (n~137) for a sensitivity arm

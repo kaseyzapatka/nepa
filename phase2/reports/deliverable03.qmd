@@ -36,7 +36,6 @@ OUTPUT_DIR <- here("phase2", "output", "deliverable03")
 REVIEWS_PATH  <- file.path(D03_DIR, "projects_nepa_reviews.parquet")
 CE_PATH       <- file.path(D03_DIR, "ce_citations.parquet")
 GEO_OG_PATH   <- file.path(D03_DIR, "projects_geothermal_og.parquet")
-TIMELINE_PATH <- here("phase2", "data", "analysis", "timeline.parquet")
 
 reviews <- read_parquet(REVIEWS_PATH)
 ce_cits <- read_parquet(CE_PATH) |>

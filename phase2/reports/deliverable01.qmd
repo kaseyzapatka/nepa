@@ -197,7 +197,7 @@ All five classification tiers obey this priority ordering. Tiers 0–4 enforce i
 fallback—proposes both the classes and its own ranking; the pipeline reconciles that ranking
 to the fixed hierarchy at ingest, so every published primary follows the ordering above. The
 LLM's raw verdicts are preserved verbatim in a committed adjudication record
-([`tier5_adjudication_record.csv`](../code/deliverable01/tier5_adjudication_record.csv)), and
+([`tier5_adjudication_record.csv`](https://github.com/kaseyzapatka/nepa/blob/main/phase2/code/deliverable01/tier5_adjudication_record.csv)), and
 the published Tier 5 classifications can be reproduced exactly—without any LLM call—by
 running `03_rerun_tier5.py --from-record` against that record.
 
@@ -273,12 +273,12 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig12_pipeline_flow.png"))
 
 **Total resolved: `r comma(n_resolved)` / `r comma(n_total)` (`r sprintf("%.1f%%", pct_resolved)`).**
 Per-tier methods (rule sets, model configurations, acceptance gates) are documented in the
-[architecture doc](../architecture/deliverables/deliverable01.md).
+[architecture doc](https://github.com/kaseyzapatka/nepa/blob/main/phase2/architecture/deliverables/deliverable01.md).
 
 The pipeline is implemented in
-[`phase2/code/deliverable01/01_extract_nepa_trigger.py`](../code/deliverable01/01_extract_nepa_trigger.py).
+[`phase2/code/deliverable01/01_extract_nepa_trigger.py`](https://github.com/kaseyzapatka/nepa/blob/main/phase2/code/deliverable01/01_extract_nepa_trigger.py).
 The full output schema is documented in
-[`phase2/architecture/deliverables/deliverable01.md`](../architecture/deliverables/deliverable01.md).
+[`phase2/architecture/deliverables/deliverable01.md`](https://github.com/kaseyzapatka/nepa/blob/main/phase2/architecture/deliverables/deliverable01.md).
 
 ## Evidence Sources
 
@@ -936,7 +936,7 @@ without a pinned seed and can drift by a few borderline projects between machine
 (measured: 1 project between the May and July 2026 runs); any such project enters the Tier 5
 queue, where the committed record pins its published classification. See the
 [Coverage & Limitations](../notes/deliverable01/coverage_limitations.html) page and the
-[architecture doc](../architecture/deliverables/deliverable01.md) for the full
+[architecture doc](https://github.com/kaseyzapatka/nepa/blob/main/phase2/architecture/deliverables/deliverable01.md) for the full
 reproducibility discussion.
 
 ---

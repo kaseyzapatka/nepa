@@ -1,0 +1,14 @@
+stage,n,n_ce,n_ea,n_eis
+total_geothermal,873,819,24,30
+blm_led,109,84,14,11
+office_matched,61,57,4,0
+unmatched_blm,48,27,10,11
+doe_other,764,735,10,19
+complete_timeline_total,398,376,8,14
+distinct_offices,21,0,0,0
+lead_agency:Department of Energy,743,733,9,1
+lead_agency:Bureau of Land Management,109,84,14,11
+lead_agency:Forest Service,6,0,0,6
+lead_agency:(unknown),4,0,0,4
+lead_agency:Energy Programs,2,0,1,1
+lead_agency:Other,9,2,0,7

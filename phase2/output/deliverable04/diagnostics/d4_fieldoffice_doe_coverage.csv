@@ -1,0 +1,11 @@
+metric,value
+doe_led,32305
+with_cx,27826
+register_matched,25572
+with_office,11707
+register_rows,33454
+register_null_office,19876
+register_raw_distinct_office,457
+harmonized_seg_distinct,322
+harmonized_canon_distinct,121
+all_office_matched_are_ce,1

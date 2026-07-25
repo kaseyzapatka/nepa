@@ -125,6 +125,20 @@ Rscript phase2/code/deliverable04/08_create_figures.R                           
 
 ---
 
+## Repair: `duration_days` ($0, keyless)
+
+`duration_days` is derived by `_finalize_duration.py` (`finalize_duration_days`) — the single source of truth, called at the tail of `05_select_dates.py` (after selection/imputation/order-normalization) and inside `06_adjudicate_llm.py`'s apply step (after injecting recovered dates). Because both writers call it, the numeric duration cannot drift out of sync with the dates it summarizes.
+
+If a canonical parquet ever has a stale `duration_days` (e.g. produced before this wiring landed — the old bug left ~2,849 adjudication-recovered day/day rows null), repair it with the keyless flag — it skips selection and the LLM chain entirely, backs up to `timeline_project_dates.pre_finalize_<UTC>.parquet`, recomputes the column for all rows, and writes back:
+
+```bash
+python phase2/code/deliverable04/05_select_dates.py --finalize-durations-only
+```
+
+This never constructs an API client and costs $0. It only recomputes date arithmetic, so it moves no coverage or status count — only fills day/day durations that a prior writer left null.
+
+---
+
 ## `timeline_project_dates.parquet` — key columns
 
 | Column | Notes |
@@ -133,7 +147,7 @@ Rscript phase2/code/deliverable04/08_create_figures.R                           
 | `initiation_date` / `decision_date` | ISO-8601 or null |
 | `*_granularity` | `day` / `month` / `year` / `unknown` |
 | `*_source_type`, `*_confidence`, `*_is_proxy`, `*_evidence_text` | provenance |
-| `duration_days` | decision − initiation (day-granularity both) |
+| `duration_days` | decision − initiation, computed **only** when both dates are day-granularity, in valid order, and not `invalid_order` (month/year endpoints stay null by design). Derived by the shared `_finalize_duration.py` helper, called at the tail of `05` and inside `06`'s apply step — see "Repair: duration_days" below |
 | `timeline_status` | `complete_clear`, `complete_with_proxy`, `missing_initiation`, `missing_decision`, `missing_both`, `manual_review`, `invalid_order` |
 | `timeline_flags` | pipe-delimited diagnostics (`year_proxy_decision`, `nepa_case_year_proxy_discarded`, `same_day`, …) |
 

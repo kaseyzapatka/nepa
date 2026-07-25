@@ -2,72 +2,85 @@ name: nepa
 channels:
   - conda-forge
 dependencies:
-  - python=3.12
+  # Versions below are the ones actually installed in the environment that
+  # produced the published Phase 1 + Phase 2 results (inventoried 2026-07-24).
+  - python=3.12          # 3.12.13 used
   - pip
 
   # Python core pipeline
-  - pandas=2.3.*
-  - numpy=2.2.*
-  - pyarrow=22.*
-  - duckdb=1.4.*
-  - requests=2.32.*
-  - geopy=2.4.*
-  - tqdm=4.67.*
+  - pandas=2.3.*         # 2.3.3 used
+  - numpy=2.4.*          # 2.4.4 used
+  - pyarrow=22.*         # 22.0.0 used
+  - duckdb=1.4.*         # 1.4.4 used
+  - requests=2.32.*      # 2.32.5 used
+  - geopy=2.4.*          # 2.4.1 used
+  - tqdm=4.67.*          # 4.67.3 used
 
   # ML / NLP / model training
-  - datasets=4.4.*
-  - transformers=4.57.*
-  - pytorch>=2.2,<3
-  - huggingface_hub=0.34.*
-  - sentence-transformers=3.*
-  - spacy=3.8.*
-  - wordcloud=1.9.*
+  - datasets=4.4.*             # 4.4.2 used
+  - transformers=4.57.*        # 4.57.6 used
+  - pytorch=2.10.*             # 2.10.0 used
+  - huggingface_hub=0.34.*     # 0.34.6 used
+  - sentence-transformers=5.4.*  # 5.4.1 used
+  - scikit-learn=1.8.*         # 1.8.0 used
+  - lightgbm=4.6.*             # 4.6.0 used
+  - spacy=3.8.*                # 3.8.14 used
+  - wordcloud=1.9.*            # 1.9.6 used
+  - beautifulsoup4=4.14.*      # 4.14.3 used
 
   # App + notebooks
-  - streamlit>=1.35,<2
-  - jupyterlab=4.5.*
-  - ipykernel=7.*
+  - streamlit=1.56.*     # 1.56.0 used
+  - jupyterlab=4.5.*     # 4.5.6 used
+  - ipykernel=7.*        # 7.2.0 used
 
   # Development / tests
-  - pytest=9.*
+  - pytest=9.*           # 9.0.3 used
 
-  # Quarto + R reporting stack
-  - quarto
-  - r-base=4.4.*
-  - r-arrow
-  - r-classint
-  - r-dt
-  - r-ggalluvial
-  - r-ggwordcloud
-  - r-googlesheets4
-  - r-gt
-  - r-here
-  - r-jsonlite
-  - r-kableextra
-  - r-knitr
-  - r-patchwork
-  - r-purrr
-  - r-readr
-  - r-rmarkdown
-  - r-rstudioapi
-  - r-scales
-  - r-sf
-  - r-stringr
-  - r-tibble
-  - r-tidycensus
-  - r-tidyr
-  - r-tidyverse
-  - r-tigris
-  - r-zoo
+  # Quarto + R reporting stack. Do NOT float quarto: newer builds ship Deno 2.x,
+  # which crashed `quarto render` on this project; 1.3.433 is the version that
+  # rendered the published site. R: the site was originally rendered with system
+  # R 4.2.3 (package versions annotated below as the historical record); that pin
+  # no longer solves on conda-forge, so the env pins R 4.4 — verified to render
+  # the reports identically (2026-07-24 test render).
+  - quarto=1.3.433
+  - r-base=4.4.*         # 4.4.3 verified; original site render used system R 4.2.3
+  - r-arrow              # 14.0.0.2 used
+  - r-classint           # 0.4.9 used
+  - r-dt                 # 0.34.0 used
+  - r-ggalluvial         # 0.12.5 used
+  - r-ggbeeswarm         # 0.7.2 used
+  - r-ggpubr             # 0.6.0 used
+  - r-ggwordcloud        # 0.6.2 used
+  - r-glue               # 1.6.2 used
+  - r-googlesheets4      # 1.1.0 used
+  - r-gt                 # 0.8.0 used
+  - r-here               # 1.0.2 used
+  - r-jsonlite           # 1.8.4 used
+  - r-kableextra         # 1.3.4 used
+  - r-knitr              # 1.42 used
+  - r-lubridate          # 1.9.2 used
+  - r-maps               # 3.4.1 used
+  - r-patchwork          # 1.3.0 used
+  - r-purrr              # 1.0.4 used
+  - r-readr              # 2.1.4 used
+  - r-rmarkdown          # 2.20 used
+  - r-scales             # 1.4.0 used
+  - r-sf                 # 1.0.15 used
+  - r-stringr            # 1.5.2 used
+  - r-tibble             # 3.2.1 used
+  - r-tidycensus         # 1.3.2 used
+  - r-tidyr              # 1.3.1 used
+  - r-tidytext           # 0.4.3 used
+  - r-tidyverse          # 2.0.0 used
+  - r-tigris             # 2.0.1 used
+  - r-zoo                # 1.8.11 used
 
   # Packages only available/maintained via pip
   - pip:
-      - anthropic>=0.40,<1
+      - anthropic>=0.96,<1     # 0.96.0 used
+      - setfit>=1.1,<2         # 1.1.3 used — D1 trigger + D4 candidate classifiers
       - en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl#sha256=1932429db727d4bff3deed6b34cfc05df17794f4a52eeb26cf8928f7c1a0fb85
-      # Deliverable 03 visual-impact overhaul (D03 Stage 3 + Stage 5).
-      # bertopic + scattertext are pip-only; umap-learn and hdbscan ship as
-      # transitive deps but are pinned explicitly so the env resolves them.
-      - bertopic>=0.16,<0.18
-      - scattertext>=0.2.2,<0.3
-      - umap-learn>=0.5,<0.6
-      - hdbscan>=0.8,<0.9
+      # NOTE: bertopic / scattertext / umap-learn / hdbscan were removed from
+      # this spec: they are optional legacy extras for D3's superseded topic
+      # path (gated by try/except in 02_build_nepa_reviews.py) and were NOT
+      # installed in the environment that produced the published results.

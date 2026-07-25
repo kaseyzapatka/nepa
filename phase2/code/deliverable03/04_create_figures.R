@@ -3,7 +3,7 @@
 # --------------------------
 # Produces figures and CSVs comparing NEPA review patterns for fossil fuel
 # vs. decarbonization projects (technology, agency, CE citations, geography,
-# visual impacts, geothermal vs. oil/gas, and timelines).
+# visual impacts, and geothermal vs. oil/gas).
 #
 # Figure list:
 #   fig1  — CE/EA/EIS rates: Clean vs. Fossil (100% stacked bar)
@@ -25,14 +25,12 @@
 #   fig17 — State choropleth: Geothermal share (diverging blue-purple-red)
 #   fig18 — Visual framing comparison (CEQ-axis ratios by energy × process)
 #   fig19 — Section length boxplots by tech_group × process_type
-#   fig20 — Duration by period × process type × energy (conditional on timeline.parquet)
 #
 # Input:
 #   phase2/data/analysis/deliverable03/projects_nepa_reviews.parquet
 #   phase2/data/analysis/deliverable03/ce_citations.parquet
 #   phase2/data/analysis/deliverable03/projects_visual_impacts.parquet
 #   phase2/data/analysis/deliverable03/projects_geothermal_og.parquet
-#   phase2/data/analysis/timeline.parquet  (optional — section 6 skipped if missing)
 #
 # Output (all in phase2/output/deliverable03/):
 #   fig1_review_rates_by_energy.png ... fig17_geo_og_state_map.png
@@ -41,7 +39,6 @@
 #   geo_state_counts.csv
 #   visual_prevalence_table.csv
 #   geothermal_comparison_table.csv
-#   timeline_coverage.csv, duration_summary.csv  (conditional)
 #
 # Usage:
 #   Rscript phase2/code/deliverable03/02_analyze_nepa_reviews.R
@@ -102,7 +99,6 @@ REVIEWS_PATH  <- file.path(D03_DIR, "projects_nepa_reviews.parquet")
 CE_PATH       <- file.path(D03_DIR, "ce_citations.parquet")
 VISUAL_PATH   <- file.path(D03_DIR, "projects_visual_impacts.parquet")
 GEO_OG_PATH   <- file.path(D03_DIR, "projects_geothermal_og.parquet")
-TIMELINE_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "timeline.parquet")
 
 # Human-readable interpretive labels for NMF topics.
 # Keys are the auto-generated term labels from the Python pipeline.
@@ -2348,84 +2344,6 @@ write.csv(geo_og_state,
 
 cat("  Section 5 done.\n")
 } # end if (GEO_OG_AVAILABLE)
-
-
-# ===========================================================================
-# SECTION 6: TIMELINES (CONDITIONAL)
-# ===========================================================================
-cat("\n--- Section 6: Timelines ---\n")
-
-if (!file.exists(TIMELINE_PATH)) {
-  message("Skipping timeline section: data/analysis/timeline.parquet not found.")
-  message("Expected columns: project_id, initiation_date, decision_date, process_type")
-} else {
-  timeline <- read_parquet(TIMELINE_PATH)
-
-  # Coverage table — always first; durations are meaningless without this denominator
-  # Only pull project_energy_type from df; timeline already has process_type
-  coverage <- timeline |>
-    left_join(df |> select(project_id, project_energy_type), by = "project_id") |>
-    group_by(project_energy_type, process_type) |>
-    summarise(
-      n_total          = n(),
-      n_has_initiation = sum(!is.na(initiation_date)),
-      n_has_decision   = sum(!is.na(decision_date)),
-      n_both           = sum(!is.na(initiation_date) & !is.na(decision_date)),
-      pct_both         = mean(!is.na(initiation_date) & !is.na(decision_date)),
-      .groups          = "drop"
-    )
-
-  write.csv(coverage, file.path(OUTPUT_DIR, "timeline_coverage.csv"), row.names = FALSE)
-  cat("Timeline coverage:\n"); print(as.data.frame(coverage))
-
-  # Durations
-  durations <- timeline |>
-    filter(!is.na(initiation_date), !is.na(decision_date)) |>
-    mutate(
-      duration_days = as.numeric(as.Date(decision_date) - as.Date(initiation_date)),
-      period = case_when(
-        as.Date(decision_date) >= as.Date("2023-08-16") ~ "Post-FRA",
-        as.Date(decision_date) >= as.Date("2020-09-14") ~ "Post-2020 CEQ",
-        TRUE                                             ~ "Pre-2020"
-      ),
-      period = factor(period, levels = c("Pre-2020", "Post-2020 CEQ", "Post-FRA"))
-    ) |>
-    filter(duration_days > 0, duration_days < 365 * 20) |>
-    left_join(df |> select(project_id, project_energy_type, tech_group),
-              by = "project_id")
-
-  summary_table <- durations |>
-    filter(!is.na(project_energy_type), !is.na(process_type)) |>
-    group_by(project_energy_type, process_type, period) |>
-    summarise(
-      n           = n(),
-      median_days = median(duration_days),
-      p25         = quantile(duration_days, 0.25),
-      p75         = quantile(duration_days, 0.75),
-      .groups     = "drop"
-    )
-
-  # Fig 20 — Median duration by period × process type × energy ----
-  ggplot(summary_table |> filter(!is.na(project_energy_type)),
-         aes(x = period, y = median_days, fill = project_energy_type)) +
-    geom_col(position = "dodge") +
-    scale_fill_manual(values = energy_colors) +
-    facet_wrap(~ process_type) +
-    labs(x = NULL, y = "Median Review Duration (days)",
-         fill = "Energy Category",
-         title = "Review Duration by Period, Process Type, and Energy Category",
-         caption = DATA_CAPTION) +
-    theme_catf() +
-    theme(axis.text.x = element_text(angle = 30, hjust = 1),
-          legend.position = "bottom")
-  save_fig("fig20_duration_by_energy_process.png")
-
-  write.csv(summary_table,
-            file.path(OUTPUT_DIR, "duration_summary.csv"),
-            row.names = FALSE)
-
-  cat("  Section 6 done.\n")
-}
 
 
 # ===========================================================================

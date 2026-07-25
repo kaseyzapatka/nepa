@@ -1,0 +1,7 @@
+process_type,uses_proxy,n,median_days,p25_days,p75_days,dataset
+CE,FALSE,12712,18,5,56,clear_only
+CE,TRUE,15692,27,8,192,with_proxy
+EA,FALSE,1594,105,32,322.75,clear_only
+EA,TRUE,148,323.5,132.25,724.75,with_proxy
+EIS,FALSE,428,1123.5,576.75,2133,clear_only
+EIS,TRUE,904,972.5,448.25,1845.25,with_proxy

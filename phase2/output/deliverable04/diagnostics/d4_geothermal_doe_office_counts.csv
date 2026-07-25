@@ -1,0 +1,17 @@
+office,n_parsed,n_ce,n_ce_complete,median_days
+Golden Field Office,311,311,162,55.5
+National Energy Technology Laboratory,79,79,50,2.5
+Energy Efficiency and Renewable Energy,45,45,11,225.0
+RMOTC,7,7,0,
+Golde,4,4,1,1.0
+Advanced Research Projects Agency-Energy,1,1,0,
+G,1,1,1,13.0
+Bonneville Power Administration,1,1,0,
+Oak Ridge Office,1,1,1,15.0
+Pacific Northwest Site Office,1,1,0,
+Sandia Site Office,1,1,0,
+...,1,1,1,783.0
+Loan Guarantee Program Office,1,1,1,557.0
+Ener,1,1,0,
+Gol,1,1,0,
+ALL,456,456,228,16.5

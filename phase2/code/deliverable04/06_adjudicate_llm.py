@@ -38,6 +38,8 @@ from typing import Any
 
 import pandas as pd
 
+from _finalize_duration import finalize_duration_days
+
 ROOT = Path(__file__).resolve().parents[3]
 PHASE2 = ROOT / "phase2"
 ANALYSIS_DIR = PHASE2 / "data" / "analysis"
@@ -848,6 +850,10 @@ def _apply_adjudication_results(
         dates_df.loc[mask, "timeline_llm_run_at"] = run_at  # per-row LLM audit stamp
 
     if updated:
+        # The per-row block above recomputes timeline_status from the injected dates but leaves
+        # duration_days stale (it was null for these rows before adjudication recovered a date).
+        # Re-derive it for ALL rows under 05's exact gate so recovered day/day pairs get a duration.
+        finalize_duration_days(dates_df)
         dates_df.to_parquet(DATES_PATH, index=False)
         print(f"Updated {DATES_PATH} with adjudication results.")
 

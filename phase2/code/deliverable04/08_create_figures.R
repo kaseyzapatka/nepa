@@ -128,9 +128,9 @@ message("Loading timeline_project_dates.parquet...")
 dates_raw <- read_parquet(file.path(DATA, "timeline_project_dates.parquet"))
 message("  ", nrow(dates_raw), " rows")
 
-# Join energy type from Phase 1 combined project file
+# Join energy type from the Phase 2 combined project file (no Phase 1 backfill)
 energy_meta <- read_parquet(
-  here::here("phase1", "data", "analysis", "projects_combined.parquet"),
+  here::here("phase2", "data", "analysis", "projects_combined.parquet"),
   col_select = c("project_id", "project_energy_type")
 )
 dates_raw <- dates_raw |>
@@ -162,11 +162,14 @@ dates <- dates_raw |>
   mutate(
     initiation_date = as.Date(initiation_date),
     decision_date   = as.Date(decision_date),
-    # Compute duration directly from the (possibly LLM-recovered) dates rather than the
-    # precomputed duration_days column, which is stale post-06 (it was only populated for the
-    # pre-adjudication day-level subset, so it undercounts complete timelines — e.g. EIS 213
-    # vs 425 complete_clear). decision_date >= initiation_date is guaranteed here because the
-    # negative-duration rows are reclassified to invalid_order below.
+    # Compute duration directly from the (possibly LLM-recovered) dates rather than reading the
+    # precomputed duration_days column. As of the 2026-07-24 finalize fix that column is no longer
+    # stale — 05/06 now run finalize_duration_days() so adjudication-recovered day/day pairs get a
+    # duration (previously it was populated only for the pre-adjudication day-level subset and
+    # undercounted complete timelines — e.g. EIS 213 vs 425 complete_clear). This defensive
+    # recompute is KEPT regardless: it also applies month->15th midpoints, so it remains the
+    # report's single source of truth for duration. decision_date >= initiation_date is guaranteed
+    # here because the negative-duration rows are reclassified to invalid_order below.
     duration_days   = as.integer(decision_date - initiation_date),
 
     process_group = factor(process_type, levels = PROCESS_LEVELS),
