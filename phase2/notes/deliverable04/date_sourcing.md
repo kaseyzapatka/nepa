@@ -2,7 +2,7 @@
 title: "D4: Date Sourcing & Provenance"
 ---
 
-*As of 2026-07-15 (pipeline run `timeline_run_at` 2026-07-14). This page documents what the two timeline dates mean, the codebook used to label them, and the provenance hierarchy every published date traces to.*
+*As of 2026-07-23 (Tier-C section-retrieval restore). This page documents what the two timeline dates mean, the codebook used to label them, and the provenance hierarchy every published date traces to.*
 
 Companion pages: [Coverage & Limitations](coverage_limitations.html) and [Known Issues & Deferred Items](known_issues.html).
 
@@ -95,7 +95,7 @@ Key provenance columns in `timeline_project_dates.parquet`:
 | `timeline_flags` | Pipe-delimited diagnostics (`api_adjudicated`, `month_decision`, `imputed_month_midpoint_*`, `same_day`, …) |
 | `*_evidence_text` | The sentence around the selected date — every published date is auditable back to its text |
 
-**The headline duration frame, exactly:** `complete_clear` plus `complete_with_proxy` rows with valid ordering, **excluding year-granularity endpoints** (a day cannot be responsibly imputed from a year alone; this drops ~1,100 rows, almost all CE initiations), with month-granularity endpoints imputed to the mid-month 15th. Under this frame the report's duration medians are computed on CE n = 27,278 · EA n = 1,730 · EIS n = 1,321 — slightly fewer rows than raw completeness counts, which is why duration n's do not equal the coverage table's complete counts. Proxy-flagged rows are included but reported in sensitivity views so proxy reliance is always visible.
+**The headline duration frame, exactly:** `complete_clear` plus `complete_with_proxy` rows with valid ordering, **excluding year-granularity endpoints** (a day cannot be responsibly imputed from a year alone; this drops ~1,100 rows, almost all CE initiations), with month-granularity endpoints imputed to the mid-month 15th. Under this frame the report's duration medians are computed on CE n = 27,275 · EA n = 1,736 · EIS n = 1,329 — slightly fewer rows than raw completeness counts, which is why duration n's do not equal the coverage table's complete counts. Proxy-flagged rows are included but reported in sensitivity views so proxy reliance is always visible.
 
 ## Classifier training labels — the frozen split
 

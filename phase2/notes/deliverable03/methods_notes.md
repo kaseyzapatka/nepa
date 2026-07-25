@@ -29,7 +29,7 @@ Project-type vocabulary (`turbine`, `blade`, `pipeline`, `pad`, `well`) is inten
 
 All code is in `build_topics()` in `phase2/code/deliverable03/02_build_nepa_reviews.py`.
 
-### Step 1 — Text input (lines ~1497–1500)
+### Step 1 — Text input (lines ~1487–1491 (in `adapt_section_layer`))
 
 Uses `visual_analysis_text` — the project's visual section text after two cleaning passes:
 
@@ -38,7 +38,7 @@ Uses `visual_analysis_text` — the project's visual section text after two clea
 
 **This is the biggest lever** — too strict a sentence filter and NMF lacks signal; too loose and project-description boilerplate dominates.
 
-### Step 2 — TF-IDF vectorizer (lines ~1489–1495)
+### Step 2 — TF-IDF vectorizer (lines ~1612–1617)
 
 ```
 ngram_range=(1, 3)   # unigrams + bigrams + trigrams
@@ -56,7 +56,7 @@ stop_words=nepa_stop # NEPA_DOMAIN_STOPWORDS + sklearn English stops
 
 Every run writes `phase2/output/deliverable03/nmf_vocab_diagnostic.csv` showing which terms were kept, dropped as rare (`doc_freq < 5`), or dropped as universal (`pct_docs > 55%`). Inspect this file to verify the filters are behaving as intended.
 
-### Step 3 — NMF factorization (lines ~1505, 1520)
+### Step 3 — NMF factorization (lines ~1628, 1678)
 
 ```python
 n_components = min(4, max(2, len(train_texts) // 10))
@@ -66,7 +66,7 @@ NMF(n_components=4, random_state=42, max_iter=400, alpha_W=0.001)
 
 Trains on heading-anchored projects (~1,310), then transforms the ~281 fallback-only projects. `alpha_W=0.001` applies light L1 regularization on document-topic weights, encouraging sparse topic assignments.
 
-### Step 4 — Topic label building (lines ~1538–1562)
+### Step 4 — Topic label building (lines ~1696–1720)
 
 Pulls the top 12 terms per topic by NMF component weight. Labels prioritize terms from `_IMPACT_LABEL_VOCAB` (shadow flicker, glare, contrast, viewshed, night sky, etc.) before filling with remaining top terms. This ensures labels surface impact-type vocabulary (e.g., "shadow / flicker") rather than generic project terms (e.g., "wind / turbine / area").
 
@@ -74,13 +74,13 @@ Pulls the top 12 terms per topic by NMF component weight. Labels prioritize term
 
 | Lever | Where | Effect |
 |---|---|---|
-| `_VISUAL_IMPACT_SENT_RE` | line ~673 | Controls which sentences enter `visual_analysis_text`. Too strict → NMF starved; too loose → boilerplate dominates. |
-| `_is_noisy_line()` | line ~750 | Filters VRM tables, OCR garbage, dash tables, URLs before sentence filtering. |
-| `NEPA_DOMAIN_STOPWORDS` | line ~620 | Words removed before NMF. Add terms that dominate topics without being informative. |
-| `n_components` | line ~1505 | Number of topics. Currently capped at 4; lower = broader topics, fewer redundant clusters. |
-| `min_df` | line ~1492 | Minimum document frequency to enter vocabulary. `min_df=5` excludes rare project-specific terms. |
-| `max_df` | line ~1493 | Maximum document frequency proportion. `max_df=0.7` excludes near-universal terms. |
-| `_IMPACT_LABEL_VOCAB` | line ~1538 | Only affects topic label strings, not assignments. Add terms to surface impact vocab in labels. |
+| `_VISUAL_IMPACT_SENT_RE` | line ~730 | Controls which sentences enter `visual_analysis_text`. Too strict → NMF starved; too loose → boilerplate dominates. |
+| `_is_noisy_line()` | line ~804 | Filters VRM tables, OCR garbage, dash tables, URLs before sentence filtering. |
+| `NEPA_DOMAIN_STOPWORDS` | line ~665 | Words removed before NMF. Add terms that dominate topics without being informative. |
+| `n_components` | line ~1628 | Number of topics. Currently capped at 4; lower = broader topics, fewer redundant clusters. |
+| `min_df` | line ~1615 | Minimum document frequency to enter vocabulary. `min_df=5` excludes rare project-specific terms. |
+| `max_df` | line ~1616 | Maximum document frequency proportion. `max_df=0.55` excludes near-universal terms. |
+| `_IMPACT_LABEL_VOCAB` | line ~1696 | Only affects topic label strings, not assignments. Add terms to surface impact vocab in labels. |
 
 ---
 
@@ -118,7 +118,7 @@ Current 4-topic structure (as of May 2026 run; ngram=(1,3), max_df=0.55, max_fea
 | `term` | The ngram (unigram or bigram) |
 | `doc_freq` | Number of training documents it appears in |
 | `pct_docs` | Percentage of training documents |
-| `status` | `kept` / `dropped_rare` (< 5 docs) / `dropped_universal` (> 70% of docs) / `dropped_max_features` |
+| `status` | `kept` / `dropped_rare` (< 5 docs) / `dropped_universal` (> 55% of docs) / `dropped_max_features` |
 
 To inspect what's being dropped in R:
 ```r
@@ -191,7 +191,7 @@ When multiple ratings are found for the same element (e.g., from multiple sectio
 - `fig21_vrm_elements.png` — 100% stacked bar, faceted by Decarbonization vs Fossil Fuel.
 
 ### Interpretation guidance:
-- Coverage will be partial (~20–40% of projects): only EIS documents with explicit VRM methodology tables use the element-level vocabulary. EA documents and non-BLM projects rarely do.
+- Coverage will be partial (~4% of projects, primarily BLM EIS documents with formal VRM contrast-rating tables): only documents with explicit VRM methodology tables use the element-level vocabulary. EA documents and non-BLM projects rarely do.
 - Low coverage does not invalidate the finding — it identifies which project types use the formal VRM rating framework.
 - Compare decarb vs fossil distributions to see whether wind/solar projects get different element-level contrast ratings than O&G corridor projects.
 
@@ -217,12 +217,12 @@ Do not add a header or reformat the file: although nothing parses it today, its 
 
 ---
 
-## Dormant timeline section (`04_create_figures.R` Section 6)
+## [Removed] Timeline section formerly in `04_create_figures.R` (deleted 2026-07-24)
 
-`04_create_figures.R` carries a **Section 6** that is gated off at runtime: it activates only when
-`phase2/data/analysis/timeline.parquet` exists, and that file is intentionally absent — timeline
-analysis is delivered by **Deliverable 4**, not D3. The section is kept only as a stub. This note
-transplants the two latent-bug records that were previously held only in the (now-deleted)
+The gated "Section 6" this note used to document was removed in commit `5481072`
+("remove dead timeline section gated on nonexistent parquet") — timeline analysis is
+delivered by **Deliverable 4**, not D3, and the stub no longer exists in the code. This note
+retains the two latent-bug records that were previously held only in the (now-deleted)
 `plans/deliverable03_update.md` (a working document since deleted), so they are not lost if the section is ever revived:
 
 1. **Wrong FRA cut date.** Section 6 hardcodes `as.Date("2023-08-16")` (the CEQ-rule effective

@@ -75,7 +75,7 @@ with any reuse of the data.
 - **Resource-level mitigation pairing: validated tags, aggregate-only claim.** The report's
   finding that ~23% of flagged significant / less-than-significant FONSI determinations are paired
   with a same-resource committed mitigation condition rests on condition→resource tags validated on
-  an 80-project gold set (independent model labeler, plus an informal second-reviewer blind
+  an 80-row gold set (71 distinct projects; independent model labeler, plus an informal second-reviewer blind
   spot check that found no disagreements — not a persisted comparison artifact): tag-level
   **F1 0.83**, **any-overlap accuracy 0.89** (vs 0.46 for the prior keyword
   tags). The finding is reported **aggregate-only** and under **any-overlap** matching (a

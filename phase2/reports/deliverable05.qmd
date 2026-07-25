@@ -99,20 +99,20 @@ bil_eis_win   <- cite_rate("BIL", "All EIS", "spike window")
 
 # Executive Summary
 
-This deliverable examines whether the use of **categorical exclusions (CEs)** — the lightest form of
-NEPA review — spikes after the passage of major infrastructure legislation, and if so, whether those
+This deliverable examines whether the use of categorical exclusions (CEs), the lightest form of
+NEPA review, spikes after the passage of major infrastructure legislation, and if so, whether those
 actions are demonstrably tied to the new law. We anchor every CE to the date its determination was
 issued (from the Deliverable 4 timeline), detect explicit citations to the legislation in the CE
-documents, and read the specific categorical-exclusion *category* each action invoked.
+documents, and read the specific categorical-exclusion category each action invoked.
 
-The three named laws are the **American Recovery and Reinvestment Act (ARRA**, Feb 2009), the
-**Bipartisan Infrastructure Law / Infrastructure Investment and Jobs Act (BIL/IIJA**, Nov 2021), and
-the **Inflation Reduction Act (IRA**, Aug 2022).
+The three named laws are the American Recovery and Reinvestment Act (ARRA, Feb 2009), the
+Bipartisan Infrastructure Law / Infrastructure Investment and Jobs Act (BIL/IIJA, Nov 2021), and
+the Inflation Reduction Act (IRA, Aug 2022).
 
 ::: callout-note
 ## Key Findings
 
-1. **There is a large, unmistakable CE spike after ARRA — and it is almost entirely a Department of
+1. **There is a large CE spike after ARRA — and it is almost entirely a Department of
    Energy phenomenon.** DOE categorical exclusions jumped from `r fmt_n(yr(doe_year, 2008))` in 2008
    to `r fmt_n(yr(doe_year, 2009))` in 2009 and `r fmt_n(yr(doe_year, 2010))` in 2010, while the
    other major CE user, the Bureau of Land Management, stayed flat
@@ -123,7 +123,7 @@ the **Inflation Reduction Act (IRA**, Aug 2022).
    the ARRA window explicitly cite the Recovery Act in their documents — direct attribution, not a
    temporal coincidence.
 
-3. **The *type* of CE used shifted decisively toward the law's purpose.** Among DOE categorical
+3. **The type of CE used shifted toward the law's purpose.** Among DOE categorical
    exclusions in the ARRA window, category B5.1, "Actions to conserve energy or water," rose to
    `r pct1(b51_spike)` of all DOE CEs (from `r pct1(b51_base)` at baseline) — the energy-efficiency
    stimulus showing up directly in the categorical-exclusion mix.
@@ -142,13 +142,13 @@ the **Inflation Reduction Act (IRA**, Aug 2022).
 
 ## The question, in three parts
 
-The deliverable asks three distinct questions, each answered by a distinct analysis:
+The deliverable asks three questions, each answered by a separate analysis:
 
 | Question | Analysis |
 |---|---|
 | **Is there a spike** in CE use after each law? | CE counts by determination year, with legislative markers — overall, by review type, by department, and DOE-vs-BLM. |
 | **Are the actions associated** with the law? | Detection of explicit law citations in the CE document text. A citation can only post-date the law, so it is coverage-robust attribution evidence. |
-| **What *types* of CEs** were used? | The specific categorical-exclusion category invoked (e.g. DOE's B5.1), plus the technology mix of the projects, in the spike window vs a baseline. |
+| **What types of CEs** were used? | The specific categorical-exclusion category invoked (e.g. DOE's B5.1), plus the technology mix of the projects, in the spike window vs a baseline. |
 
 The pipeline runs in four stages:
 
@@ -198,7 +198,7 @@ Categorical exclusions rise sharply around ARRA and again, more modestly, in the
 include_fig("fig_d5_ce_counts_by_year_all.png")
 ```
 
-The spike is **specific to categorical exclusions**. Faceting the same series by review type shows that
+The spike is specific to categorical exclusions. Faceting the same series by review type shows that
 the more demanding Environmental Assessment and Environmental Impact Statement processes do not exhibit
 the post-ARRA jump — consistent with a surge of fast, low-burden actions rather than a general increase
 in NEPA activity.
@@ -211,12 +211,12 @@ include_fig("fig_d5_counts_by_year_byprocess.png")
 
 ## The spike is a DOE phenomenon
 
-The single most important result is that the post-ARRA CE surge belongs almost entirely to the
-**Department of Energy** — the agency that administered ARRA's energy grants, loan guarantees, and
+The post-ARRA CE surge belongs almost entirely to the
+Department of Energy, the agency that administered ARRA's energy grants, loan guarantees, and
 weatherization funds. DOE CEs went from `r fmt_n(yr(doe_year, 2008))` (2008) to
 `r fmt_n(yr(doe_year, 2009))` (2009) to a peak of `r fmt_n(doe_peak_n)` in `r doe_peak_year`. Over
-the same years the Bureau of Land Management — the only other agency that issues CEs at scale, and one
-drawing on the same dataset — barely moved (`r fmt_n(yr(blm_year, 2009))`, `r fmt_n(yr(blm_year, 2010))`,
+the same years the Bureau of Land Management, the only other agency that issues CEs at scale and one
+drawing on the same dataset, barely moved (`r fmt_n(yr(blm_year, 2009))`, `r fmt_n(yr(blm_year, 2010))`,
 `r fmt_n(yr(blm_year, 2011))` in 2009–2011). BLM's own growth comes later (2016 onward) and is unrelated
 to the legislation. Because both agencies are subject to the identical coverage ramp, this contrast is
 the cleanest available evidence that the spike is a policy effect, not a data artifact.
@@ -269,7 +269,7 @@ include_fig("fig_d5_counts_by_year_byprocess_byenergy.png")
 
 # Association With the Law
 
-A temporal coincidence is not attribution. The strongest test is whether the spiking documents *say* the
+A temporal coincidence is not attribution. The strongest test is whether the spiking documents state that the
 action stems from the law. We detect explicit citations to each statute in the document text (with
 context disambiguation for the ambiguous "IRA" and "BIL" acronyms).
 
@@ -279,17 +279,17 @@ context disambiguation for the ambiguous "IRA" and "BIL" acronyms).
 include_fig("fig_d5_citations_by_year_byprocess.png")
 ```
 
-For **ARRA the attribution is overwhelming**: `r pct1(arra_cite_ce)` of CEs issued in the ARRA window
+For ARRA the attribution is direct: `r pct1(arra_cite_ce)` of CEs issued in the ARRA window
 cite the Recovery Act by name, versus a negligible rate outside it. The Recovery Act citations themselves
 peak in 2010 and decay over the following years as stimulus obligations wound down — the citation curve
 tracks the disbursement curve.
 
-**BIL and IRA tell a more nuanced story.** Their citation rates rise after passage relative to baseline,
+**BIL and IRA follow a more muted pattern.** Their citation rates rise after passage relative to baseline,
 confirming a real association, but the absolute rate within CEs stays low — these laws are seldom named
 in a one-page categorical exclusion. They surface far more often in larger reviews: IRA is cited in
 `r pct1(ira_eis_win)` of post-IRA EISs (vs `r pct1(ira_eis_base)` before), and BIL in
-`r pct1(bil_eis_win)` of post-BIL EISs. In other words, the *citation* evidence for BIL/IRA lives in the
-EIS record, even though the *volume* signal (more DOE CEs) is real.
+`r pct1(bil_eis_win)` of post-BIL EISs. In other words, the citation evidence for BIL/IRA lives in the
+EIS record, even though the volume signal (more DOE CEs) is real.
 
 ```{r fig-citerate}
 #| label: fig-citerate
@@ -321,8 +321,8 @@ directly toward the stimulus's purpose.
 include_fig("fig_d5_ce_category_shift_arra.png")
 ```
 
-The standout is **B5.1, "Actions to conserve energy or water,"** which accounts for `r pct1(b51_spike)`
-of DOE categorical exclusions in the ARRA window versus only `r pct1(b51_base)` at baseline — a roughly
+The largest shift is in B5.1, "Actions to conserve energy or water," which accounts for `r pct1(b51_spike)`
+of DOE categorical exclusions in the ARRA window versus only `r pct1(b51_base)` at baseline, a roughly
 forty-fold concentration. Information-gathering and technical-assistance categories (A9, A11, A1) are
 also elevated, consistent with a wave of grant- and study-related actions. By contrast, the baseline
 period is dominated by routine-maintenance exclusions (B1.3), which recede during the stimulus. The

@@ -43,7 +43,7 @@ kept below for the record. Numbers below are all measured, not estimated.
 > **Most decarbonization FONSIs pair each flagged effect with a same-resource mitigation commitment.**
 > Of the flagged significant/less-than-significant determinations, **[X%]** are matched to at least one
 > committed mitigation condition that addresses the *same resource area* (any-overlap matching). This
-> pairing rests on condition→resource tags that are independently validated: on an 80-project gold set
+> pairing rests on condition→resource tags that are independently validated: on an 80-row gold set (71 distinct projects)
 > the tags score **0.89 any-overlap accuracy** and 0.76 precision, a large gain over the prior
 > keyword tags (0.46). *Caveat:* the determination-level match rule is deliberately inclusive
 > (any-overlap), so it over-attributes — at the determination grain its precision against D2's gold is
@@ -61,7 +61,7 @@ explicit any-overlap + model-gold framing.
 > **Resource-level mitigation attribution is directional.** Whether a specific finding is
 > *mitigation-dependent* — its no-significant-impact conclusion resting on a committed measure for the
 > *same* resource — is reported as a pattern, not a per-project determination. The condition→resource
-> tags underlying it were rebuilt and are now validated (80-project gold: 0.89 any-overlap, 0.76
+> tags underlying it were rebuilt and are now validated (80-row gold: 0.89 any-overlap, 0.76
 > precision, up from 0.46), so the *tags* can be trusted; the remaining limit is the matching rule,
 > which is inclusive by design and over-attributes at the determination level (precision ~0.41, ~0.53
 > under a stricter ≥2-condition rule). Until that rule is tightened and re-validated, treat the

@@ -91,28 +91,28 @@ This report delivers:
 
 ## Context
 
-When a decarbonization project — a solar farm, a transmission line — needs federal approval, the
-lead agency (here, BLM or the Department of Energy) studies its environmental impact and makes a
-judgment call: is the impact "significant" or not?
+When a decarbonization project such as a solar farm or a transmission line needs federal approval,
+the lead agency (here, BLM or the Department of Energy) studies its environmental impact and
+determines whether that impact is "significant."
 
-That one word decides a lot. If the agency finds the impact **not significant**, the project
-moves ahead on a faster track (a document called a *Finding of No Significant Impact*, or FONSI).
-If it finds the impact **significant**, that triggers a much longer, more demanding review.
+That one determination carries weight. If the agency finds the impact not significant, the project
+moves ahead on a faster track, documented in a Finding of No Significant Impact (FONSI). If it
+finds the impact significant, that triggers a longer and more demanding review.
 
-Often the agency lands in between: *"this impact would be significant — unless the
-developer commits to specific measures to reduce it."* That is a **mitigated finding**, and it is
-the most revealing case, because it shows the exact line the agency drew and what it required to
-stay on the safe side of it.
+Often the agency lands in between, concluding that an impact would be significant unless the
+developer commits to specific measures to reduce it. That is a mitigated finding, and it is the
+most revealing case, because it shows the exact line the agency drew and what it required to stay
+below it.
 
-So this deliverable answers: across these decarbonization projects, how do agencies decide what
+So this deliverable answers, across these decarbonization projects, how agencies decide what
 counts as "significant" in each environmental area (air, water, wildlife, cultural sites, and so
-on) — and what mitigation do they demand to avoid that label? Answering it means reading and
-coding a judgment call out of thousands of dense decision documents — far more than anyone
-could review by hand. The workflow below is how we do that reliably.
+on), and what mitigation they require to avoid that label. Answering it means coding a judgment
+call out of thousands of dense decision documents, more than could be reviewed by hand. The
+workflow below describes how we do that reliably.
 
 ## Workflow
 
-The approach pairs the **scale of automation** with the **reliability of human judgment**:
+The approach pairs the scale of automation with the reliability of human judgment:
 software and AI do the reading at a scale no person could, while analysts define the scope, hold
 the checkpoints, and grade the AI against their own answer key before any result counts.
 
@@ -150,16 +150,13 @@ the checkpoints, and grade the AI against their own answer key before any result
 
 ## What the FONSIs and EISs tell us
 
-A significance call can land on either side of the line, and **the two document types record
-opposite outcomes** — so we analyze them separately rather than pooling them:
-
-- **FONSIs are the *below-the-line* record.** The agency concluded the impact is not
-  significant. This is where the mitigated cases live — impacts that *would* have been
-  significant without committed measures. FONSIs tell us how agencies stay under the line, and
-  what they require to get there.
-- **EISs are the *above-the-line* record.** These are impacts the agency judged significant
-  (and, at the extreme, significant and *unavoidable*). They tell us which resources actually
-  cross the line.
+A significance call can land on either side of the line, and the two document types record
+opposite outcomes, so we analyze them separately rather than pool them. FONSIs are the
+below-the-line record: the agency concluded the impact is not significant, and this is where the
+mitigated cases live, the impacts that would have been significant without committed measures.
+FONSIs show how agencies stay under the line and what they require to get there. EISs are the
+above-the-line record: impacts the agency judged significant, and at the extreme, significant and
+unavoidable. They tell us which resources actually cross the line.
 
 The diagram below is the vocabulary the rest of this report uses — every determination lands in
 one of these outcomes, and "the line" is the significance threshold that separates them:
@@ -247,22 +244,22 @@ Three filters take the 452 down to the `r fmt_n(n_proj)` analyzed here, and @fig
 traces each step:
 
 1. **Agency scope (452 → 427).** The 25 FONSIs led by agencies other than BLM and the DOE family
-   are set aside as context (@fig-agency-scope) — only BLM + DOE have complete coverage in the
+   are set aside as context (@fig-agency-scope); only BLM + DOE have complete coverage in the
    dataset.
-2. **A dated, 2009-or-later decision (427 → 261) — the largest cut.** NEPA's ground rules changed
+2. **A dated, 2009-or-later decision (427 → 261), the largest cut.** NEPA's ground rules changed
    repeatedly over this period, most recently with the 2023 Fiscal Responsibility Act, and
-   comparing agency behavior across those regimes is one of this deliverable's core questions
-   — so every rate is read against the regulatory era the decision was made under. A FONSI with no
+   comparing agency behavior across those regimes is one of this deliverable's core questions,
+   so every rate is read against the regulatory era the decision was made under. A FONSI with no
    extractable decision date (105 projects) cannot be assigned an era, pre-2009 decisions (55)
    predate the consistently documented modern corpus, and 6 sit on a regime boundary.
 3. **Extraction coverage (261 → 193).** The upstream pipeline locates the finding sections in 224
-   of the 261 — the other 37 documents were parsed but phrase their finding in wording the
-   extraction does not recognize — and in 31 more, the flagged text turns out to contain no
+   of the 261 (the other 37 documents were parsed but phrase their finding in wording the
+   extraction does not recognize), and in 31 more, the flagged text turns out to contain no
    codable determination.
 
-The first two are scope choices; the third is a **coverage limitation, not a different finding**.
+The first two are scope choices; the third is a coverage limitation, not a different finding.
 The `r fmt_n(n_proj)` analyzed projects are representative of the corpus, but the rates below
-describe *those* projects, not all 452 (see *Methods*).
+describe those projects, not all 452 (see *Methods*).
 
 ```{r}
 #| label: fig-fonsi-funnel
@@ -272,33 +269,33 @@ include_fig("fig_fonsi_funnel.png")
 
 ::: {.callout-tip}
 ## Key takeaways (FONSI track)
-- **Most analyzed decarbonization FONSIs are *mitigated*.** About `r fmt_pct(mit_doc$share_mitigated_class_signal)`
+- **Most analyzed decarbonization FONSIs are mitigated.** About `r fmt_pct(mit_doc$share_mitigated_class_signal)`
   of the 258 analyzed FONSI decision documents — the BLM + DOE, dated, machine-extractable set
   traced in @fig-fonsi-funnel, not all 452 in the corpus — reach "no significant impact" only
-  because the developer commits to specific measures; the impact *would* have been significant
+  because the developer commits to specific measures; the impact would have been significant
   otherwise.
 - **A handful of resources carry the mitigation.** Biological resources, soils/geology, water, and
   cultural/historic sites are where projects most often sit at the line and are pulled under it —
   biological alone is mitigation-dependent in ~30% of its determinations.
 - **The below-the-line default is "no significant impact."** Across resource areas, outright
-  no-significant-impact is the most common outcome; genuinely *significant* findings live in the EIS
+  no-significant-impact is the most common outcome; genuinely significant findings live in the EIS
   record, not here.
 - **The numbers are validated.** The extraction agrees with an AI-human reviewed answer key at
   0.81 on the significance class (held-out test) before any figure in this report was produced.
 :::
 
-### How accurate is the extraction?
+### Extraction accuracy
 
 Every determination is machine-extracted, so before any number is reported the pipeline is scored
-against an **AI-human reviewed answer key**^[The answer key was built by two independent AI coding
+against an AI-human reviewed answer key^[The answer key was built by two independent AI coding
 agents (Claude and Codex), each labeling every passage in the sample on its own; a human analyst
 then audited the two sets — values the coders agreed on were accepted, and every disagreement
 (over half the rows, on at least one field) was adjudicated by hand. "AI-human reviewed" is
-shorthand for that process: AI-coded, human-audited.]. The sample is 400 windows — a "window"
-is one flagged passage the extraction reads — drawn **stratified**, meaning it deliberately covers
+shorthand for that process: AI-coded, human-audited.]. The sample is 400 windows (a "window"
+is one flagged passage the extraction reads), drawn stratified, meaning it deliberately covers
 every outcome type and the agency mix rather than being a simple random draw, plus negative
-passages to catch false positives. 30% of the windows were held out as an untouched test; the
-held-out column is the honest score.
+passages to catch false positives. 30% of the windows were held out as an untouched test, and the
+held-out column is the score we rely on.
 
 ```{r}
 #| label: tbl-validation
@@ -326,10 +323,10 @@ val |>
   tab_source_note("Scores are F1 (0–1), except the threshold row, which is accuracy. Held-out = the 30% of the gold set the pipeline never influenced.")
 ```
 
-In plain terms: the extraction **almost never misses a determination** and places it in the
+The extraction rarely misses a determination and places it in the
 right resource area ~89% of the time; it agrees with the answer key on the significance
-*class* at 0.81 — the standard bar for this kind of task. The one weaker signal is
-*mitigation-dependence*, discussed at the end of this section.
+class at 0.81, the standard bar for this kind of task. The one weaker signal is
+mitigation-dependence, discussed at the end of this section.
 
 ```{r}
 #| label: fig-validation
@@ -337,20 +334,20 @@ right resource area ~89% of the time; it agrees with the answer key on the signi
 include_fig("fig_validation_accuracy.png")
 ```
 
-Why the last two scores are lower — and why it doesn't undercut the findings. Both are
-*secondary attributes*, not the core call, and both are genuinely harder:
+Why the last two scores are lower, and why it doesn't undercut the findings: both are
+secondary attributes, not the core call, and both are genuinely harder.
 
-- *Mitigation-dependence (0.58–0.62) — a screening metric, not a reported number.* Deciding whether a
-  conclusion *depends* on committed mitigation is one of the hardest judgments in the whole task —
+- Mitigation-dependence (0.58–0.62) is a screening metric, not a reported number. Deciding whether a
+  conclusion depends on committed mitigation is one of the hardest judgments in the whole task:
   the two independent AI coders themselves agreed only ~68% of the time on the fine line between
-  "less than significant" and "less than significant *with mitigation*." This flag is used to
-  *screen* candidates; in this pass it was tightened (requiring a real same-resource overlap plus at
-  least two committed conditions), which lifted it to **F1 0.62 overall / 0.58 held-out**
+  "less than significant" and "less than significant with mitigation." This flag is used to
+  screen candidates; in this pass it was tightened (requiring a real same-resource overlap plus at
+  least two committed conditions), which lifted it to F1 0.62 overall / 0.58 held-out
   (precision 0.53 / 0.48) against the gold. The resource-level mitigation numbers below do not rest on
-  this screen — they come from the high-precision per-resource class signal and a separately
+  this screen; they come from the high-precision per-resource class signal and a separately
   validated condition→resource join (discussed at the end of this section).
-- *Regulatory threshold (0.66–0.71).* This is the most granular field — pinning a conclusion to a
-  *specific* rule (a NAAQS limit, an ESA take threshold, a §106 adverse-effect finding). Many
+- Regulatory threshold (0.66–0.71) is the most granular field, pinning a conclusion to a
+  specific rule (a NAAQS limit, an ESA take threshold, a §106 adverse-effect finding). Many
   conclusions are not anchored to a single numeric threshold at all, and the distinctions are fine.
   It is reported descriptively as supporting context, never as a headline number.
 
@@ -376,13 +373,13 @@ include_fig("fig_outcomes_by_resource.png")
 
 The dominant outcome is no significant impact, as expected for FONSIs. But the resources
 agencies analyze most — biological, water, cultural/historic, and public health — are also
-where the close calls concentrate: the magenta band (*committed mitigation*) is
+where the close calls concentrate: the magenta band (committed mitigation) is
 widest for biological, soils/geology, and water. That is what makes the mitigated cases the real
 story.
 
-### Regulatory thresholds behind the calls
+### Regulatory thresholds behind the determinations
 
-When a conclusion is anchored to a *specific* regulatory yardstick, which one? @fig-threshold-profile
+When a conclusion is anchored to a specific regulatory yardstick, which one? @fig-threshold-profile
 profiles the thresholds the FONSI conclusions cite — dominated by quantitative numeric limits
 (resource-specific caps and standards), wetland/floodplain extent, NHPA §106 adverse-effect findings for
 cultural resources, visual (VRM) classes, and the Endangered Species Act (take and
@@ -397,14 +394,14 @@ include_fig("fig_threshold_profile.png")
 
 ::: {.callout-note appearance="minimal"}
 Threshold identification is the extraction's weakest field (see the validation above), so treat
-this profile as an indicative picture of *which rules recur*, not an exact census.
+this profile as an indicative picture of which rules recur, not an exact census.
 :::
 
-### Mitigated FONSIs — the line itself
+### Mitigated FONSIs
 
-The most revealing determinations are the mitigated ones: impacts the agency says *would* be
+The most revealing determinations are the mitigated ones: impacts the agency says would be
 significant, brought below the line only by required measures. These show exactly where the line
-sits and what it costs to stay under it — and they are the *majority* of FONSIs (@fig-mitigated-share).
+sits and what it costs to stay under it, and they are the majority of FONSIs (@fig-mitigated-share).
 
 ```{r}
 #| label: fig-mitigated-share
@@ -423,14 +420,14 @@ top_str  <- paste0(top_mit$Resource, " (", percent(top_mit$share_mit_class, accu
 
 About `r fmt_pct(mit_rate)` of the analyzed FONSI documents are mitigated — at least one
 resource whose not-significant conclusion depends explicitly on committed mitigation. The
-denominator is **documents, not projects**: the analyzed set is 258 decision documents across 193
+denominator is documents, not projects: the analyzed set is 258 decision documents across 193
 projects (some projects file more than one FONSI), so the figure's counts (149 mitigated + 109
 not) sum to 258.
 
-The mitigation burden is concentrated in **`r top_str`** — the resources most often needing
+The mitigation burden is concentrated in `r top_str`, the resources most often needing
 committed measures to keep a project below the significance line. That pattern is the deliverable's
 core finding: biological, soils/geology, water, and cultural resources are where decarbonization
-projects most frequently sit *at* the line and are pulled under it by mitigation.
+projects most frequently sit at the line and are pulled under it by mitigation.
 
 ```{r}
 #| label: fig-mitigation-by-resource
@@ -439,7 +436,7 @@ include_fig("fig_mitigation_by_resource.png")
 ```
 
 Reading volume and mitigation-intensity together sharpens the picture. Resources in the upper
-right are both analyzed often *and* mitigated often — the areas that most shape whether a
+right are both analyzed often and mitigated often, the areas that most shape whether a
 decarbonization project can take the faster FONSI path.
 
 ```{r}
@@ -481,13 +478,13 @@ non-mitigated FONSIs.
 include_fig("fig_breadth_per_fonsi.png")
 ```
 
-### Pairing each effect with a same-resource commitment
+### Matching each effect to a same-resource commitment
 
-The mitigated-FONSI shares above read the model's per-resource *class* judgment — did this
-conclusion land in the *committed-mitigation* class? A second, independent line of evidence comes
-from the documents' own permit conditions: for each flagged effect we can look at the committed
-mitigation measures nearby — in the same section, or within a two-page window — and ask whether any
-of them addresses the **same resource area**. That is a direct join between an impact and a
+The mitigated-FONSI shares above read the model's per-resource class judgment: did this
+conclusion land in the committed-mitigation class? A second, independent line of evidence comes
+from the documents' own permit conditions. For each flagged effect we can look at the committed
+mitigation measures nearby (in the same section, or within a two-page window) and ask whether any
+of them addresses the same resource area. That is a direct join between an impact and a
 commitment, built on condition→resource tags that were rebuilt in July 2026 and are now
 independently validated (see the note below).
 
@@ -501,39 +498,39 @@ rmatch_top_str <- paste0(rmatch_top$Resource, " (", percent(rmatch_top$share_mat
                          ")", collapse = ", ")
 ```
 
-On that basis, **`r fmt_pct(mit_rmatch$share_matched)` of the flagged significant / less-than-significant
+On that basis, `r fmt_pct(mit_rmatch$share_matched)` of the flagged significant / less-than-significant
 FONSI determinations are matched to at least one committed mitigation condition that addresses the
-same resource area** — `r fmt_n(mit_rmatch$n_matched)` of `r fmt_n(mit_rmatch$n_determinations)`
-determinations, under any-overlap matching. Read this as an aggregate map of *which resources
-recurringly attract same-resource mitigation*, not as a per-project ruling that each finding is
-legally mitigation-dependent: the match rule is deliberately inclusive (any-overlap), so it
+same resource area: `r fmt_n(mit_rmatch$n_matched)` of `r fmt_n(mit_rmatch$n_determinations)`
+determinations, under any-overlap matching. Read this as an aggregate map of which resources
+recurringly attract same-resource mitigation, not as a per-project ruling that each finding is
+legally mitigation-dependent; the match rule is deliberately inclusive (any-overlap), so it
 over-attributes at the individual-determination grain.
 
 ::: {.callout-note appearance="minimal"}
 **How the pairing is validated.** The condition→resource tags this rests on were checked against an
-80-project gold set hand-labeled by an independent model agent, with an informal blind spot-check
+80-row gold set (71 distinct projects) hand-labeled by an independent model agent, with an informal blind spot-check
 by a second reviewer that found no disagreements (not a persisted comparison artifact). Tag-level
-agreement is **F1 0.83**, and **any-overlap
-accuracy 0.89** — a large gain over the prior keyword tags (0.46). The one known bias in the gold
-runs in a single direction — inclusive multi-labeling — which slightly *inflates* measured match
-rates, so read the aggregate share as a mild over-count rather than a floor. One taxonomy boundary
-matters for the per-resource splits only: "sociocultural systems" commitments map to **socioeconomic**,
-not *cultural*, under the taxonomy's narrow (historic / §106) definition of cultural resources — a
-documented, ratified reading that shifts the resource breakdown below but never the aggregate share.
+agreement is F1 0.83 and any-overlap accuracy 0.89, a large gain over the prior keyword tags (0.46).
+The one known bias in the gold runs in a single direction, inclusive multi-labeling, which slightly
+inflates measured match rates, so read the aggregate share as a mild over-count rather than a floor.
+One taxonomy boundary matters for the per-resource splits only: "sociocultural systems" commitments
+map to socioeconomic, not cultural, under the taxonomy's narrow (historic / §106) definition of
+cultural resources — a documented, ratified reading that shifts the resource breakdown below but
+never the aggregate share.
 :::
 
-Broken out by resource, the pairing concentrates in the same areas as the class signal —
-**`r rmatch_top_str`** lead. Treat these per-resource splits as **directional only**: exact
+Broken out by resource, the pairing concentrates in the same areas as the class signal, with
+`r rmatch_top_str` leading. Treat these per-resource splits as directional only: exact
 per-resource attribution is weaker than the aggregate (condition-tag precision ≈0.76), so trust the
 ranking while reading any single resource's percentage as approximate, not a census.
 
-The stricter question — whether an *individual* conclusion legally *depends* on committed mitigation
-— is answered by a separate labeled **screening** metric, not by a reported share. It was tightened
-in this pass (a real same-resource overlap **and** at least two committed conditions) and now scores
-**F1 0.62 overall / 0.58 held-out** (precision 0.53 / 0.48) against the gold, up from 0.57 overall.
+The stricter question, whether an individual conclusion legally depends on committed mitigation,
+is answered by a separate labeled screening metric, not by a reported share. It was tightened
+in this pass (a real same-resource overlap and at least two committed conditions) and now scores
+F1 0.62 overall / 0.58 held-out (precision 0.53 / 0.48) against the gold, up from 0.57 overall.
 It screens candidates; it is never a headline number.
 
-### Does it differ by agency?
+### Variation by agency
 
 The two departments run different kinds of projects — BLM tends toward land-based sites, the DOE
 family toward energy facilities and transmission — so the resources that push them to mitigate
@@ -547,10 +544,10 @@ include_fig("fig_dept_by_resource.png")
 ```
 
 The pattern is intuitive: biological, cultural/historic, air quality, and visual resources
-drive mitigation harder for **BLM** (land-facing impacts on habitat, historic sites, and
-viewsheds), while noise and water lean toward the **DOE family** (facility- and
+drive mitigation harder for BLM (land-facing impacts on habitat, historic sites, and
+viewsheds), while noise and water lean toward the DOE family (facility- and
 construction-driven effects). Within DOE, the picture varies further by sub-agency
-(@fig-subagency-by-resource) — though the smaller sub-agency cells are noisy and should be read for
+(@fig-subagency-by-resource), though the smaller sub-agency cells are noisy and should be read for
 pattern, not precision.
 
 ```{r}
@@ -571,14 +568,14 @@ mitigation to stay below the line (@fig-fonsi-technology).
 include_fig("fig_fonsi_technology.png")
 ```
 
-**Transmission and wind lean hardest on mitigation** — linear corridors and turbine sites touch
+**Transmission and wind lean hardest on mitigation.** Linear corridors and turbine sites touch
 habitat, viewsheds, and cultural resources that repeatedly need committed measures to reach a
 not-significant finding. Solar and storage sit lower, closer to the corpus average.
 
-### Is the committed mitigation enforceable?
+### Enforceability of committed mitigation
 
 "Mitigated" only means something if the measures are actually required. The extraction flags whether
-each mitigated conclusion is tied to an **enforceable permit condition** or is committed only in the
+each mitigated conclusion is tied to an enforceable permit condition or is committed only in the
 document's text. @fig-fonsi-enforceability shows the split by resource.
 
 ```{r}
@@ -596,7 +593,7 @@ weight the "mitigated FONSI" label should bear for those areas.
 
 ## EIS analysis {#sec-eis}
 
-The FONSI track shows how agencies stay below the significance line. The EIS track is its mirror —
+The FONSI track shows how agencies stay below the significance line. The EIS track is its mirror,
 the above-the-line record of where impacts actually cross it. It runs the identical
 extraction-and-validation machinery on the EIS corpus (same controlled vocabulary, per-resource
 grain, and AI-human reviewed held-out test) and adds three EIS-only fields the FONSI side doesn't need:
@@ -616,10 +613,10 @@ efun <- function(k) { v <- eis_funnel$n[eis_funnel$metric == k]; if (length(v)) 
 ```
 
 The decarbonization EIS corpus is the larger of the two — 753 projects. Not all carry usable
-findings: significance sections were retrieved for **`r fmt_n(efun("projects_with_sections"))`**, of
-which **`r fmt_n(efun("projects_analyzed"))`** yielded at least one determination (@fig-eis-funnel).
-Unlike the FONSI track, the EIS analysis covers **all agencies**, not just BLM + DOE: it is purely
-descriptive — which resources cross the line — and never uses a project's decision date, so projects
+findings: significance sections were retrieved for `r fmt_n(efun("projects_with_sections"))`, of
+which `r fmt_n(efun("projects_analyzed"))` yielded at least one determination (@fig-eis-funnel).
+Unlike the FONSI track, the EIS analysis covers all agencies, not just BLM + DOE: it is purely
+descriptive (which resources cross the line) and never uses a project's decision date, so projects
 without a firm date are kept rather than dropped. On that basis it rests on
 `r fmt_n(eis_n_proj)` projects (`r fmt_n(eis_n_docs)` documents) carrying `r fmt_n(eis_n_det)`
 distinct significance determinations — of which `r fmt_n(eis_n_sig)` land above the line, including
@@ -634,18 +631,18 @@ include_fig("fig_eis_funnel.png")
 ::: {.callout-tip}
 ## Key takeaways (EIS track)
 - **Visual impacts cross the line most.** Viewshed conclusions are judged significant more often than
-  any other resource (~33% of visual determinations), and they most often reach *significant and
-  unavoidable* — a changed landscape usually cannot be mitigated back.
+  any other resource (~33% of visual determinations), and they most often reach significant and
+  unavoidable; a changed landscape usually cannot be mitigated back.
 - **Resources split into two shapes.** Some are managed below the line (soils/geology, water, and
   public health are routinely mitigated to "not significant" and rarely cross); others cross over
   (visual, land use, and air quality break through more often than they are mitigated below it).
 - Magnitude, protected resources, and cumulative effects are the dominant reasons a call is
-  significant — and roughly a third of significant findings rest on cumulative pathways, not the
+  significant, and roughly a third of significant findings rest on cumulative pathways, not the
   project's direct footprint alone (impact-pathway rows are tallied per sub-finding and are not
   mutually exclusive, so they sum to more than the 2,198 class-level determinations).
 :::
 
-### How accurate is the EIS extraction?
+### EIS extraction accuracy
 
 The EIS pipeline was graded exactly as the FONSI one: two reviewers coded a stratified
 400-window sample, a third adjudicated, and 30% was held out as an untouched test. The scores
@@ -683,21 +680,21 @@ eis_val |>
 include_fig("fig_validation_accuracy_eis.png")
 ```
 
-The pipeline still **finds the determination reliably** (0.84) and places it in the right resource
-about two-thirds of the time; the significance *class* lands at 0.69. That last number is
-below the FONSI bar for a real reason: separating "significant" from "significant *and
-unavoidable*" is a fine distinction the AI coders split on too. We therefore lead with the
-robust cut — *which resources cross the line* — and treat the adverse-vs-unavoidable split as
+The pipeline still finds the determination reliably (0.84) and places it in the right resource
+about two-thirds of the time; the significance class lands at 0.69. That last number is
+below the FONSI bar for a real reason: separating "significant" from "significant and
+unavoidable" is a fine distinction the AI coders split on too. We therefore lead with the
+more reliable cut, which resources cross the line, and treat the adverse-versus-unavoidable split as
 directional.
 
 ### Which resources cross the line
 
-Within EISs, the interesting determinations are the ones that break **above** the line. Those come in
+Within EISs, the interesting determinations are the ones that break above the line. Those come in
 two degrees of severity:
 
-- **Significant adverse** — the impact is significant, but the agency does not declare it beyond
-  repair; committed measures may still reduce it.
-- **Significant unavoidable** — the impact is significant *and* cannot be brought below the line even
+- Significant adverse: the impact is significant, but the agency does not declare it beyond
+  repair, and committed measures may still reduce it.
+- Significant unavoidable: the impact is significant and cannot be brought below the line even
   with mitigation. This is the more severe call, and the one that most constrains a project.
 
 @fig-eis-above-line ranks each resource by how often its EIS conclusions are judged significant,
@@ -717,15 +714,15 @@ eis_top <- eis_res |> filter(!n_suppressed) |> arrange(desc(share_sig)) |> slice
 ```
 
 `r eis_top$lab[1]`, `r eis_top$lab[2]`, `r eis_top$lab[3]`, and `r eis_top$lab[4]` are the resources
-most likely to cross into significance. **Visual stands alone at the top** — the clearest case of an
+most likely to cross into significance. **Visual stands alone at the top,** the clearest case of an
 impact that, once significant, tends to stay that way.
 
-### The wall: significant *and* unavoidable
+### Significant and unavoidable impacts
 
-The starkest determinations are the significant and unavoidable ones — where the agency concludes
+The starkest determinations are the significant and unavoidable ones, where the agency concludes
 the impact is real, material, and cannot be mitigated below the line. These are the true limits
-on a decarbonization project. @fig-eis-unavoidable counts them by resource — each bar is the number
-of distinct *significant-and-unavoidable* determinations (one per document × resource) for that
+on a decarbonization project. @fig-eis-unavoidable counts them by resource: each bar is the number
+of distinct significant-and-unavoidable determinations (one per document × resource) for that
 resource, across the analyzed EIS projects.
 
 ```{r}
@@ -734,9 +731,9 @@ resource, across the analyzed EIS projects.
 include_fig("fig_eis_unavoidable.png")
 ```
 
-**Visual impacts dominate the wall.** A wind farm on a ridgeline or a transmission corridor across
-open country changes a landscape in ways no mitigation fully undoes — so viewshed conclusions reach
-*unavoidable* more than any other resource. Biological, cultural, and air-quality impacts follow,
+**Visual impacts dominate the significant-and-unavoidable findings.** A wind farm on a ridgeline or a transmission corridor across
+open country changes a landscape in ways no mitigation fully undoes, so viewshed conclusions reach
+unavoidable more than any other resource. Biological, cultural, and air-quality impacts follow,
 where habitat loss, historic-setting change, or a regional pollutant burden can exceed what on-site
 measures can offset. @tbl-eis-unavoidable-ex shows what these look like in the agencies' own words.
 
@@ -758,10 +755,10 @@ if (nrow(eis_unav_ex) > 0) {
 }
 ```
 
-### How broadly does an EIS cross the line?
+### Breadth of significance within an EIS
 
 The resource views above pool all EISs together. Stepping back to the document level asks a
-different question: when an EIS *does* cross the line, does it do so on one resource or many?
+different question: when an EIS does cross the line, does it do so on one resource or many?
 @fig-eis-breadth answers it.
 
 ```{r}
@@ -776,7 +773,7 @@ more resources, and a few span nearly the entire environmental slate. (This coun
 determinations; documents whose significant conclusion is stated project-wide, or not captured by the
 retrieval, sit outside it — see *Methods*.)
 
-### FONSI vs EIS: two ways a resource can be a problem
+### FONSI versus EIS: two ways a resource crosses the line
 
 Analyzing the two tracks separately pays off in one picture (@fig-fonsi-vs-eis), which plots each
 resource by how often it is mitigated below the line (FONSIs, x-axis) against how often it crosses
@@ -790,23 +787,21 @@ the two are measured on the same footing — FONSI coverage is only partial outs
 include_fig("fig_fonsi_vs_eis.png")
 ```
 
-The split is the deliverable's sharpest structural finding:
-
-- **More likely to be significant** (magenta) — visual, land use, air quality — break above the line
-  more often than they are mitigated below it. When these become a problem, agencies more often
-  accept a significant finding than engineer their way under it; visual is the extreme (within
-  BLM + DOE it crosses ~38% of the time and is mitigated only ~11%).
-- **More likely to be mitigated** (blue) — soils/geology, water, public health — show the opposite:
-  frequently mitigated in FONSIs, rarely crossing into significance. These are the impacts the
-  toolbox of committed measures reliably handles.
-- **Cultural / historic sits right on the line** — it crosses into significance about as often as it
-  is mitigated below it (~23% vs ~21%), the one resource that genuinely straddles both sides.
+The split is the deliverable's sharpest structural finding. Three shapes emerge. The magenta
+resources (visual, land use, and air quality) break above the line more often than they are
+mitigated below it; when these become a problem, agencies more often accept a significant finding
+than engineer their way under it, and visual is the extreme (within BLM + DOE it crosses ~38% of
+the time and is mitigated only ~11%). The blue resources (soils/geology, water, and public health)
+show the opposite, frequently mitigated in FONSIs and rarely crossing into significance, the
+impacts that committed measures reliably handle. Cultural / historic sits right on the
+line, crossing into significance about as often as it is mitigated below it (~23% vs ~21%), the one
+resource that genuinely straddles both sides.
 
 ### What makes an impact significant
 
 For every above-the-line determination the extraction also records why it is significant.
-@fig-eis-factors gives the dominant factors overall; @fig-eis-heatmap is the fuller picture — *where
-each factor bites*, i.e. the resources each reason concentrates in.
+@fig-eis-factors gives the dominant factors overall; @fig-eis-heatmap is the fuller picture: where
+each factor bites, i.e. the resources each reason concentrates in.
 
 ```{r}
 #| label: fig-eis-factors
@@ -858,11 +853,11 @@ if (nrow(eis_fac_ex) > 0) {
 ::: {.callout-note appearance="minimal"}
 **Findings attach mostly to the proposed action.** About half of significant determinations name a
 specific alternative; where they do, the proposed action dominates, with named build and
-no-action alternatives carrying the rest. Significance is overwhelmingly a judgment about *what the
-applicant proposed*, not about the alternatives weighed against it.
+no-action alternatives carrying the rest. Significance is overwhelmingly a judgment about what the
+applicant proposed, not about the alternatives weighed against it.
 :::
 
-### Does it differ by agency?
+### Variation by agency
 
 Because the EIS track spans every lead agency (not just BLM + DOE), we can ask whether some agencies
 cross the line more than others. They do — and the pattern tracks the kind of project each agency
@@ -892,8 +887,8 @@ family remain the only agencies with complete coverage; the others are shown for
 
 The most decision-relevant cut for a decarbonization portfolio is the technology. Classifying each
 project by its primary technology (from the dataset's project-type field), @fig-eis-technology ranks
-how often each crosses the line, and @fig-eis-technology-resource shows *where* — each technology's
-distinct "significance signature."
+how often each crosses the line, and @fig-eis-technology-resource shows where each technology's
+distinct "significance signature" lies.
 
 ```{r}
 #| label: fig-eis-technology
@@ -908,11 +903,11 @@ et_top <- et |> slice_head(n = 1)
 nuc <- et |> filter(tech == "Nuclear")
 ```
 
-**Hydropower crosses the line most** (`r percent(et_top$share, accuracy=1)`) — dams carry
-aquatic and water impacts that are hard to avoid — followed by transmission and solar (~19% and ~18%).
+**Hydropower crosses the line most** (`r percent(et_top$share, accuracy=1)`), as dams carry
+aquatic and water impacts that are hard to avoid, followed by transmission and solar (~19% and ~18%).
 **Nuclear crosses least among the large technologies** (`r percent(nuc$share, accuracy=1)`), consistent
-with siting on already-industrial land under highly prescribed review. But the *rate* is only half the
-story; the resources each technology hits are distinct:
+with siting on already-industrial land under highly prescribed review. But the rate is only part of the
+picture; the resources each technology hits are distinct:
 
 ```{r}
 #| label: fig-eis-technology-resource
@@ -920,17 +915,18 @@ story; the resources each technology hits are distinct:
 include_fig("fig_eis_technology_resource.png")
 ```
 
-The signatures are intuitive and actionable: **wind** is defined by biological impacts (avian and
-bat collision) plus noise; **solar** by visual, cultural, and air-quality (desert dust);
-**transmission** spreads its crossings across biological, visual, and cultural along its corridor;
-and **hydro and nuclear** concentrate on biological and water. For siting decisions, this says the
-environmental fight is largely predictable from the technology: propose utility-scale solar and expect
-viewshed and cultural-resource conflicts; propose wind and expect the fight to be about wildlife.
+The signatures are both interpretable and useful for siting: wind is defined by biological impacts (avian and
+bat collision) plus noise; solar by visual, cultural, and air-quality effects (desert dust);
+transmission spreads its crossings across biological, visual, and cultural resources along its corridor;
+and hydro and nuclear concentrate on biological and water. For siting decisions, this means the
+environmental conflict is largely predictable from the technology: a utility-scale solar project can
+expect viewshed and cultural-resource objections, while a wind project can expect the central dispute
+to concern wildlife.
 
-### Significant, but reducible
+### Significant but reducible impacts
 
 Not every above-the-line finding is a hard stop. One of the significance factors the extraction
-records is **mitigable** — the impact crosses the line, but the agency notes that measures can still
+records is mitigable: the impact crosses the line, but the agency notes that measures can still
 lessen it. This is the EIS analog of a mitigated FONSI, and @fig-eis-mitigable shows where it occurs.
 
 ```{r}
@@ -956,8 +952,8 @@ if (nrow(eis_mit_ex) > 0) {
 }
 ```
 
-Tellingly, visual leads this list too: even the resource most likely to hit the wall sometimes
-admits partial mitigation (screening, siting adjustments), just not enough to drop below the line.
+Tellingly, visual leads this list too: even the resource most likely to reach a significant-and-unavoidable
+finding sometimes admits partial mitigation (screening, siting adjustments), just not enough to drop below the line.
 These cases are the closest the EIS record comes to the mitigated-FONSI story — significant enough to
 require a full statement, but not beyond the reach of committed measures.
 
@@ -965,7 +961,7 @@ require a full statement, but not beyond the reach of committed measures.
 
 Every number and figure in this report is regenerated by committed code, run from the repository
 root in the `nepa` conda environment. The two significance-extraction passes (FONSI and EIS) are
-**billable LLM prerequisites** — run once, then the deterministic analysis reads their outputs.
+billable LLM prerequisites: run once, then the deterministic analysis reads their outputs.
 
 ``` bash
 # 0. framework regime + corpus + cohorts (deterministic)

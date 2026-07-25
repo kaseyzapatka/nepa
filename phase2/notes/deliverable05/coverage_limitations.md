@@ -61,8 +61,8 @@ cannot be cleanly separated by date alone. Where an action needs to be attribute
 the other, the citation evidence does the work that the calendar cannot. Both laws show a real but far
 more muted pattern than ARRA: DOE CE activity rose to 1.60× its pre-law monthly baseline after BIL, but
 explicit CE citations to BIL and IRA are rare because these laws are seldom named in a one-page
-categorical exclusion. They surface far more often in larger reviews — IRA is cited in 18.9% of post-IRA
-EISs (versus 8.7% before) and BIL in 17.5% of post-BIL EISs — so the citation evidence for BIL and IRA
+categorical exclusion. They surface far more often in larger reviews — IRA is cited in 18.8% of post-IRA
+EISs (versus 9.1% before) and BIL in 17.2% of post-BIL EISs — so the citation evidence for BIL and IRA
 lives in the EIS record even though the volume signal lives in the DOE CEs.
 
 Two data-scope notes on the underlying tables. `law_citations.parquet` also carries a fourth

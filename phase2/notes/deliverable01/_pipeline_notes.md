@@ -6,7 +6,7 @@ Developer working notes for building and debugging the trigger classification pi
 
 ## Model selection rationale
 
-### Tier 4: `cross-encoder/nli-MiniLM2-L6-H768`
+### Tier 4: `cross-encoder/nli-deberta-v3-base`
 
 Tier 4 uses a cross-encoder NLI model instead of a fine-tuned BERT classifier because **Tier 4 is a data scarcity problem, not a label quality problem**.
 
@@ -21,8 +21,8 @@ Output: entailment=0.87 → class score for federal_funding
 
 The example bank (`_example_bank.md`) is used to **calibrate hypothesis wording** (not to train the model). Run each positive example through the model; the correct class hypothesis should score ≥ 0.75.
 
-**Why MiniLM2-L6-H768 specifically:**
-- ~67M parameters — fast enough for thousands of chunks on CPU
+**Why nli-deberta-v3-base specifically:**
+- ~184M parameters — higher precision on subtle entailment cues than the earlier MiniLM2-L6-H768 candidate
 - 3-class output: contradiction / neutral / entailment (we use entailment score)
 - `facebook/bart-large-mnli` (~400M params) is available as fallback if precision is insufficient
 
