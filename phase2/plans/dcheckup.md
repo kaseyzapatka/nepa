@@ -58,23 +58,33 @@ retitle convention (factsheet pipeline) — not orphans, keep.
   untracked `_finalize_duration.py`, comment-only `08_*.R` updates: functional pipeline
   code currently only on disk. Repair mode was already run (parquet Jul 24 15:06; backup
   `timeline_project_dates.pre_finalize_20260724T220619Z.parquet` kept).
-- [ ] **D5 regeneration** — sequence after the D4 commit (see above).
-- [ ] **D1 confirm-no-rebuild** — `01_extract_nepa_trigger.py` got a 7-line rule change in
-  efe8be3 (Jul 23, publish-review remediation) *after* `projects_nepa_trigger.parquet` was
-  built (Jul 20). Likely intentional code-to-shipped-state reconciliation, but no note says
-  "no rebuild needed." Confirm; if a behavior change was intended, re-run 01 → 02 → 04 →
-  render.
-- [ ] **D3 re-render** — `docs/phase2/reports/deliverable03.html` (Jul 23 18:07) predates
-  the Jul 24 qmd edit (removes one unused variable). Re-render before next publish.
-- [ ] **Timeline dir hygiene** — backup/temp files accumulating in
-  `phase2/data/analysis/timeline/` (`*.prefilter_bak`, `*.scrubbed.tmp`, `pre_adj`,
-  `pre_gt_inject`, `pre_finalize` backups). Candidates for a data-cleanup pass.
-- [ ] **D3 rds size** — `fig19_visual_section_length.rds` (83MB) and
-  `fig19a_section_length_energy.rds` (84MB) embed full data; discuss before public-repo
-  push.
-- [ ] **D6 cosmetic** — script-number collisions (two `01_`, two `05_` scripts); committed
-  `01_build_fonsi_inventory.py` / `05_build_fonsi_packets.py` postdate their Jul 1 output
-  parquets (outputs built by pre-checkin versions; predates figures, no freshness issue).
-- [ ] **D3 output CSVs from May** — Python-side outputs (`visual_topic_terms_detail.csv`
-  — read by the qmd — `nmf_elbow_data.csv`, `visual_qa_sample.csv`) date to May 15–19;
-  confirm currency during a full D3 pass.
+- [x] **D5 regeneration** *(DONE 2026-07-24)* — guard passed after fresh citation scan
+  (8,741 law rows; 74,035 category rows). Deltas trivial: spike-window counts moved by
+  1–5 projects from the timeline reshuffle (e.g. IRA-in-EIS 18.9% → 18.8%); all headline
+  findings (DOE spike, 1.60× BIL, B5.1 surge) unchanged. Report re-rendered.
+- [x] **D1 confirm-no-rebuild** *(RESOLVED 2026-07-24: zero blast radius, no rebuild)* —
+  the efe8be3 rule edits were dead-code cleanup: the underlying patterns were deleted
+  Apr 23 (`license_amendment`, ef481f8) and Apr 24 (`rmp`, 61d0a1d), months before the
+  Jul 20 parquet build. Shipped parquet has 0 rows on either rule id; a re-run would be
+  byte-identical for this diff. (`trigger_language_bank.csv` added in same commit is not
+  a pipeline input.)
+- [x] **D3 re-render** *(DONE 2026-07-24)* — re-rendered with system quarto; visible-text
+  diff is date-stamp only; all 25 figures embedded.
+- [x] **Timeline dir hygiene** *(DONE 2026-07-24)* — verified write-only (code creates
+  them as pre-repair snapshots, nothing reads them); deleted all six (~55MB). The two
+  Jul 23 tier-C backup *dirs* (`_pre_tierc_backup_20260723`, `_tierc_state_20260723`)
+  were left — same character, deletable on user say-so.
+- [x] **D3 rds size** *(RESOLVED 2026-07-24: non-issue for the repo)* — `*.rds` is
+  globally gitignored (`.gitignore:45`), zero tracked; the 79–80MB fig19/fig19a sidecars
+  (ggplot objects embedding the full per-section dataset) are disk-only and regenerate on
+  every figure run. Optional local-disk fix: aggregate before plotting in those two figs.
+- [x] **D6 cosmetic** *(CLOSED 2026-07-24, won't-fix)* — numbering collisions left as-is
+  (pipeline complete + re-run; renaming would break runbook/doc references for no
+  functional gain). Provenance note: `01_build_fonsi_inventory.py` /
+  `05_build_fonsi_packets.py` were committed Jul 23 as whole-file check-ins of code
+  already running since ~Jul 1; outputs built by pre-checkin versions, downstream verified
+  consistent, re-verify only if D6 is touched again.
+- [x] **D3 output CSVs from May** *(VERIFIED CURRENT 2026-07-24)* — generating scripts
+  (`01_identify_visual_impact_candidates.py`, `03_inventory_visual_sections.py`) are
+  unchanged since May (git diff to HEAD empty); the CSVs were written May 19 14:22,
+  *after* the final commit (May 19 10:48). Current by construction; no re-run needed.

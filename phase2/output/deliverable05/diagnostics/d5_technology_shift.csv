@@ -55,64 +55,64 @@ Vegetation and Fuels Management,129,1.8415417558886509,ARRA,7005
 Waste Management,3974,56.73090649536046,ARRA,7005
 Water Resources - Irrigation and Water Supply,157,2.2412562455389007,ARRA,7005
 Water Resources - Other,1014,14.475374732334046,ARRA,7005
-Agriculture,529,4.952719782791873,BIL,10681
-Artificial Intelligence and Machine Learning,136,1.2732890178822207,BIL,10681
-Aviation - Airports and Air Traffic,141,1.3201011141278907,BIL,10681
-Aviation - Commercial Space,17,0.1591611272352776,BIL,10681
-Broadband,424,3.9696657616328057,BIL,10681
-Carbon Capture and Sequestration,436,4.082014792622414,BIL,10681
-Conventional Energy Production - Coal,90,0.8426177324220578,BIL,10681
-Conventional Energy Production - Land-based Oil & Gas,1451,13.5848703304934,BIL,10681
-Conventional Energy Production - Nuclear,95,0.8894298286677278,BIL,10681
-Conventional Energy Production - Offshore Oil and Gas,5,0.04681209624566988,BIL,10681
-Conventional Energy Production - Other,138,1.2920138563804888,BIL,10681
-Conventional Energy Production - Rural Energy,32,0.29959741597228723,BIL,10681
-Cybersecurity,109,1.0205036981556035,BIL,10681
-Data Storage and Data Management,164,1.535436756857972,BIL,10681
-Ecosystem Management and Restoration,1391,13.023125175545362,BIL,10681
-Electricity Transmission,1510,14.137253066192304,BIL,10681
-Emergency and Disaster Response,107,1.0017788596573354,BIL,10681
-Habitat Conservation Plan,135,1.2639265986330868,BIL,10681
-High Performance Computing and Advanced Computer Hardware and Software,144,1.3481883718752925,BIL,10681
-Land Development - Housing,188,1.7601348188371875,BIL,10681
-Land Development - Other,1910,17.882220765845894,BIL,10681
-Land Development - Urban,193,1.8069469150828574,BIL,10681
-Land Use or Forest Management Plan,675,6.319632993165434,BIL,10681
-"Laws, Policies, Regulations, and Guidance",591,5.53318977623818,BIL,10681
-Manufacturing,1200,11.234903098960771,BIL,10681
-Military and Defense,210,1.966108042318135,BIL,10681
-Mining - Marine Minerals,2,0.018724838498267952,BIL,10681
-Mining - Metals,97,0.9081546671659957,BIL,10681
-Mining - Non-Metallic Minerals,217,2.031644977062073,BIL,10681
-Nuclear Technology,1215,11.375339387697782,BIL,10681
-Other,3,0.02808725774740193,BIL,10681
-Pipelines,1034,9.680741503604532,BIL,10681
-Ports and Waterways,29,0.27151015822488533,BIL,10681
-Public and Recreational Land Use,984,9.212620541147833,BIL,10681
-Quantum Information Science and Technology,9,0.08426177324220578,BIL,10681
-Rangeland Management,583,5.458290422245108,BIL,10681
-Renewable Energy Production - Biomass,218,2.041007396311207,BIL,10681
-Renewable Energy Production - Energy Storage,525,4.915270105795337,BIL,10681
-Renewable Energy Production - Geothermal,111,1.0392285366538714,BIL,10681
-Renewable Energy Production - Hydrokinetic,67,0.6272820896919764,BIL,10681
-Renewable Energy Production - Hydropower,30,0.2808725774740193,BIL,10681
-Renewable Energy Production - Other,184,1.7226851418406517,BIL,10681
-Renewable Energy Production - Solar,554,5.186780264020223,BIL,10681
-"Renewable Energy Production - Wind, Offshore",55,0.5149330587023687,BIL,10681
-"Renewable Energy Production - Wind, Onshore",76,0.7115438629341821,BIL,10681
-Research and Development,3383,31.67306431982024,BIL,10681
-Routine Maintenance,466,4.362887370096433,BIL,10681
-Semiconductors,40,0.374496769965359,BIL,10681
-Surface Transportation - Bridges,42,0.393221608463627,BIL,10681
-Surface Transportation - Other,1191,11.150641325718565,BIL,10681
-Surface Transportation - Public Transportation,67,0.6272820896919764,BIL,10681
-Surface Transportation - Railroads,41,0.383859189214493,BIL,10681
-Threatened and Endangered Species Management,539,5.0463439752832135,BIL,10681
-"Utilities (electricity, gas, telecommunications)",2850,26.682894860031833,BIL,10681
-Vegetation and Fuels Management,699,6.544331055144649,BIL,10681
-Waste Management,4197,39.2940735886153,BIL,10681
-Water Resources - Irrigation and Water Supply,422,3.950940923134538,BIL,10681
-Water Resources - Other,1629,15.251380956839247,BIL,10681
+Agriculture,529,4.952256131810523,BIL,10682
+Artificial Intelligence and Machine Learning,136,1.27316981838607,BIL,10682
+Aviation - Airports and Air Traffic,141,1.3199775322973226,BIL,10682
+Aviation - Commercial Space,17,0.15914622729825875,BIL,10682
+Broadband,424,3.9692941396742185,BIL,10682
+Carbon Capture and Sequestration,436,4.081632653061225,BIL,10682
+Conventional Energy Production - Coal,90,0.8425388504025464,BIL,10682
+Conventional Energy Production - Land-based Oil & Gas,1452,13.592960119827747,BIL,10682
+Conventional Energy Production - Nuclear,95,0.8893465643137989,BIL,10682
+Conventional Energy Production - Offshore Oil and Gas,5,0.046807713911252574,BIL,10682
+Conventional Energy Production - Other,138,1.291892903950571,BIL,10682
+Conventional Energy Production - Rural Energy,32,0.2995693690320165,BIL,10682
+Cybersecurity,109,1.0204081632653061,BIL,10682
+Data Storage and Data Management,164,1.5352930162890845,BIL,10682
+Ecosystem Management and Restoration,1391,13.021906010110467,BIL,10682
+Electricity Transmission,1510,14.135929601198278,BIL,10682
+Emergency and Disaster Response,107,1.001685077700805,BIL,10682
+Habitat Conservation Plan,135,1.2638082756038196,BIL,10682
+High Performance Computing and Advanced Computer Hardware and Software,144,1.3480621606440741,BIL,10682
+Land Development - Housing,188,1.759970043063097,BIL,10682
+Land Development - Other,1911,17.889908256880734,BIL,10682
+Land Development - Urban,193,1.8067777569743493,BIL,10682
+Land Use or Forest Management Plan,675,6.319041378019097,BIL,10682
+"Laws, Policies, Regulations, and Guidance",591,5.532671784310054,BIL,10682
+Manufacturing,1200,11.233851338700617,BIL,10682
+Military and Defense,210,1.9659239842726082,BIL,10682
+Mining - Marine Minerals,2,0.01872308556450103,BIL,10682
+Mining - Metals,97,0.9080696498783,BIL,10682
+Mining - Non-Metallic Minerals,217,2.031454783748362,BIL,10682
+Nuclear Technology,1215,11.374274480434375,BIL,10682
+Other,3,0.028084628346751545,BIL,10682
+Pipelines,1034,9.679835236847032,BIL,10682
+Ports and Waterways,29,0.27148474068526496,BIL,10682
+Public and Recreational Land Use,984,9.211758097734506,BIL,10682
+Quantum Information Science and Technology,9,0.08425388504025463,BIL,10682
+Rangeland Management,583,5.4577794420520505,BIL,10682
+Renewable Energy Production - Biomass,218,2.0408163265306123,BIL,10682
+Renewable Energy Production - Energy Storage,525,4.91480996068152,BIL,10682
+Renewable Energy Production - Geothermal,111,1.0391312488298072,BIL,10682
+Renewable Energy Production - Hydrokinetic,67,0.6272233664107845,BIL,10682
+Renewable Energy Production - Hydropower,30,0.28084628346751545,BIL,10682
+Renewable Energy Production - Other,184,1.7225238719340947,BIL,10682
+Renewable Energy Production - Solar,554,5.186294701366785,BIL,10682
+"Renewable Energy Production - Wind, Offshore",55,0.5148848530237783,BIL,10682
+"Renewable Energy Production - Wind, Onshore",76,0.7114772514510391,BIL,10682
+Research and Development,3383,31.670099232353493,BIL,10682
+Routine Maintenance,466,4.36247893652874,BIL,10682
+Semiconductors,40,0.3744617112900206,BIL,10682
+Surface Transportation - Bridges,42,0.3931847968545216,BIL,10682
+Surface Transportation - Other,1192,11.158958996442614,BIL,10682
+Surface Transportation - Public Transportation,67,0.6272233664107845,BIL,10682
+Surface Transportation - Railroads,41,0.38382325407227114,BIL,10682
+Threatened and Endangered Species Management,539,5.045871559633028,BIL,10682
+"Utilities (electricity, gas, telecommunications)",2850,26.680396929413966,BIL,10682
+Vegetation and Fuels Management,699,6.54371840479311,BIL,10682
+Waste Management,4197,39.290395057105414,BIL,10682
+Water Resources - Irrigation and Water Supply,422,3.950571054109717,BIL,10682
+Water Resources - Other,1629,15.249953192286089,BIL,10682
 Agriculture,383,4.6390503875969,IRA,8256
 Artificial Intelligence and Machine Learning,110,1.3323643410852712,IRA,8256
 Aviation - Airports and Air Traffic,96,1.1627906976744187,IRA,8256
