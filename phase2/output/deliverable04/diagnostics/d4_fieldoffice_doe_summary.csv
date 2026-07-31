@@ -1,0 +1,13 @@
+office_code,n,median_days,first_med,last_med,pct_change,register_init_share
+National Energy Technology Laboratory,2710,10,13,6,-53.8,0.003
+Golden Field Office,705,14,11,105,854.5,0.025
+Bonneville Power Administration,449,66,100,51,-49,0.02
+Savannah River Operations Office,443,8,17,6,-64.7,0.081
+Energy Efficiency and Renewable Energy,163,4,2,6,200,0.006
+River Protection-Richland Operations Office,106,19,8,92,1050,0.036
+Western Area Power Administration-Desert Southwest Region,54,36.5,19,82.5,334.2,0.413
+Nuclear Energy,48,48,74,163,120.3,0.111
+Argonne Site Office,41,287,252,43,-82.9,0
+Western Area Power Administration-Rocky Mountain Region,36,172,39.5,227,474.7,0.1
+Advanced Research Projects Agency-Energy,34,739.5,615.5,722,17.3,0
+Fermi Site Office,32,12,13,5,-61.5,0

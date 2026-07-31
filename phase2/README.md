@@ -30,12 +30,11 @@ phase2/
 │   ├── deliverable01–06/    # Phase 2 deliverable analysis scripts
 │   └── utils/               # Shared utilities
 ├── data/               # Phase 2 processed outputs (never write to ../data/analysis/)
-├── models/             # Phase 2 BERT model checkpoints (CE, EA, EIS, combined)
+├── models/             # Local model weights (untracked; SetFit trigger classifier ships via the GitHub Release)
 ├── output/             # Phase 2 deliverable outputs + timeline validation
-├── plans/              # Implementation specs (deleted after each deliverable is built)
 ├── reports/            # Quarto reports (index.qmd landing page; deliverables added as completed)
 ├── runbooks/           # Step-by-step execution guides
-└── tests/              # Unit tests
+└── training/           # Model training labels and locked sample IDs (see its README)
 ```
 
 ## Running Phase 2 pipelines
@@ -50,14 +49,6 @@ All Phase 2 outputs write to `phase2/data/` by default. Phase 1 data in `data/an
 
 Architecture docs (`phase2/architecture/`) explain the *why* and *what* of each pipeline — data flow diagrams, design rationale, output schemas, and methodological notes. Runbooks (`phase2/runbooks/`) are step-by-step execution guides. For other extractions without Phase 2-specific runbooks, use the Phase 1 runbooks at `phase1/runbooks/`.
 
-## Running Tests
-
-The shared `nepa` environment includes `pytest` for Phase 2 unit tests:
-
-```bash
-conda run -n nepa python -m pytest phase2/tests/tests
-```
-
 ## Relationship to Phase 1
 
-Phase 2 reads Phase 1 source data (e.g., `data/analysis/projects_combined.parquet`) but writes all new outputs to `phase2/data/`. To reproduce Phase 1 exactly, check out the `freeze/v1.0` tag.
+Phase 2 reads Phase 1 source data (e.g., `data/analysis/projects_combined.parquet`) but writes all new outputs to `phase2/data/`. To reproduce Phase 1 exactly, check out the `freeze/phase1_v1.0` tag.

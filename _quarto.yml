@@ -5,6 +5,12 @@ project:
     - "phase1/reports/*.qmd"
     - "phase2/reports/*.qmd"
     - "phase2/notes/deliverable01/*.md"
+    - "phase2/notes/deliverable02/coverage_limitations.md"
+    - "phase2/notes/deliverable03/coverage_limitations.md"
+    - "phase2/notes/deliverable04/*.md"
+    - "phase2/notes/deliverable05/coverage_limitations.md"
+    - "phase2/notes/deliverable06/coverage_limitations.md"
+    - "phase2/notes/deliverable06/ce_ecfr_verification.md"
     - "presentations/*.qmd"
     - "index.qmd"
   post-render:
@@ -39,8 +45,16 @@ website:
           - text: "---"
           - text: "Deliverable 1"
             href: phase2/reports/deliverable01.html
+          - text: "Deliverable 2"
+            href: phase2/reports/deliverable02.html
           - text: "Deliverable 3"
             href: phase2/reports/deliverable03.html
+          - text: "Deliverable 4"
+            href: phase2/reports/deliverable04.html
+          - text: "Deliverable 5"
+            href: phase2/reports/deliverable05.html
+          - text: "Deliverable 6"
+            href: phase2/reports/deliverable06.html
       - text: "Presentations"
         href: presentations/presentation1.qmd
 

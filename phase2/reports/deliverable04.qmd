@@ -1,0 +1,787 @@
+---
+title: "NEPA Decarbonization Technology Analysis: Deliverable 4"
+subtitle: "Review Timelines for Categorical Exclusions, Environmental Assessments, and Environmental Impact Statements"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(arrow)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(stringr)
+library(scales)
+library(knitr)
+library(gt)
+library(here)
+
+OUTPUT_DIR <- here("phase2", "output", "deliverable04")
+FIG_DIR    <- file.path(OUTPUT_DIR, "figures")
+DIAG_DIR   <- file.path(OUTPUT_DIR, "diagnostics")
+
+# CATF brand navy (Phase 1 styling)
+CATF_NAVY <- "#012169"
+
+fmt_n   <- function(x) comma(x, accuracy = 1)
+fmt_pct <- function(x, accuracy = 0.1) percent(x, accuracy = accuracy)
+include_fig <- function(name) knitr::include_graphics(file.path(FIG_DIR, name))
+read_diag <- function(name) read_csv(file.path(DIAG_DIR, name), show_col_types = FALSE)
+kable_tbl <- function(x) knitr::kable(x, format = "pipe", align = "l")
+
+# Navy-header gt table in the house style
+navy_gt <- function(df, title = NULL) {
+  g <- gt(df)
+  if (!is.null(title)) g <- tab_header(g, title = title)
+  g |>
+    cols_align(align = "left") |>
+    tab_style(style = list(cell_fill(color = CATF_NAVY),
+                           cell_text(color = "white", weight = "bold", align = "left")),
+              locations = cells_column_labels()) |>
+    tab_options(table.font.size = px(12), table.width = pct(100))
+}
+
+# --- Coverage (complete = BOTH dates present, matching @fig-complete-share / @fig-coverage) ---
+# Read the exact per-process complete-timeline shares written by 08_create_figures.R so the narrative
+# "% complete" numbers match Figure 2 (fig-complete-share) by construction. "Complete" = both an
+# initiation and a decision date are present (date coverage), consistent with the figures and the
+# Executive Summary's stated definition. A small share of projects have both dates but in invalid
+# order (decision before initiation); those are excluded from the duration analysis as errors.
+cov_complete <- read_diag("d4_complete_share.csv")
+cpct <- function(pt) cov_complete$share_complete[cov_complete$process_type == pt]
+cn   <- function(pt) cov_complete$n_complete[cov_complete$process_type == pt]
+
+diag <- read_diag("d4_coverage_diagnostics.csv")
+dpct <- function(pt, col) diag[[col]][diag$process_type == pt] / 100
+
+# --- Durations (complete_clear) ---
+dur <- read_diag("d4_duration_summary.csv")
+dmed <- function(pt) dur$median_days[dur$process_type == pt]
+
+# --- Solar durations (solar-tagged projects vs all-decarbonization reference) ---
+sol <- read_diag("d4_solar_duration.csv")
+solv <- function(grp, pt, col) sol[[col]][sol$group == grp & sol$process_group == pt]
+
+# --- Pages (regulatory, all EA/EIS, all energy types) ---
+pg <- read_diag("d4_pages_summary.csv")
+pgv <- function(pt, per, col) pg[[col]][pg$process_type == pt & pg$fra_period == per]
+
+# --- Duration by technology (tech_group medians for the "Duration by technology" prose) ---
+dur_tech <- read_diag("d4_duration_by_technology.csv")
+techv  <- function(tg) dur_tech$median_months[dur_tech$tech_group == tg]
+tech_m <- function(tg) round(techv(tg))          # median duration, months (rounded)
+tech_y <- function(tg) round(techv(tg) / 12, 1)  # median duration, years (1 dp)
+tech_n <- function(tg) dur_tech$n[dur_tech$tech_group == tg]
+```
+
+```{=html}
+<style>
+figcaption, .figure-caption, .quarto-figure figcaption { text-align: left !important; }
+</style>
+```
+
+## Executive summary
+
+::: callout-note
+## Key findings
+
+-   **Review duration climbs from days to months to years.** Median review duration is `r dmed("CE")` days for CE, `r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months) for EA, and `r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25,1)` years) for EIS — the expected complexity ladder, now quantified across the full database (complete timelines; @fig-duration-intervals).
+-   **Timeline completeness varies by process, and the gaps are structural.** Complete timelines (both an initiation and a decision date) reach `r fmt_pct(cpct("CE"), 1)` for CE, `r fmt_pct(cpct("EA"), 1)` for EA, and `r fmt_pct(cpct("EIS"), 1)` for EIS (@fig-coverage). CE and EA are initiation-limited (no Notice-of-Intent requirement, often no recorded start); EIS is decision-limited — Records of Decision are usually separate documents outside the corpus, so EIS decision coverage is just `r fmt_pct(dpct("EIS","pct_decision"))`. LLM adjudication of the ambiguous cases meaningfully lifted complete coverage for all three processes.
+-   **Post-FRA, EIS documents got shorter while EAs held steady.** Across all `r fmt_n(sum(pg$n_projects))` EA/EIS projects (all energy types, regulatory pages from the full text), mean EIS length fell from `r pgv("EIS","Pre-FRA","mean_pages")` to `r pgv("EIS","Post-FRA","mean_pages")` pages after the Fiscal Responsibility Act, while EA length stayed near `r pgv("EA","Pre-FRA","mean_pages")`–`r pgv("EA","Post-FRA","mean_pages")` pages — though the post-FRA window is still small (@sec-pages).
+-   **The longest reviews are prime case-study candidates.** Genuinely protracted reviews — SunZia Southwest Transmission (14.6 yr), Energia Sierra Juarez, Grain Belt Express — are surfaced for CATF investigation and separated from extraction errors (an "initiation" anchored to a historical citation), which are excluded (@sec-outliers).
+-   **Process change, not office-by-office learning, drove the CE speed-up.** CE reviews got much faster across the 2010s, but the decline hit every field office at once regardless of caseload: within any year an office's accumulated experience is uncorrelated with its speed, and low-volume offices converged to high-volume speed without doing comparable reps. A process change reaching all offices at once — batch processing, procedural streamlining — not office-by-office learning, is the likely driver; a wholly separate DOE register-office corpus reproduces the null independently (@sec-field-office).
+-   **CEQ rule changes don't produce clean before/after breaks.** Segmenting reviews by the CEQ rule in effect at decision (1978 rules / 2020 rewrite / 2022 Phase 1 / the provisional post-2024 window) mostly re-slices the same secular trends visible year by year; the post-2024 samples are thin, coverage-confounded, and read as provisional (@sec-ceq-regime).
+-   **Geothermal NEPA is two different worlds, and office-level comparison is not feasible.** The `Geothermal` tag pools BLM western resource reviews (NV/CA/UT) with a much larger body of DOE grant-era research and heat-pump CEs filed nationwide; only a handful of reviews sit in any one BLM field office, so the geothermal analysis is a descriptive office inventory plus a state-cohort map, not an office ranking (@sec-geothermal).
+:::
+
+This report delivers:
+
+> Timelines for categorical exclusions, environmental assessments, and environmental impact statements — including segmentation by regulatory period (pre/post-FRA), energy category, and decision year — plus a timeline-outlier deliverable for case-study investigation and a document-length / FRA page-limit analysis refreshed on Phase 2 decision dates.
+
+------------------------------------------------------------------------
+
+# Methodology
+
+This deliverable extends the [Phase 1 timeline analysis](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#timeline-analysis-for-decarbonization-technologies) — which examined review timelines for *decarb projects only* — to the entire NEPATEC 2.0 database, which includes decarb, fossil, and other project types. It does so with a rebuilt extraction pipeline that adds authoritative agency dates and two machine-learning models.
+
+## How timeline dates are extracted
+
+This section improves on the Phase 1 timeline method. For every project we identify two milestones — the initiation (when the review begins: an application received, a Notice of Intent, or scoping) and the decision (when it concludes: a signature, a Record of Decision, or a Finding of No Significant Impact). The pipeline finds these in five high-level steps:
+
+```{=html}
+<div style="max-width:660px;margin:1.25rem auto;">
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 · Extract candidate dates</div>
+    <div style="color:#1A1A2E;">Pull every date from every NEPA document in NEPATEC&nbsp;2.0, capturing the surrounding sentence, document location, and metadata so each date's meaning is clear</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 · Classify each date's role</div>
+    <div style="color:#1A1A2E;">A machine-learning <b>classifier</b> (SetFit) labels every candidate as an <b>initiation</b>, a <b>decision</b>, or <b>neither</b></div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 · Rank the candidates</div>
+    <div style="color:#1A1A2E;">A second <b>ranking model</b> (LightGBM) orders the initiation and decision candidates by how likely each is the operative date for the project</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">4 · Anchor on authoritative dates</div>
+    <div style="color:#1A1A2E;">Where the BLM or DOE NEPA register records an official project-start or decision date, that authoritative date is used in place of a parsed one</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">5 · Resolve the hardest cases with an LLM</div>
+    <div style="color:#1A1A2E;">For projects where the operative date is still ambiguous, a large language model (Claude Haiku) selects the best remaining candidate</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #012169;border-radius:8px;padding:.65rem 1rem;background:#012169;">
+    <div style="font-weight:700;color:#ffffff;font-size:1.05rem;">Complete timeline</div>
+    <div style="color:#ffffff;">A project's timeline is <b>complete</b> when both an initiation and a decision date are found</div>
+  </div>
+</div>
+```
+
+## How Phase 2 analysis improves upon Phase 1
+
+-   Full-database coverage — Phase 1 covered decarbonization technology projects only (20,725); Phase 2 covers the entire NEPATEC 2.0 database (61,881 projects).
+-   API registry dates — Phase 2 incorporates authoritative dates from *BLM and DOE NEPA registers* as an authoritative source of official project-start and decision dates. We pull in roughly 37,000 project-matched register dates, which is particularly helpful for CE and EA reviews.
+-   Cleaner retrieval and granularity handling — the pipeline uses year-month decision dates (e.g. a Final-EIS cover month) where no better dates are available. (A section-aware retrieval tier retrieves decision/initiation sections directly; a 2026-07-23 re-run of the section index and retrieval chain activated it, adding 21,289 section-tier candidates to the current dataset.)
+-   Improved classifier and a ranking model — Phase 1 used a single date classifier (`DeBERTa`); Phase 2 uses an improved classifier (`SetFit`) and adds a dedicated ranking model (`LightGBM`) that decides which candidate is the operative initiation/decision, sharply improving which candidates get sent to the LLM.
+
+
+## Date provenance
+
+Every extracted date traces to one of two sources: the BLM/DOE NEPA registers (official agency dates pulled via the registers' metadata API) or document text (parsed from the NEPA documents themselves, including LLM-adjudicated picks and Final-EIS publication dates). @fig-source shows the split by process and endpoint — a transparency check on where the timeline rests. Registers anchor a meaningful share of CE dates; EA and EIS rely overwhelmingly on document text.
+
+```{r}
+#| label: fig-source
+#| fig-cap: "Source of each project's initiation and decision date by review process — Register API (BLM/DOE NEPA registers) vs Doc Text (parsed from documents) vs No Date (not extracted)."
+#| out-width: "100%"
+include_fig("fig_d4_register_source_projects.png")
+```
+
+------------------------------------------------------------------------
+
+# Timeline analysis
+
+## Timeline completeness
+
+@fig-complete-share shows the share of projects with complete timelines by review process; @fig-coverage breaks down which component is missing. The patterns differ by process:
+
+-   CE (`r fmt_pct(cpct("CE"), 1)` complete): decision coverage is high (`r fmt_pct(dpct("CE","pct_decision"))`) but initiation coverage is low (`r fmt_pct(dpct("CE","pct_initiation"))`) — most CEs are single-signature determinations with no recorded start.
+-   EA (`r fmt_pct(cpct("EA"), 1)` complete): the strongest of the three, but still initiation-limited — EAs have no Notice-of-Intent requirement and often skip scoping.
+-   EIS (`r fmt_pct(cpct("EIS"), 1)` complete): initiations are usually documented (an NOI is required), but decision coverage is only `r fmt_pct(dpct("EIS","pct_decision"))` because Records of Decision are frequently separate documents not in the corpus.
+
+Comparison with Phase 1. Phase 1 measured completeness for *decarb projects only* and reported [CE ~30% · EA ~62% · EIS ~48%](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#fig-complete-share). On the full database, Phase 2 reaches CE `r fmt_pct(cpct("CE"), 1)` · EA `r fmt_pct(cpct("EA"), 1)` · EIS `r fmt_pct(cpct("EIS"), 1)`. CE is higher — the much larger universe is dominated by routine, register-dated determinations — but EA and EIS land below their Phase 1 decarb-only rates, for two reasons this analysis surfaced:
+
+-   The aggregate is diluted by non-decarb projects. Phase 1's denominator was decarb energy; Phase 2's is everything. Decarbonization EIS alone completes at 42.4% (much closer to Phase 1's 48%) — it is the heterogeneous "Other" bucket that pulls the EIS aggregate down to `r fmt_pct(cpct("EIS"), 1)`.
+-   The remaining gaps are structural, not fixable by better parsing. EIS completeness is capped by missing Records of Decision (a separate document, often outside the corpus — decision coverage only `r fmt_pct(dpct("EIS","pct_decision"))`); CE and EA completeness is capped by missing initiations, because neither requires a Notice of Intent and a start date is frequently never recorded. A minority of EIS "projects" are also comment letters or document fragments with no milestone date to extract.
+
+```{r}
+#| label: fig-complete-share
+#| fig-cap: "Share of projects with a complete timeline (both initiation and decision dates) by NEPA review process. Dot marks the completion rate."
+#| out-width: "90%"
+include_fig("fig_d4_complete_timeline_share_boxplot.png")
+```
+
+```{r}
+#| label: fig-coverage
+#| fig-cap: "Timeline coverage breakdown by review process — both dates, decision only, initiation only, or neither."
+#| out-width: "100%"
+include_fig("fig_d4_coverage_by_process.png")
+```
+
+Coverage also varies by energy category (@fig-cov-energy): decarbonization EIS projects complete at 42.4%, well above the EIS aggregate of `r fmt_pct(cpct("EIS"), 1)`, because decarb EISs are better documented than the heterogeneous "Other" bucket that drags the aggregate down.
+
+```{r}
+#| label: fig-cov-energy
+#| fig-cap: "Timeline coverage by process and energy category (both dates / decision only / initiation only / none)."
+#| out-width: "100%"
+include_fig("fig_d4_coverage_by_process_and_energy.png")
+```
+
+## Duration analysis
+
+Durations use all complete timelines (both dates present, including those resolved with a proxy date such as a Final-EIS publication date in place of a missing Record of Decision). Month-only dates are imputed to the mid-month 15th.
+
+On that basis, durations track the expected complexity ladder from CE to EA to EIS — a median of about `r dmed("CE")` days for CE, `r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months) for EA, and `r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25,1)` years) for EIS (n = `r fmt_n(dur$n[dur$process_type=="CE"])` / `r fmt_n(dur$n[dur$process_type=="EA"])` / `r fmt_n(dur$n[dur$process_type=="EIS"])`). @fig-duration-intervals summarises the spread; @fig-duration-hist shows the full distributions; @fig-spans plots individual project spans.
+
+```{r}
+#| label: fig-duration-intervals
+#| fig-cap: "Timeline duration by review process. Thin bar = 10th–90th percentile; thick bar = interquartile range (25th–75th); point = median. All complete timelines."
+#| out-width: "100%"
+include_fig("fig_d4_duration_summary_intervals.png")
+```
+
+### Duration by review type
+
+Splitting duration by energy category (@fig-dur-energy) exposes an artifact: fossil EAs run far shorter than decarbonization or "other" EAs, a median of ~40 days, vs ~310 days for Decarb and ~209 days for Other. This is not because fossil EAs are genuinely faster: 84% of them take their start date from the BLM register rather than the document. This is a broad convention across routine BLM oil-and-gas EAs — drilling permits, lease sales, and well-abandonments alike (well-abandonment is 53% of complete fossil EAs, not the whole story) — where the recorded "project start" is a late administrative entry made within days of the decision. Because fossil is the largest EA group (754 of the ~1,730 complete EAs), those artificially short spans pull the overall EA median down. Restricting fossil EAs to the document-anchored starts lifts their median to ~5 months — much closer to the Other and Decarb EAs and the more defensible review-length estimate — but that view survives for only a fraction of them.[^ea-doc-anchored]
+
+```{r}
+#| label: fig-dur-energy
+#| fig-cap: "Timeline duration by process and energy category. Fossil EAs are short largely because most take register-anchored start dates (late administrative entries near the decision); the EA panel adds a second, magenta **Fossil (doc-anchored)** row — the ~5-month median for the 119 fossil EAs with a document start date — as the more defensible review-length view."
+#| out-width: "100%"
+include_fig("fig_d4_duration_summary_intervals_by_energy.png")
+```
+
+[^ea-doc-anchored]: The EA panel's magenta Fossil (doc-anchored) row recomputes the fossil-EA duration using only document-stated initiation dates (`initiation_source_type ≠ register`), setting aside the BLM register's administrative "project start" entries that compress the register-anchored median to ~40 days. Its ~5-month median is the more defensible estimate of true review length, but it survives for only 119 of the 754 complete fossil EAs — the register is the sole start-date signal for the other 635. Both rows are shown so the coverage-versus-plausibility trade-off is explicit; CE and EIS are unaffected by this issue and keep their three standard energy rows.
+
+The full duration distributions (@fig-duration-hist) show the same complexity ladder as a shape, not just a median: CE durations pile up near zero (most are days-to-weeks determinations), EA spreads out to a year or two, and EIS is broad and heavy-tailed, with a meaningful mass of reviews running 3–10+ years. That long EIS tail is real (large, contested reviews spanning multiple administrations) and is examined directly in the outlier case studies below.
+
+```{r}
+#| label: fig-duration-hist
+#| fig-cap: "Review duration distribution by process; all complete timelines (month-only dates imputed to mid-month)."
+#| out-width: "100%"
+include_fig("fig_d4_duration_histogram.png")
+```
+
+
+@fig-spans plots each complete review as a horizontal bar from its initiation to its decision date, sorted by length within each process so the spread in durations is visible one project at a time rather than only in aggregate. CE spans collapse to short marks, EA bars range from a few months to a couple of years, and the EIS panel is dominated by multi-year bars — the same CE-to-EA-to-EIS complexity ladder seen in the histograms, now resolved to individual reviews.
+
+```{r}
+#| label: fig-spans
+#| fig-cap: "Individual project timelines from initiation to decision, sorted by duration within process (complete timelines, sampled)."
+#| out-width: "100%"
+include_fig("fig_d4_project_timeline_spans.png")
+```
+
+### Duration for solar projects
+
+Phase 1 delivered a solar-only version of the duration analysis; this subsection replicates it on the Phase 2 timeline. For projects tagged *Renewable Energy Production – Solar*, complete timelines show the same complexity ladder — a median of about `r round(solv("solar","CE","median_months"),1)` months for CE (n = `r fmt_n(solv("solar","CE","n"))`), ~`r round(solv("solar","EA","median_months"))` months for EA (n = `r solv("solar","EA","n")`), and ~`r round(solv("solar","EIS","median_months"))` months (`r round(solv("solar","EIS","median_months")/12,1)` years) for EIS (n = `r solv("solar","EIS","n")`). Against the all-decarbonization reference (@fig-solar-duration, dashed ticks), solar EIS reviews conclude about a year faster — ~`r round(solv("solar","EIS","median_months"))` vs ~`r round(solv("decarb_reference","EIS","median_months"))` months — while solar EAs run on par with decarbonization EAs generally (~`r round(solv("solar","EA","median_months"))` vs ~`r round(solv("decarb_reference","EA","median_months"))` months) and CE determinations are indistinguishable (~1 month in both). This replicates the Phase 1 finding for EIS — Phase 1's solar figure reported ~22 months (n = 66) against Phase 2's ~`r round(solv("solar","EIS","median_months"))` here (n = `r solv("solar","EIS","n")`) — but softens Phase 1's EA contrast (~13 months solar there) to parity. Two caveats: the solar EA and EIS cells are small (n = `r solv("solar","EA","n")` and `r solv("solar","EIS","n")`), and solar CEs are register-heavy like CEs generally, so the register-anchoring caveats above apply equally here.
+
+```{r}
+#| label: fig-solar-duration
+#| fig-cap: "Timeline duration for solar-tagged projects. Thin bar = 10th–90th percentile; thick bar = interquartile range; point = median; dashed tick = the all-decarbonization median for that process (EA and EIS only — the CE medians coincide at ~1 month). Same headline duration frame as the figures above."
+#| out-width: "100%"
+include_fig("fig_d4_solar_duration.png")
+```
+
+### Duration by technology
+
+Within each energy group, review length also varies by the specific technology — the cleaned `tech_group` tag that defines the decarbonization-vs-fossil split. @fig-dur-decarb-tech and @fig-dur-fossil-tech break duration down by technology for EA and EIS reviews only: CE determinations are uniformly ~1 month across every technology and add no contrast, and the most CE-dominated technologies (biomass and CCS on the decarbonization side, rural energy on the fossil side) have too few substantive reviews to chart at all — itself telling, since their NEPA footprint is almost entirely categorical exclusions.
+
+Among decarbonization technologies, the ordering tracks physical footprint and contestedness: hydropower (~`r tech_m("Hydropower")` months / `r tech_y("Hydropower")` years) and transmission (~`r tech_m("Transmission")` months) run longest — large, linear, multi-jurisdiction projects — followed by nuclear (~`r tech_m("Nuclear")`), wind (~`r tech_m("Wind")`), and solar (~`r tech_m("Solar")`) in the middle band, with geothermal near ~`r tech_m("Geothermal")` months, "other clean" near ~`r tech_m("Utilities")` months, and energy storage the quickest at ~`r tech_m("Energy Storage")` months. Among fossil technologies, coal (~`r tech_m("Coal")` months / `r tech_y("Coal")` years) and offshore oil & gas (~`r tech_m("Offshore Oil & Gas")` months) dominate the long end, while land-based oil & gas is an order of magnitude faster (~`r tech_m("Land-based Oil & Gas")` months, n = `r tech_n("Land-based Oil & Gas")`) — the same register-anchored well-abandonment and drilling-permit flood that compresses the fossil-EA median noted earlier. The two panels are separate figures on their own horizontal scales; the technologies with the longest tails (hydropower, transmission, coal) are the same large-infrastructure reviews that populate the outlier case studies below.
+
+```{r}
+#| label: fig-dur-decarb-tech
+#| fig-cap: "Timeline duration by decarbonization technology (EA and EIS reviews only). Thin bar = 10th–90th percentile; thick bar = interquartile range; point = median. Technologies with fewer than 15 EA/EIS reviews are omitted — their NEPA reviews are almost entirely categorical exclusions."
+#| out-width: "100%"
+include_fig("fig_d4_duration_by_decarb_tech.png")
+```
+
+```{r}
+#| label: fig-dur-fossil-tech
+#| fig-cap: "Timeline duration by fossil-fuel technology (EA and EIS reviews only). Same interval geometry as the decarbonization panel; note the horizontal scale differs. Land-based oil & gas is compressed by the register-anchored well-abandonment / drilling-permit reviews."
+#| out-width: "100%"
+include_fig("fig_d4_duration_by_fossil_tech.png")
+```
+
+## Projects by decision year
+
+@fig-by-year shows project volume by decision year (all projects), faceted by review process. CE volumes ramp from the late-2000s (ARRA-era funding) with a second rise into the 2020s (BIL/IRA); EIS decisions lag CE and EA by several years, reflecting longer review cycles. @fig-by-year-doe restricts to the Department of Energy — the single largest agency in the dataset — where the ARRA/BIL/IRA grant-and-loan cycles are even more pronounced.
+
+```{r}
+#| label: fig-by-year
+#| fig-cap: "Reviews by decision year (all projects), faceted by NEPA review process."
+#| out-width: "100%"
+include_fig("fig_d4_projects_by_decision_year.png")
+```
+
+```{r}
+#| label: fig-by-year-doe
+#| fig-cap: "DOE projects by decision year, faceted by review process (Department of Energy projects only)."
+#| out-width: "100%"
+include_fig("fig_d4_projects_by_decision_year_doe.png")
+```
+
+## Timeline outliers: case-study candidates {#sec-outliers}
+
+Per the deliverable request, timeline outliers are surfaced for CATF staff to investigate via case studies (including whether NEPA itself was a cause of delay). Outliers are init→decision spans longer than 5,000 days (~13.7 years), produced reproducibly by `code/deliverable04/10_outliers.R`.
+
+The distinction that matters is real review versus extraction error. A multi-year span can be a genuinely protracted review or an artifact where the "initiation" was anchored to a historical citation (a facility's construction date, a reserve's founding, a prior plan, a regulatory-compliance milestone) rather than the NEPA start. The two are separable only by reading the evidence text, which the outlier table preserves.
+
+## Analysis caveats
+
+-   EIS outliers are mostly real. EIS median duration is already ~3 years; a 14–17-year EIS sits in the legitimate tail (transmission, restoration, resource-management plans genuinely run that long).
+-   CE outliers are mostly errors — CEs are fast determinations (median `r dmed("CE")` days), so a multi-year CE almost always reflects a mis-extracted initiation. CE outliers are therefore excluded from the client list.
+-   Initiation dates before ~1990 are a strong error signal. Of the four EIS outliers with 1980s-or-earlier initiations, three are confirmed errors (the "initiation" is a park founding, a prior lock's construction-completion date, or a RCRA compliance milestone).
+
+The decarb EA/EIS candidates below are the highest-value case studies. SunZia (ROW application Sep 2008 to Record of Decision Apr 2023) is the clearest long-permitting case; Energia Sierra Juarez and Grain Belt Express are similar. Confirmed errors are excluded, for example the Palisades Nuclear Restart "19-year" span, which glues a 2005 license-renewal application to a 2024 restart Record of Decision (two different NEPA actions).
+
+```{r}
+#| label: tbl-outliers
+#| tbl-cap: "Genuinely long EA/EIS reviews — case-study candidates. Full list with evidence text in output/deliverable04/diagnostics/d4_duration_outliers_client.csv. Project IDs are full UUIDs."
+client <- read_diag("d4_duration_outliers_client.csv")
+# Curated exclusions: confirmed cross-action extraction errors found on evidence review.
+exclude_ids <- c("da6bbc7a3ca3aeca7bc1c06eaafa8d44")  # Palisades restart (license-renewal init)
+client |>
+  filter(!project_id %in% exclude_ids) |>
+  arrange(desc(duration_years)) |>
+  transmute(`Project` = project_title,
+            `Process` = process_type,
+            `Energy` = if_else(project_energy_type == "Clean", "Decarb", project_energy_type),
+            `Lead agency` = str_remove_all(lead_agency_harmonized, '\\[|\\]|"'),
+            `Years` = round(duration_years, 1),
+            `Initiation` = as.character(initiation_date),
+            `Decision` = as.character(decision_date),
+            `project_id` = project_id) |>
+  head(18) |>
+  navy_gt()
+```
+
+------------------------------------------------------------------------
+
+# Document length & FRA page limits {#sec-pages}
+
+This section builds directly on [Phase 1 Deliverable 5](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html) ("Document Length Over Time and Fiscal Responsibility Act Impact"), which analyzed document length for *decarb* EA/EIS projects. Here we reproduce that analysis on the entire Phase 2 EA/EIS corpus, all energy types, refreshed on Phase 2 LLM-adjudicated decision dates (inclusion requires only a decision date — the time axis and FRA classification depend only on it). Each subsection below links to its Phase 1 counterpart for comparison.
+
+::: callout-note
+## Method & scope
+
+-   Regulatory pages = body word count ÷ 500, excluding embedded appendices and low-content pages, per 40 C.F.R. § 1508.1(bb) — the measure that matches the FRA limits (EA ≤ 75 pages; EIS ≤ 150, or 300 if extraordinarily complex).[^rawpages]
+-   These counts are computed from the actual page text by `fra/01_extract_pages.py` (a DuckDB pass over `phase2/data/processed/{ea,eis}/pages.parquet` — 6.1M EIS pages — detecting the appendix boundary and low-content pages), producing regulatory pages for 5,032 EA/EIS projects (2,765 EA, 2,267 EIS) across all energy types — not just decarbonization.
+-   The pre/post-FRA analysis below uses the `r fmt_n(sum(pg$n_projects))` projects that also have a decision date (EA `r fmt_n(sum(pg$n_projects[pg$process_type=="EA"]))` / EIS `r fmt_n(sum(pg$n_projects[pg$process_type=="EIS"]))`).
+-   FRA date = enactment (June 3, 2023), matching Phase 1 D5 and the timeline-duration period split above.
+:::
+
+[^rawpages]: We use *regulatory* pages rather than raw PDF page counts because raw counts substantially overstate the length the statute limits — they include embedded appendices and sparse pages (covers, maps, dividers). Mean raw pages run roughly 2× regulatory pages for EAs and higher for EISs, so a raw count cannot be compared to the 75/150-page limits.
+
+## Document length over time
+
+@fig-pages-time tracks regulatory page length by decision date across all EA/EIS. Two patterns stand out. EA length sits low and essentially flat across the decade — the rolling mean hugs the low tens of pages, with only occasional long outliers — consistent with EAs being short by design. EIS length is far higher and far more dispersed: individual EISs run from tens of pages to well over a thousand, and the rolling mean hovers in the low-to-mid hundreds with no strong secular trend before the FRA. The post-FRA window (right of the red line) is denser — more recent decisions — and is where the EIS rolling mean steps down.
+
+Compared with the decarb-only [Phase 1 version](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-pages-over-time), two differences follow from the wider Phase 2 scope. First, the all-energy EA cloud sits well below Phase 1's: Phase 1's decarb EAs averaged ~62 regulatory pages, whereas the full corpus averages ~33, because the large pool of short fossil and well-abandonment EAs (median ~7 pages) pulls the all-energy mean down. Second, the EIS picture is the same in shape — high, heavy-tailed, and dominated by project-to-project variation rather than a clear time trend — confirming Phase 1's caution that average trends obscure substantial spread, now borne out on a roughly 5× larger sample.
+
+```{r}
+#| label: fig-pages-time
+#| fig-cap: "Regulatory page counts for individual EA/EIS projects (all energy types) by decision date, coloured by FRA period; navy line = 3-month rolling mean, computed separately before and after FRA enactment so the smoothing never crosses the breakpoint. Red dashed line = FRA enactment (June 3, 2023)."
+#| out-width: "100%"
+include_fig("fig_d4_pages_over_time.png")
+```
+
+## Pre vs post-FRA
+
+Across all EA/EIS, EIS regulatory length fell after FRA (mean `r pgv("EIS","Pre-FRA","mean_pages")` → `r pgv("EIS","Post-FRA","mean_pages")` pages; median `r pgv("EIS","Pre-FRA","median_pages")` → `r pgv("EIS","Post-FRA","median_pages")`), while EA length was essentially flat (mean `r pgv("EA","Pre-FRA","mean_pages")` → `r pgv("EA","Post-FRA","mean_pages")`). The post-FRA window is short, so these are provisional (n = `r pgv("EA","Post-FRA","n_projects")` EA, `r pgv("EIS","Post-FRA","n_projects")` EIS). The direction matches the decarb-only Phase 1 result closely ([Phase 1 D5 — Pre vs Post FRA](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-pre-post) and its [distribution view](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-distribution)): Phase 1's EISs fell from a mean of 368 → 270 regulatory pages, and the all-energy corpus here falls 317 → 269 — landing at essentially the same ~270-page post-FRA EIS mean despite a very different sample. EA stayed flat in both (Phase 1 62 → 57; here 33 → 39), reflecting that EAs were already well under the 75-page limit and had little to compress.
+
+```{r}
+#| label: fig-pages-bar
+#| fig-cap: "Mean regulatory pages, pre- vs post-FRA. Bar = mean; diamond = median; n shown."
+#| out-width: "100%"
+include_fig("fig_d4_pages_pre_post_fra.png")
+```
+
+Breaking the same comparison out by energy category (@fig-pages-energy) shows the post-FRA EIS decline is broad — it appears in decarbonization and fossil EIS, not just one segment — while EA length is essentially flat across all categories. That consistency makes the EIS drop more credible as a genuine post-FRA effect rather than a composition artifact.
+
+```{r}
+#| label: fig-pages-energy
+#| fig-cap: "Mean regulatory pages by energy category, pre- vs post-FRA. Labels = n projects."
+#| out-width: "100%"
+include_fig("fig_d4_pages_pre_post_fra_by_energy.png")
+```
+
+The full distributions (@fig-pages-dist) confirm the shift is not an outlier effect: the EIS distribution moves down post-FRA (lower median, thinner upper tail) while the EA distribution barely moves. Splitting that distribution by energy category — shown separately for decarbonization (@fig-pages-dist-decarb), fossil (@fig-pages-dist-fossil), and other (@fig-pages-dist-other) projects so each panel is legible — shows the EIS contraction holds in both decarbonization and fossil EIS, while EA length stays flat across all three.
+
+```{r}
+#| label: fig-pages-dist
+#| fig-cap: "Distribution of regulatory page counts, pre- vs post-FRA (violin + box; diamond = median; y capped at p99)."
+#| out-width: "100%"
+include_fig("fig_d4_pages_distribution.png")
+```
+
+```{r}
+#| label: fig-pages-dist-decarb
+#| fig-cap: "Decarbonization EA/EIS — distribution of regulatory page counts, pre- vs post-FRA (violin + box; diamond = median; y capped at p99)."
+#| out-width: "100%"
+include_fig("fig_d4_pages_distribution_decarb.png")
+```
+
+```{r}
+#| label: fig-pages-dist-fossil
+#| fig-cap: "Fossil EA/EIS — distribution of regulatory page counts, pre- vs post-FRA (violin + box; diamond = median; y capped at p99)."
+#| out-width: "100%"
+include_fig("fig_d4_pages_distribution_fossil.png")
+```
+
+```{r}
+#| label: fig-pages-dist-other
+#| fig-cap: "Other EA/EIS — distribution of regulatory page counts, pre- vs post-FRA (violin + box; diamond = median; y capped at p99)."
+#| out-width: "100%"
+include_fig("fig_d4_pages_distribution_other.png")
+```
+
+## Descriptive statistics
+
+@tbl-pages reports the full descriptive statistics — mean, median, standard deviation, and interquartile range — by process and FRA period across all energy types (the all-energy counterpart to [Phase 1 D5's descriptive-statistics table](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#tbl-summary)).
+
+```{r}
+#| label: tbl-pages
+#| tbl-cap: "Descriptive statistics for regulatory page counts by process type and FRA period — all EA/EIS, all energy types. Regulatory pages = body word count ÷ 500, excluding embedded appendix pages and low-content pages, per 40 C.F.R. § 1508.1(bb)."
+pg |>
+  select(process_type, fra_period, n_projects, mean_pages, median_pages,
+         sd_pages, p25_pages, p75_pages) |>
+  mutate(
+    process_type = factor(process_type, levels = c("EA", "EIS")),
+    fra_period   = factor(fra_period, levels = c("Pre-FRA", "Post-FRA"))
+  ) |>
+  arrange(process_type, fra_period) |>
+  gt(groupname_col = "process_type") |>
+  cols_label(
+    fra_period   = "FRA Period",
+    n_projects   = "N",
+    mean_pages   = "Mean",
+    median_pages = "Median",
+    sd_pages     = "SD",
+    p25_pages    = "P25",
+    p75_pages    = "P75"
+  ) |>
+  cols_align(align = "left",  columns = fra_period) |>
+  cols_align(align = "right", columns = where(is.numeric)) |>
+  fmt_number(columns = where(is.numeric), decimals = 0, use_seps = TRUE) |>
+  tab_spanner(
+    label = "Regulatory Pages (body word count ÷ 500)",
+    columns = c(mean_pages, median_pages, sd_pages, p25_pages, p75_pages)
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style = list(
+      cell_fill(color = CATF_NAVY),
+      cell_text(color = "white", weight = "bold", size = px(13))
+    ),
+    locations = cells_row_groups()
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#f0f7ff"),
+    locations = cells_body(rows = fra_period == "Post-FRA")
+  ) |>
+  tab_footnote(
+    footnote = "Post-FRA projects are those with a decision date on or after June 3, 2023. Regulatory pages exclude embedded appendix pages and low-content pages (maps, figures, blanks); documents whose filename already omits appendices use their page count directly, and documents without extractable text are excluded."
+  ) |>
+  tab_style(
+    style = cell_text(align = "right"),
+    locations = cells_footnotes()
+  ) |>
+  tab_options(
+    table.font.size = px(13),
+    data_row.padding = px(6),
+    row_group.padding = px(6)
+  )
+```
+
+## FRA page-limit compliance
+
+```{r}
+#| label: compliance-vals
+comp <- read_diag("d4_pages_compliance.csv")
+compv <- function(pt, cat, col) comp[[col]][comp$process_type == pt & comp$compliance == cat]
+ea_tot      <- comp$total[comp$process_type == "EA"][1]
+ea_ok_pct   <- round(compv("EA", "Compliant", "pct"));     ea_ex_pct  <- round(compv("EA", "Exceeds limit", "pct"))
+eis_tot     <- comp$total[comp$process_type == "EIS"][1]
+eis_ok_pct  <- round(compv("EIS", "Compliant", "pct"))
+eis_std_pct <- round(compv("EIS", "Exceeds standard limit", "pct"))
+eis_over_pct<- round(compv("EIS", "Exceeds limit", "pct"))
+eis_w300    <- compv("EIS", "Compliant", "n") + compv("EIS", "Exceeds standard limit", "n")
+eis_w300_pct<- round(100 * eis_w300 / eis_tot)
+```
+
+The Fiscal Responsibility Act sets presumptive page limits — 75 pages for an EA and 150 pages for an EIS (300 if the agency documents extraordinary complexity). @fig-pages-compliance scores the post-FRA EA/EIS projects with a decision date against those limits (regulatory pages).
+
+-   EAs comply at a high rate. `r ea_ok_pct`% of post-FRA EAs (n = `r fmt_n(ea_tot)`) fall within the 75-page limit; the `r ea_ex_pct`% that exceed it generally do so by a small margin.
+-   EISs are more mixed, but most are within reach of the complexity ceiling. Only `r eis_ok_pct`% of post-FRA EISs (n = `r fmt_n(eis_tot)`) land within the baseline 150-page limit, but a further `r eis_std_pct`% sit between 150 and 300 pages — i.e. within the extraordinary-complexity ceiling — so `r eis_w300_pct`% are within the 300-page threshold overall. The remaining `r eis_over_pct`% exceed even 300 pages, consistent with the long right tail of complex transmission, restoration, and resource-management EISs seen in the duration analysis.
+
+Two caveats temper this. First, the post-FRA window is short (`r fmt_n(ea_tot)` EA / `r fmt_n(eis_tot)` EIS projects with both a regulatory page count and a decision date), so these rates are provisional and will firm up as more post-FRA decisions land. Second, the FRA limits are presumptive, not absolute — agencies may exceed them with senior-official approval or a documented extraordinary-complexity finding — so "exceeds limit" flags a document for review, not an automatic compliance failure.
+
+```{r}
+#| label: fig-pages-compliance
+#| fig-cap: "FRA page-limit compliance among post-FRA projects (regulatory pages). EA limit 75; EIS 150 (300 if extraordinarily complex). The bracket marks the EIS share within the 300-page extraordinary-complexity threshold."
+#| out-width: "90%"
+include_fig("fig_d4_pages_compliance.png")
+```
+
+------------------------------------------------------------------------
+
+# Review timelines by CEQ regulatory regime {#sec-ceq-regime}
+
+```{r}
+#| label: ceq-setup
+ceq_all  <- read_diag("d4_duration_by_ceq_regime.csv")
+ceq      <- ceq_all |> dplyr::filter(regime_level == "collapsed",   anchor == "decision")
+ceq_fine <- ceq_all |> dplyr::filter(regime_level == "fine",        anchor == "decision")
+ceq_sens <- ceq_all |> dplyr::filter(regime_level == "sensitivity", anchor == "decision")
+ceq_comp <- read_diag("d4_ceq_regime_composition.csv")
+
+# accessors: collapsed decision-anchored regime, and the 1978 recent-window comparator
+ceqv  <- function(proc, regime, col) ceq[[col]][ceq$process_type == proc & ceq$ceq_regime == regime]
+ceqsv <- function(proc, col)         ceq_sens[[col]][ceq_sens$process_type == proc]
+# fine (five-level) regime accessor — the standalone 2024 Phase 2 / 2025 rescission n's
+ceqfv <- function(proc, regime, col) ceq_fine[[col]][ceq_fine$process_type == proc & ceq_fine$ceq_regime == regime]
+# composition accessor — n_decided (denominator) and completeness per collapsed regime
+ceqcv <- function(proc, regime, col) ceq_comp[[col]][ceq_comp$process_type == proc & ceq_comp$ceq_regime == regime]
+
+# Analysis base: the complete-timeline duration frame shared with the rest of D4
+# (d4_duration_summary.csv `dur`, coverage totals `diag` from d4_coverage_diagnostics.csv,
+# both defined in the setup chunk above). n's match @fig-duration-intervals by construction.
+ceq_n    <- function(proc) dur$n[dur$process_type == proc]           # complete pairs in the frame
+ceq_tot  <- function(proc) diag$n_total[diag$process_type == proc]   # all corpus projects of that process
+ceq_rate <- function(proc) ceq_n(proc) / ceq_tot(proc)
+```
+
+NEPA's procedural rules were rewritten three times in four years. The natural regulatory regimes — keyed to each rule's effective date — are summarized below. (The FRA, June 3, 2023, is a statutory amendment to NEPA, not a CEQ rule; it is already the pre/post-FRA breakpoint used in the duration and page-length analyses.)
+
+```{r}
+tibble::tribble(
+  ~Regime,                      ~`Effective`,    ~`What changed`,
+  "1978 regulations",           "1978–2020",     "Original CEQ regulations; essentially unchanged for ~42 years.",
+  "2020 Final Rule (Trump)",    "Sep 14, 2020",  "Major rewrite: presumptive 2-yr EIS / 1-yr EA limits, page limits, narrowed effects/cumulative-impacts definitions.",
+  "2022 Phase 1 Rule (Biden)",  "May 20, 2022",  "Restored 1978 purpose-and-need and cumulative/indirect effects.",
+  "2024 Phase 2 Rule",          "Jul 1, 2024",   "Implemented the FRA's statutory NEPA amendments (codified page/time limits, CE sharing, lead-agency roles).",
+  "2025 rescission",            "Apr 11, 2025",  "CEQ interim final rule (90 FR 10610) removed 40 C.F.R. §§ 1500–1508; agencies revert to their own NEPA procedures."
+) |> navy_gt()
+```
+
+@fig-ceq-timeline lays out that sequence on a single axis — three regulatory rewrites plus the 2025 rescission inside five years, with the FRA (a statutory change, not a CEQ rule) marked separately.
+
+```{r}
+#| label: fig-ceq-timeline
+#| fig-cap: "Orientation timeline of the CEQ regulatory regimes. Blue bands mark the rule in effect, deepening from light to navy across the successive CEQ rules; grey = post-rescission, when agencies revert to their own NEPA procedures. The dotted grey line is the FRA statutory enactment (Jun 3, 2023), a different kind of change. The 1978 regulations were in effect for roughly four decades before this window."
+#| out-width: "100%"
+include_fig("fig_d4_ceq_regime_timeline.png")
+```
+
+Everything in this section rests on the same complete-timeline frame as the rest of the deliverable — the `r fmt_n(ceq_n("CE"))` CE, `r fmt_n(ceq_n("EA"))` EA, and `r fmt_n(ceq_n("EIS"))` EIS reviews that carry both an initiation and a decision date in day- or month-resolution and valid order (`r fmt_pct(ceq_rate("CE"),1)`, `r fmt_pct(ceq_rate("EA"),1)`, and `r fmt_pct(ceq_rate("EIS"),1)` of all CE / EA / EIS projects; a few points below the headline completeness in @fig-complete-share, which also counts year-only and out-of-order dates that duration work excludes). The 1978 bucket is by far the largest not because coverage is fuller there but because it absorbs every decision from the start of the corpus through September 13, 2020 — roughly four decades, with CE activity concentrated in the 2010s. Of the `r fmt_n(ceqcv("CE","1978","n_decided"))` CEs decided before the 2020 rule, `r fmt_n(ceqcv("CE","1978","n"))` (`r fmt_pct(ceqcv("CE","1978","completeness"),1)`) have both dates — CE decision coverage runs `r fmt_pct(dpct("CE","pct_decision"),1)` corpus-wide (registers plus determination-form dates) against `r fmt_pct(dpct("CE","pct_initiation"),1)` initiation coverage, so completeness is roughly half, and half of a very long, activity-dense window is still ~17,000 reviews.
+
+This segmentation is deliberately independent of the two breakpoint sets used above: it complements the `reg_period` *funding* eras (ARRA / BIL / IRA) and the FRA *statutory* split by cutting on the CEQ *regulatory* rule effective dates instead. Because a review is a span, we assign each one to the rule in effect at its decision date — so every figure reads as "reviews decided under a regime," not "reviews governed by" it. The 2024 Phase 2 Rule and its 2025 rescission are folded into one provisional `2024+` bucket: the rescission window falls far below the n = 30 display floor for every process, the standalone Phase 2 window falls below it for CE, and a single merged bucket keeps the provisional post-2024 period readable rather than a mix of displayed and suppressed cells (counts in the caveats below).
+
+```{r}
+#| label: fig-ceq-regime
+#| fig-cap: "Review duration by CEQ regulatory regime (collapsed to four periods), faceted by process. Thin bar = p10–p90, thick bar = IQR (p25–p75), point = median. The dashed tick on each 1978 row marks the 1978-rule median for 2015–2020 decisions only — a like-for-like recent comparator that strips out four decades of pooled history. Regime = rule in effect at the decision date."
+#| out-width: "100%"
+include_fig("fig_d4_duration_by_ceq_regime.png")
+```
+
+The regime medians move very little for the two smaller-review processes, and what movement there is tracks sample composition rather than any rule:
+
+-   CE reviews stay near-instant under every pre-2024 regime — a median of `r round(ceqv("CE","1978","median_months"),1)`, `r round(ceqv("CE","2020_trump","median_months"),1)`, and `r round(ceqv("CE","2022_phase1","median_months"),1)` months under the 1978, 2020, and 2022 regimes. The `2024+` bucket reads `r round(ceqv("CE","2024_phase2_plus","median_months"),0)` months, but on only `r fmt_n(ceqv("CE","2024_phase2_plus","n"))` reviews — an artifact of which CE reviews happen to carry a complete, recently-dated timeline, not a regime effect.
+-   EA medians sit in a narrow `r round(ceqv("EA","2020_trump","median_months"),1)`–`r round(ceqv("EA","1978","median_months"),1)`-month band across the three pre-2024 regimes, rising to `r round(ceqv("EA","2024_phase2_plus","median_months"),1)` months in the thin `2024+` bucket (n = `r fmt_n(ceqv("EA","2024_phase2_plus","n"))`).
+-   EIS medians are the longest and the noisiest — `r round(ceqv("EIS","1978","median_months"),0)` months (1978), `r round(ceqv("EIS","2020_trump","median_months"),0)` (2020), `r round(ceqv("EIS","2022_phase1","median_months"),0)` (2022), `r round(ceqv("EIS","2024_phase2_plus","median_months"),0)` (`2024+`, n = `r fmt_n(ceqv("EIS","2024_phase2_plus","n"))`). The apparent dip under the 2020 regime is a pooling artifact, not evidence that the Trump rule sped EISs up.
+-   The 1978 bar pools ~42 years and understates recent durations. Restricting the 1978 rule to its final stretch (2015–2020 decisions) lifts the EIS median from `r round(ceqv("EIS","1978","median_months"),0)` to `r round(ceqsv("EIS","median_months"),0)` months — so the pooled 1978 comparator in @fig-ceq-regime is the wrong reference for a before/after-rule read. Use the year-by-year trend in @fig-ceq-trend for that intuition instead.
+
+@fig-ceq-trend places the CEQ rule dates on the annual median-duration line, alongside the FRA statutory marker. Because durations have drifted secularly (CE especially), the year-by-year view is the honest way to see whether anything changed around a rule date — the regime bars above cannot separate a rule effect from the underlying trend.
+
+```{r}
+#| label: fig-ceq-trend
+#| fig-cap: "Median review duration by decision year, faceted by process with a free y-axis (CE runs in fractions of a month, EIS in tens), years with n ≥ 5 only. CEQ rule effective dates are navy dashed and the FRA statutory enactment is grey dotted. The view starts at 2005 — sparse pre-2005 annual medians are omitted for clarity (underlying data unchanged); the line ends at 2025 (partial-2026 falls below the n ≥ 5 floor) and the 2025 annual median straddles the April rescission. CEQ = regulatory; FRA = statutory."
+#| out-width: "100%"
+include_fig("fig_d4_duration_trend_ceq_regime.png")
+```
+
+## Analysis caveats
+
+-   Decided-under, not governed-by. A multi-year EIS decided in 2022 was scoped and largely conducted under earlier rules; the decision-date assignment is a labeling convenience, not a claim about which regulations shaped the review.
+-   The post-2024 samples are thin and confounded. Only `r fmt_n(ceqv("CE","2024_phase2_plus","n"))` CE, `r fmt_n(ceqv("EA","2024_phase2_plus","n"))` EA, and `r fmt_n(ceqv("EIS","2024_phase2_plus","n"))` EIS reviews fall in the `2024+` bucket, and they are entangled with the same coverage ramp that limits the post-FRA split — recently-decided reviews are over-represented by whichever timelines happen to be complete.
+-   The 2025 rescission window is folded into `2024+`. The 2025 rescission window (`r fmt_n(ceqfv("CE","2025_rescission","n"))` CE, `r fmt_n(ceqfv("EA","2025_rescission","n"))` EA, `r fmt_n(ceqfv("EIS","2025_rescission","n"))` EIS) falls far below the n = 30 display floor for every process; the standalone 2024 Phase 2 window (`r fmt_n(ceqfv("CE","2024_phase2","n"))` CE, `r fmt_n(ceqfv("EA","2024_phase2","n"))` EA, `r fmt_n(ceqfv("EIS","2024_phase2","n"))` EIS) falls below it for CE, though its EA and EIS counts clear the floor. They are analyzed only as the merged `2024+` bucket in @fig-ceq-regime so the provisional post-2024 period reads as one consistent cell rather than a mix of displayed and suppressed windows.
+-   For a before/after-rule read, use @fig-ceq-trend, not @fig-ceq-regime. The pooled 1978 regime bar spans four decades of secular decline; the year-by-year trend is the only view that can separate a rule date from the underlying drift.
+-   Associational, not causal. Nothing here isolates a regulatory effect from composition, agency mix, or calendar time.
+
+------------------------------------------------------------------------
+
+# Field-office experience: BLM and DOE {#sec-field-office}
+
+```{r}
+#| label: fo-setup
+fo_cov  <- read_diag("d4_fieldoffice_parse_coverage.csv")
+fo_covv <- function(scope, col) fo_cov[[col]][fo_cov$scope == scope]
+
+fo_mod   <- read_diag("d4_fieldoffice_model.csv")
+mrow     <- function(proc, anch, ag = "BLM") fo_mod[fo_mod$agency == ag & fo_mod$process == proc & fo_mod$anchor == anch, ]
+ce_d     <- mrow("CE", "Document")          # BLM primary: document-anchored, full window
+ce_d_doe <- mrow("CE", "Document", "DOE")   # DOE primary: document-anchored, full window
+
+wy     <- read_diag("d4_fieldoffice_withinyear_cor.csv")  # per-year Spearman(cum_count, duration)
+wy_blm <- wy[wy$arm == "BLM", ]
+wy_lo  <- min(wy_blm$spearman); wy_hi <- max(wy_blm$spearman)
+
+split  <- read_diag("d4_fieldoffice_convergence_split.csv")  # busier/quieter split (full-history caseload)
+splt   <- function(arm, col) split[[col]][split$arm == arm]
+
+doe_cov <- read_diag("d4_fieldoffice_doe_coverage.csv")
+dcov    <- function(m) doe_cov$value[doe_cov$metric == m]
+
+sgn    <- function(x) sprintf("%+.1f%%", x)                                    # signed percent
+ci     <- function(r) sprintf("%+.1f%% to %+.1f%%", r$pct_lo, r$pct_hi)        # signed 95% CI (controlled)
+ci_raw <- function(r) sprintf("%+.1f%% to %+.1f%%", r$pct_lo_raw, r$pct_hi_raw) # signed 95% CI (raw)
+spr    <- function(x) sprintf("%+.2f", x)                                      # signed correlation
+```
+
+The deliverable asks whether lead-agency offices process NEPA reviews faster as they accumulate experience, a "learning-curve" effect. We test it on two structurally independent corpora: BLM projects map to the field office that handled them (from case metadata), while DOE projects map to the administering or grant office that processed them (through the CX register). Both arms measure the same thing — whether an office's review duration falls as its own cumulative caseload grows — on document-anchored, complete CE timelines over each agency's full window. All conclusions here are associational, not causal.
+
+The two arms rest on very different sample sizes (@fig-fo-inventory). Of `r fmt_n(fo_covv("ALL","blm_projects"))` BLM-led projects, `r fmt_n(fo_covv("ALL","parsed"))` parse to a field office and only `r ce_d$n_offices` clear the ≥ 30 document-anchored-CE bar the regression requires; of `r fmt_n(dcov("doe_led"))` DOE-led projects, `r fmt_n(dcov("with_office"))` link to a register office and only `r ce_d_doe$n_offices` clear it. A handful of high-volume offices carries each regression, so the design leans on the calendar control rather than any single office's trajectory.
+
+```{r}
+#| label: fig-fo-inventory
+#| fig-cap: "Field-office inventory, both arms. Each dot is one office's count of document-anchored complete CE reviews (log scale); the dashed line marks the ≥ 30 threshold for entering the regression. Top: BLM field offices (parsed from the DOI-BLM case number). Bottom: DOE administering offices (linked through the CX register). The panel subtitles trace each arm's parse/link funnel. An inventory, not a duration comparison."
+#| out-width: "100%"
+include_fig("fig_d4_fieldoffice_inventory.png")
+```
+
+Process change, not office experience, drove the CE speed-up. CE reviews got much faster across the window, but the decline hit every office at once rather than the busiest offices pulling ahead. Within any given decision year, an office's accumulated caseload is essentially uncorrelated with its speed — the per-year Spearman correlation between cumulative reviews and duration ranges `r spr(wy_lo)` to `r spr(wy_hi)`, centered on zero — and the quieter half of offices converges to the same speed as the busier half without ever accumulating a comparable caseload (@fig-fo-convergence). That is the signature of a system-wide change, not office-by-office learning.
+
+The office fixed-effects regression confirms it formally. The raw gradient looks like a real speed-up, `r sgn(ce_d$pct_per_doubling_raw)` per doubling of an office's caseload (95% CI `r ci_raw(ce_d)`), but that is the corpus-wide decline in disguise. Once each decision year is given its own baseline, the apparent speed-up is gone: for BLM the estimate in fact reverses sign to `r sgn(ce_d$pct_per_doubling)` (slower, not faster, per doubling; 95% CI `r ci(ce_d)`, not statistically distinguishable from zero). The DOE arm flattens to genuinely near-zero on its own full window, an apparent `r sgn(ce_d_doe$pct_per_doubling_raw)` raw gradient that the calendar control erases to `r sgn(ce_d_doe$pct_per_doubling)` (95% CI `r ci(ce_d_doe)`) across `r ce_d_doe$n_offices` administering offices in a wholly separate corpus.
+
+What cannot be separated is which systemic change did it: register-anchored batch processing, procedural streamlining, or agency-wide practice all reach every office simultaneously and are observationally equivalent. The claim is associational, not causal.
+
+The convergence in @fig-fo-convergence is the clearest picture. Offices are ranked by their total document-anchored CE caseload; the busier half is the `r splt("BLM field offices","n_busier")` BLM offices at or above the median, each handling at least `r splt("BLM field offices","busier_min")` reviews, and the quieter half the `r splt("BLM field offices","n_quieter")` below. Each line is the median review duration among that half's decisions in each two-year bin (only bins where the half has at least 10 decisions are shown). The quieter half — which never builds a comparable caseload — still converges to the busier half's review duration; if reps were what made offices fast, that gap would persist, but instead it closes.
+
+```{r}
+#| label: fig-fo-convergence
+#| fig-cap: "Median document-anchored CE review duration by two-year bin for the busier vs quieter half of BLM field offices (split at the median full-history office caseload; only bins with ≥ 10 reviews per half shown). The quieter half reaches the busier half's speed without accumulating a comparable caseload — the signature of a process change reaching every office at once, not office-by-office learning. The DOE arm is omitted: its quieter half does not converge to the busier half (busier DOE offices are structurally faster, a between-office gap the office fixed-effects regression nets out), so the DOE null rests on that regression and the within-year correlation instead."
+#| out-width: "100%"
+include_fig("fig_d4_fieldoffice_convergence.png")
+```
+
+How to read @tbl-fo-model: each row is a test of the learning-curve idea for one agency. We line up every office's reviews in the order it completed them and ask whether reviews later in an office's own sequence — when the office had more accumulated experience — ran shorter. The effect is expressed per doubling of experience: an estimate of −5% would mean that each time an office's completed caseload doubles (its 30th review → 60th → 120th), its reviews run about 5% shorter. The first estimate asks the question directly, and shows the apparent learning gradient (negative — later reviews look faster). The second asks it again after allowing each calendar year its own baseline speed, so that system-wide changes that made all offices faster in the same years — new procedures, batch processing — are not mistaken for office experience. That control eliminates the effect in both agencies: offices with more accumulated experience were not systematically faster than offices with less.
+
+```{r}
+#| label: tbl-fo-model
+#| tbl-cap: "Effect of office experience on CE review duration, with and without a calendar-year control. CE, document-anchored, full window. Negative = faster with more experience; near zero = no learning effect."
+fo_mod |>
+  filter(process == "CE", anchor == "Document", agency %in% c("BLM", "DOE")) |>
+  arrange(agency) |>
+  transmute(
+    Agency = if_else(agency == "BLM", "BLM field offices", "DOE administering offices"),
+    `Reviews / Offices` = paste0(fmt_n(n_reviews), " / ", n_offices),
+    `Experience effect — no year control` =
+      sprintf("%+.1f%% (CI %+.1f to %+.1f)", pct_per_doubling_raw, pct_lo_raw, pct_hi_raw),
+    `Experience effect — with year control` =
+      sprintf("%+.1f%% (CI %+.1f to %+.1f)", pct_per_doubling, pct_lo, pct_hi)
+  ) |>
+  navy_gt() |>
+  tab_footnote(footnote = paste0(
+    "CE, document-anchored, over each agency's full window (no calendar filter). Register-anchored ",
+    "sensitivity fits and the EA infeasibility note (no BLM office clears ≥ 30 document-anchored EA ",
+    "durations) are retained in d4_fieldoffice_model.csv.")) |>
+  tab_options(table.font.size = px(12))
+```
+
+## Analysis caveats
+
+-   Register-anchoring artifact. Durations rest partly on register/proxy start dates that are late administrative entries; the analysis uses document-anchored initiation dates to limit this, and reports the register-anchored fits only as a flagged sensitivity view.
+-   Retained pre-2012 artifact rows. A few early BLM rows are known extraction artifacts — a 9-row batched cluster (office AZ-A010) all sharing one initiation → decision span, and historical-citation "initiations" (e.g. a 7,227-day span anchored to a 1985 citation). Under the symmetric no-filter design both arms keep their full windows, so these rows are retained rather than one-sidedly dropped; they inflate the raw (uncontrolled) BLM estimate only and do not affect the year-controlled result (they show up as the tall early point of the quieter half in @fig-fo-convergence).
+-   ~38% of BLM projects are unparsed (`r fmt_pct(1 - fo_covv("ALL","pct_parsed")/100)`). EISs account for most of the gap — only `r fmt_pct(fo_covv("EIS","pct_parsed")/100)` parse (large/programmatic EISs are filed under titles, not DOI-BLM case numbers) — versus `r fmt_pct(fo_covv("CE","pct_parsed")/100)` of CE and `r fmt_pct(fo_covv("EA","pct_parsed")/100)` of EA.
+-   Project mix within an office. Short well-abandonment CEs dominate some offices; `project_energy_type` is a covariate, but a "faster" office could reflect a shift toward simpler actions rather than any change in processing.
+-   DOE administering offices are not BLM field offices. They come from the CX register's `office` field (grant/program offices such as NETL and Golden), not site-specific case handlers; the DOE arm is a structural replication, not a like-for-like comparison.
+
+------------------------------------------------------------------------
+
+# Geothermal review timelines by BLM field office {#sec-geothermal}
+
+```{r}
+#| label: geo-setup
+geo_uni   <- read_diag("d4_geothermal_universe.csv")
+geo_oc    <- read_diag("d4_geothermal_office_counts.csv")
+geo_floor <- read_diag("d4_geothermal_office_floor.csv")
+
+gv  <- function(stage, col) geo_uni[[col]][geo_uni$stage == stage]        # funnel/tier counts
+gfv <- function(col) geo_floor[[col]][1]                                   # office-floor summary
+BASE_ROWS <- c("(no office match)", "(DOE & other)")
+
+# office-matched complete timelines = the real offices' ALL-process rows, summed
+geo_office_complete <- sum(geo_oc$n_complete[geo_oc$process_type == "ALL" &
+                             !geo_oc$office_code %in% BASE_ROWS])
+# two-worlds pooled CE medians, in days and months
+blm_ce_d     <- gfv("blm_ce_median_days");    blm_ce_mo    <- round(blm_ce_d / 30.44, 1)
+nonblm_ce_d  <- gfv("nonblm_ce_median_days"); nonblm_ce_mo <- round(nonblm_ce_d / 30.44, 1)
+
+# DOE-tier register-office linkage: how many of the non-BLM projects carry a named office, + top office
+geo_doe    <- read_diag("d4_geothermal_doe_office_counts.csv")
+geo_doe_n  <- geo_doe$n_parsed[geo_doe$office == "ALL"]                     # 456 with a register office
+geo_doe_top <- geo_doe |> dplyr::filter(office != "ALL") |> dplyr::slice_max(n_parsed, n = 1)
+```
+
+The `Geothermal` tag spans two worlds that should never be pooled, and the by-office slice the deliverable asked for is too thin to compare. Of `r fmt_n(gv("total_geothermal","n"))` geothermal projects only `r fmt_n(gv("blm_led","n"))` are BLM-led, only `r fmt_n(gv("office_matched","n"))` carry a parseable field-office code, and only `r fmt_n(geo_office_complete)` of those have a complete timeline — spread across `r fmt_n(gv("distinct_offices","n"))` offices whose busiest holds just `r fmt_n(gfv("max_office_complete"))` complete reviews, well below any floor for a duration comparison. The analysis is therefore a descriptive office inventory plus a cohort-level state map, and it focuses on CE reviews (the substantive EA/EIS record is a handful of projects — see the caveats).
+
+The two worlds are BLM western-resource geothermal — leases, exploration, and power plants concentrated in NV, CA, and UT, median CE `r round(blm_ce_d)` days — versus the much larger body of `r fmt_n(gv("lead_agency:Department of Energy","n"))` Department of Energy projects: ARRA-era heat-pump and research categorical exclusions filed nationwide, including states with no geothermal resource base, median CE just `r round(nonblm_ce_d)` days with a 2010–2012 decision surge. Pooling a resource-development review with a research-grant CE would be meaningless, so every number here is read within a cohort, never across. (Office-code recovery is a dead end: only `r fmt_n(gfv("recovery_candidates"))` of the `r fmt_n(gv("unmatched_blm","n"))` unmatched BLM projects carry any office-like code.)
+
+## The office inventory
+
+@fig-geo-offices sizes the problem in three stacked panels. The top panel is the funnel — of the `r fmt_n(gv("total_geothermal","n"))` geothermal projects, `r fmt_n(gv("doe_other","n"))` are the DOE & other tier, `r fmt_n(gv("unmatched_blm","n"))` are BLM-led with no parseable office code, and only `r fmt_n(gv("office_matched","n"))` reach the field-office inventory. The middle panel is the literal by-office answer for those `r fmt_n(gv("office_matched","n"))`: every BLM field office is a short bar — the busiest, NV-C010, holds `r geo_oc$n_parsed[geo_oc$office_code=="NV-C010" & geo_oc$process_type=="ALL"]` projects — and most are categorical exclusions. The bottom panel is newly feasible: the DOE-tier projects carry no field-office code but link to the CX register's office field, and `r fmt_n(geo_doe_n)` of the `r fmt_n(gv("doe_other","n"))` do so — dominated by the `r geo_doe_top$office` (`r fmt_n(geo_doe_top$n_parsed)` projects), then the National Energy Technology Laboratory and EERE headquarters. These are administering and grant-program offices, not BLM-style field offices — two inventories of two different kinds of unit.
+
+```{r}
+#| label: fig-geo-offices
+#| fig-cap: "Three stacked panels. Top: where the geothermal projects sit, as one horizontal stacked bar split into the three tiers (BLM office-matched / BLM no office match / DOE & other). Middle: the office-matched projects by BLM field office, stacked by review process (CE lime, EA blue). Bottom: the DOE-tier projects by DOE CX-register office (light blue), Golden Field Office dominant. Counts are all timeline states — an inventory, not a duration comparison."
+#| out-width: "100%"
+include_fig("fig_d4_geothermal_offices_by_process.png")
+```
+
+## The two worlds on a map
+
+@fig-geo-map plots the complete CE reviews by state and cohort. The reading is immediate: the BLM bubbles (navy) sit only in the western resource states, while the DOE & other bubbles (light blue) blanket the country — because they are grant CEs tied to funding, not geothermal geology. Bubble size is the median duration in months, not project count, so the map also shows that duration is not a regional constant: even within the DOE tier, states range from near-instant heat-pump CEs to long research reviews.
+
+```{r}
+#| label: fig-geo-map
+#| fig-cap: "Median geothermal CE review duration by state and cohort (BLM navy, DOE & other light blue). One bubble per state × cohort with at least three complete CE timelines; bubble size encodes median duration in months, not project volume. Shared western states are offset so both cohorts show. Alaska (six DOE CEs) is not drawn. Single-state projects only."
+#| out-width: "100%"
+include_fig("fig_d4_geothermal_map.png")
+```
+
+## Analysis caveats
+
+-   Two worlds, one tag. "Geothermal" pools BLM western resource development with DOE grant-era heat-pump and research CEs; the split median (`r round(blm_ce_d)` days for BLM vs `r round(nonblm_ce_d)` days for everything else) is a composition artifact, not a process finding. Every number here should be read within a cohort, never across.
+-   Office-level is descriptive only. With a busiest office of `r fmt_n(gfv("max_office_complete"))` complete reviews (`r fmt_n(gfv("max_office_doc"))` of them document-anchored), no office clearing the ≥ `r fmt_n(gfv("office_floor"))`-review floor, and ~`r fmt_pct(1 - gv("office_matched","n")/gv("blm_led","n"))` of BLM geothermal projects unparsed (`r fmt_n(gv("unmatched_blm","n"))` of `r fmt_n(gv("blm_led","n"))`, office recovery largely infeasible), the inventory cannot support a duration comparison, a learning-curve test, or any office ranking.
+-   Register artifact, and DOE offices are not field offices. Durations rest partly on register/proxy start dates (the document-anchored counts isolate the artifact-free reviews, and they are even thinner); separately, the `r fmt_n(geo_doe_n)` DOE-tier projects with a named office link to administering / grant-program offices in the CX register (the `r geo_doe_top$office`, NETL, EERE-HQ), not to BLM-style field offices — the DOE-office panel is an inventory of a different kind of unit, not a BLM-vs-DOE office comparison.
+-   Small-n everywhere, associational. The map's per-state medians rest on small samples, and only `r fmt_n(gv("complete_timeline_total","n_ea") + gv("complete_timeline_total","n_eis"))` complete geothermal EA/EIS timelines exist corpus-wide (their individual durations remain in `d4_geothermal_timeline_points.csv`); nothing here isolates a causal effect of office, agency, or geography.
+
+------------------------------------------------------------------------
+
+# Reproduction
+
+Run from the repository root in the `nepa` conda environment:
+
+``` bash
+# Timeline pipeline (candidates -> classify -> select -> LLM adjudicate)
+conda run -n nepa python phase2/code/deliverable04/run_pipeline.py
+ANTHROPIC_API_KEY=$(security find-generic-password -s nepa-anthropic -w) \
+  conda run -n nepa python phase2/code/deliverable04/06_adjudicate_llm.py \
+  --mode candidate_adjudication --process CE EA EIS --model claude-haiku-4-5-20251001 --workers 24
+
+# Analysis + figures
+Rscript phase2/code/deliverable04/08_create_figures.R       # coverage, durations, FRA, energy
+Rscript phase2/code/deliverable04/08_create_figures_solar.R      # solar duration analysis
+Rscript phase2/code/deliverable04/08_create_figures_technology.R # duration by technology
+Rscript phase2/code/deliverable04/10_outliers.R      # timeline outliers (case-study candidates)
+
+# FRA document-length analysis (regulatory pages from the full page text, all EA/EIS)
+conda run -n nepa python phase2/code/deliverable04/fra/01_extract_pages.py --run
+Rscript phase2/code/deliverable04/fra/02_create_figures.R # document length / FRA page limits
+
+# CEQ regulatory-regime durations (requires 08_create_figures.R outputs above)
+conda run -n nepa python phase2/code/deliverable04/ceq_regime/01_build_tables.py
+Rscript phase2/code/deliverable04/ceq_regime/02_create_figures.R
+
+# Field-office experience (BLM + DOE arms)
+conda run -n nepa python phase2/code/deliverable04/field_office/01_parse_offices.py --run
+conda run -n nepa python phase2/code/deliverable04/field_office/01b_build_doe_offices.py --run
+Rscript phase2/code/deliverable04/field_office/02_create_figures.R
+
+# Geothermal timelines by BLM field office (tiered inventory + state map)
+conda run -n nepa python phase2/code/deliverable04/geothermal/01_build_tables.py
+Rscript phase2/code/deliverable04/geothermal/02_create_figures.R
+```
+
+Outputs are written to `phase2/output/deliverable04/` (`figures/`, `diagnostics/`).
+
+------------------------------------------------------------------------
+
+*Draft generated `r Sys.Date()` | NEPA Decarbonization Technology Analysis — Phase 2, Deliverable 4*

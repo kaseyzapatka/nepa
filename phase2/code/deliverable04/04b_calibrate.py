@@ -81,7 +81,8 @@ AVG_PROJECT_PROMPT_TOKENS = 1500
 # predicted `neither` by 04 are DROPPED here — never auto-resolved, never routed, never sent.
 POSITIVE_LABELS = ["initiation", "decision"]
 
-DEFAULT_POOL_MODEL_VERSION = "20260604T060644Z"
+# Fallback only — the live model's classifier_meta.json model_version wins when present
+DEFAULT_POOL_MODEL_VERSION = "salvage_20260609T042302Z"
 
 
 def _load_labeling_sample() -> pd.DataFrame:

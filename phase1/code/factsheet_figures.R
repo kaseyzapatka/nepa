@@ -11,9 +11,13 @@ library(jsonlite)
 library(scales)
 library(zoo)
 library(ggalluvial)
+library(ggpubr)
 
 out_dir <- here("phase1", "output", "factsheet", "figures")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+tables_dir <- here("phase1", "output", "factsheet", "tables")
+dir.create(tables_dir, recursive = TRUE, showWarnings = FALSE)
 
 # ---------------------------------------------------------------------------
 # CATF brand colors
@@ -182,6 +186,71 @@ fig1 <- fig1_data %>%
 
 ggsave(file.path(out_dir, "02_energy_type_composition.png"), fig1, width = 10, height = 5, dpi = 300)
 message("  Saved: 02_energy_type_composition.png")
+
+# ---------------------------------------------------------------------------
+# Fig 1a — Energy type composition, all energy combined
+#           (02_energy_type_composition_ALL_ENERGY.png)
+#           Companion to Fig 1: collapses Fossil + Decarbonized into a single
+#           combined "Decarb + Fossil Fuel" category to show that energy-related
+#           federal actions overwhelmingly use CEs, before the report breaks
+#           energy down into fossil vs. clean. "Other" (non-energy) projects
+#           are excluded.
+# ---------------------------------------------------------------------------
+message("\n--- Fig 1a: Energy type composition (all energy combined) ---")
+
+fig1a_data <- projects %>%
+  filter(project_energy_type %in% c("Fossil", "Clean")) %>%
+  mutate(project_energy_type = "Decarb\n+\nFossil Fuel") %>%
+  group_by(project_energy_type, process_type) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(project_energy_type) %>%
+  mutate(total_energy_type = sum(n), pct = 100 * n / total_energy_type) %>%
+  ungroup()
+
+fig1a_totals <- fig1a_data %>%
+  distinct(project_energy_type, total_energy_type)
+
+fig1a <- fig1a_data %>%
+  ggplot(aes(x = reorder(project_energy_type, total_energy_type), y = pct, fill = process_type)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = ifelse(pct > 5, paste0(round(pct, 0), "%"), "")),
+    position = position_stack(vjust = 0.5),
+    color = "white", size = 3.5, fontface = "bold"
+  ) +
+  geom_text(
+    data = fig1a_totals,
+    aes(x = reorder(project_energy_type, total_energy_type), y = 101,
+        label = scales::comma(total_energy_type)),
+    inherit.aes = FALSE, hjust = 0, size = 3, color = "gray30"
+  ) +
+  coord_flip() +
+  labs(
+    title = "Energy-Related Federal Actions Overwhelmingly Use Categorical Exclusions",
+    subtitle = "Energy Reviews (Decarbonization + Fossil Fuel)",
+    x       = NULL,
+    y       = "Share of Reviews",
+    fill    = "Review Type",
+    caption = str_wrap(paste0(
+      "Note: NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), ",
+      "EIS (Environmental Impact Statement). ",
+      "Percentages calculated across all energy-related federal actions. ",
+      "Percentage labels below 5% omitted for clarity."
+    ), width = 150)
+  ) +
+  scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.08))) +
+  scale_fill_catf() +
+  theme_catf() +
+  theme(
+    legend.position    = "bottom",
+    panel.grid.major.y = element_blank(),
+    # Center the stacked "Decarb / + / Fossil Fuel" axis label (default is right-justified).
+    axis.text.y        = element_text(hjust = 0.5)
+  )
+
+ggsave(file.path(out_dir, "02_energy_type_composition_ALL_ENERGY.png"),
+       fig1a, width = 10, height = 5, dpi = 300)
+message("  Saved: 02_energy_type_composition_ALL_ENERGY.png")
 
 # ---------------------------------------------------------------------------
 # Fig 1b — Energy type composition, BLM projects only
@@ -415,6 +484,78 @@ ggsave(file.path(out_dir, "02_energy_type_composition_OTHER.png"),
 message("  Saved: 02_energy_type_composition_OTHER.png")
 
 # ---------------------------------------------------------------------------
+# Fig 1e — All-energy composition, DOE vs. BLM (one bar per agency)
+#           (02_energy_type_composition_ALL_ENERGY_DOE_BLM.png)
+#           Variant of Fig 1a restricted to DOE and BLM, with a bar for each.
+#           Energy = Fossil + Decarbonized; "Other" excluded.
+#           DOE uses the aggregated department field (project_department ==
+#           "Department of Energy"), so it includes DOE sub-agencies (power
+#           marketing administrations, NNSA, Energy Programs, etc.). BLM is a
+#           bureau within Interior, so it must stay at the lead-agency level
+#           (reuses blm_project_ids from Fig 1b).
+# ---------------------------------------------------------------------------
+message("\n--- Fig 1e: All-energy composition (DOE vs BLM) ---")
+
+energy_agency <- bind_rows(
+  projects %>% filter(project_department == "Department of Energy") %>% mutate(lead = "DOE"),
+  projects %>% semi_join(blm_project_ids, by = "project_id") %>% mutate(lead = "BLM")
+) %>%
+  filter(project_energy_type %in% c("Fossil", "Clean"))
+
+fig1e_data <- energy_agency %>%
+  group_by(lead, process_type) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(lead) %>%
+  mutate(total_lead = sum(n), pct = 100 * n / total_lead) %>%
+  ungroup()
+
+fig1e_totals <- fig1e_data %>%
+  distinct(lead, total_lead)
+
+fig1e <- fig1e_data %>%
+  ggplot(aes(x = reorder(lead, total_lead), y = pct, fill = process_type)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = ifelse(pct > 5, paste0(round(pct, 0), "%"), "")),
+    position = position_stack(vjust = 0.5),
+    color = "white", size = 3.5, fontface = "bold"
+  ) +
+  geom_text(
+    data = fig1e_totals,
+    aes(x = reorder(lead, total_lead), y = 101,
+        label = scales::comma(total_lead)),
+    inherit.aes = FALSE, hjust = 0, size = 3, color = "gray30"
+  ) +
+  coord_flip() +
+  labs(
+    title    = "DOE and BLM-Related Federal Actions Overwhelmingly Use Categorical Exclusions",
+    subtitle = "Energy Reviews (Decarbonization + Fossil Fuel): DOE vs. BLM",
+    x       = NULL,
+    y       = "Share of Reviews",
+    fill    = "Review Type",
+    caption = str_wrap(paste0(
+      "Note: Restricted to energy-related projects (fossil + decarbonization); non-energy (\"Other\") ",
+      "actions are excluded. DOE = lead department is the Department of Energy (includes power marketing ",
+      "administrations, NNSA, and other DOE components); BLM = Bureau of Land Management as a lead agency. ",
+      "NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), ",
+      "EIS (Environmental Impact Statement). ",
+      "Percentages calculated within each agency. ",
+      "Percentage labels below 5% omitted for clarity."
+    ), width = 150)
+  ) +
+  scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.08))) +
+  scale_fill_catf() +
+  theme_catf() +
+  theme(
+    legend.position    = "bottom",
+    panel.grid.major.y = element_blank()
+  )
+
+ggsave(file.path(out_dir, "02_energy_type_composition_ALL_ENERGY_DOE_BLM.png"),
+       fig1e, width = 10, height = 5, dpi = 300)
+message("  Saved: 02_energy_type_composition_ALL_ENERGY_DOE_BLM.png")
+
+# ---------------------------------------------------------------------------
 # Fig 2 — Agency process: DOE + BLM (02_agency_process.png)
 # ---------------------------------------------------------------------------
 message("\n--- Fig 2: Agency process (DOE + BLM) ---")
@@ -580,21 +721,40 @@ message("\n--- Fig 3: Solar duration ---")
 SOLAR_TAG      <- "Renewable Energy Production - Solar"
 process_levels <- c("CE", "EA", "EIS")
 
-timeline_for_solar <- timeline_harmonized %>%
+# Phase 2 D4 timeline: replaces the Phase 1 BERT timeline for the solar duration
+# figure. Sourced from timeline_project_dates.parquet using the canonical
+# 08_analyze.R headline frame — complete_clear + complete_with_proxy, YEAR-
+# granularity endpoints excluded, month-granularity imputed to the mid-month 15th.
+# Solar tag + decarb scope come from the Phase 2 projects_combined.parquet.
+solar_p2_dates <- read_parquet(
+  here("phase2", "data", "analysis", "timeline", "timeline_project_dates.parquet")
+) %>%
+  select(project_id, process_type, timeline_status,
+         initiation_date, decision_date,
+         initiation_date_granularity, decision_date_granularity) %>%
+  mutate(initiation_date = as.Date(initiation_date),
+         decision_date   = as.Date(decision_date))
+
+solar_p2_tags <- read_parquet(
+  here("phase2", "data", "analysis", "projects_combined.parquet")
+) %>%
+  select(project_id, project_type, project_energy_type)
+
+timeline_for_solar <- solar_p2_dates %>%
+  inner_join(solar_p2_tags, by = "project_id") %>%
+  filter(
+    timeline_status %in% c("complete_clear", "complete_with_proxy"),
+    !is.na(initiation_date), !is.na(decision_date),
+    initiation_date_granularity != "year", decision_date_granularity != "year"
+  ) %>%
   mutate(
-    source_for_plot = toupper(as.character(coalesce(dataset_source, process_type))),
-    process_group   = factor(source_for_plot, levels = process_levels),
-    bert_decision_date             = as.Date(bert_decision_date),
-    bert_application_date          = as.Date(bert_application_date),
-    bert_inferred_application_date = as.Date(bert_inferred_application_date),
-    bert_initiation_date_final     = as.Date(bert_initiation_date_final),
-    bert_decision_date_final       = as.Date(bert_decision_date_final),
-    timeline_complete  = !is.na(bert_initiation_date_final) & !is.na(bert_decision_date_final),
-    bert_year          = as.integer(format(bert_decision_date_final, "%Y")),
-    decision_year      = coalesce(decision_year, bert_year),
-    bert_start_date    = coalesce(bert_application_date, bert_inferred_application_date,
-                                  bert_initiation_date_final),
-    bert_duration_days = as.numeric(bert_decision_date_final - bert_start_date)
+    process_group     = factor(toupper(as.character(process_type)), levels = process_levels),
+    init_mid          = if_else(initiation_date_granularity == "month",
+                                floor_date(initiation_date, "month") + 14, initiation_date),
+    dec_mid           = if_else(decision_date_granularity == "month",
+                                floor_date(decision_date, "month") + 14, decision_date),
+    duration_months   = as.numeric(dec_mid - init_mid) / 30.44,
+    timeline_complete = !is.na(duration_months) & duration_months >= 0
   )
 
 timeline_solar <- timeline_for_solar %>%
@@ -602,7 +762,6 @@ timeline_solar <- timeline_for_solar %>%
 
 duration_complete_solar <- timeline_solar %>%
   filter(!is.na(process_group), timeline_complete) %>%
-  mutate(duration_months = bert_duration_days / 30.44) %>%
   filter(!is.na(duration_months), duration_months >= 0)
 
 duration_summary_solar <- duration_complete_solar %>%
@@ -617,9 +776,16 @@ duration_summary_solar <- duration_complete_solar %>%
     .groups       = "drop"
   ) %>%
   mutate(
+    m_round   = round(median_months),
+    yr        = round(m_round / 12, 2),
+    # Year value in parens for EA/EIS (based on the displayed rounded months);
+    # omitted for CE, whose median is ~1 month.
+    yr_paren  = if_else(process_group == "CE", "",
+                        if_else(yr == 1, " (1 year)", sprintf(" (%g years)", yr))),
     median_label = paste0(
-      process_group, ": ~", round(median_months),
-      ifelse(round(median_months) == 1, " month", " months")
+      process_group, ": ~", m_round,
+      ifelse(m_round == 1, " month", " months"),
+      yr_paren
     ),
     label_hjust = if_else(process_group == "CE", 0, 0.5)
   )
@@ -630,14 +796,17 @@ print(duration_summary_solar)
 # All-decarb median per process type (reference lines)
 decarb_medians <- timeline_for_solar %>%
   filter(project_energy_type == "Clean", !is.na(process_group), timeline_complete) %>%
-  mutate(duration_months = bert_duration_days / 30.44) %>%
   filter(!is.na(duration_months), duration_months >= 0) %>%
   group_by(process_group) %>%
   summarise(decarb_median = median(duration_months, na.rm = TRUE), .groups = "drop") %>%
   filter(process_group != "CE") %>%   # CE solar ≈ CE decarb (~1 mo); no contrast to show
   mutate(
-    y_pos   = match(as.character(process_group), process_levels),
-    label_y = y_pos - 0.52
+    y_pos     = match(as.character(process_group), process_levels),
+    label_y   = y_pos - 0.52,
+    m_round   = round(decarb_median),
+    yr        = round(m_round / 12, 2),
+    ref_label = paste0("All decarb: ~", m_round, " months",
+                       if_else(yr == 1, " (1 year)", sprintf(" (%g years)", yr)))
   )
 
 message("  All-decarb medians:")
@@ -665,8 +834,7 @@ fig3 <- ggplot(duration_summary_solar, aes(y = process_group, color = process_gr
   ) +
   geom_text(
     data = decarb_medians,
-    aes(x = decarb_median, y = label_y,
-        label = paste0("All decarb: ~", round(decarb_median), " months")),
+    aes(x = decarb_median, y = label_y, label = ref_label),
     size = 2.7, color = "gray35", hjust = 0.5,
     inherit.aes = FALSE
   ) +
@@ -1825,4 +1993,198 @@ if (!file.exists(coagency_path)) {
   message("  Saved: fig_eis_coagency_by_department.png")
 }
 
+# ---------------------------------------------------------------------------
+# Tables — Date coverage of the decarbonization timeline analysis
+#          (date_coverage_decarb.png, date_coverage_decarb_valid.png in
+#           output/factsheet/tables/)
+#          Reuses timeline_harmonized (built above for Figs 3-5):
+#          CE = BERT dates, EA/EIS = LLM dates.
+# ---------------------------------------------------------------------------
+message("\n--- Tables: Date coverage (decarbonization timeline) ---")
+
+catf_text <- "#1A1A2E"
+
+fmt_date_range <- function(d) {
+  d <- d[!is.na(d)]
+  if (length(d) == 0) return("—")
+  paste0(format(min(d), "%Y-%m-%d"), " to ", format(max(d), "%Y-%m-%d"))
+}
+
+# CATF-styled table -> PNG. ggpubr::ggtexttable is used (not gt) because gt -> PNG
+# requires a headless Chrome (webshot2/chromote) that is not installed here.
+save_catf_table_png <- function(df, title, subtitle, footnote, file,
+                                 width = 12, height = 3.4) {
+  tbl_style <- ttheme(
+    base_size      = 11,
+    colnames.style = colnames_style(fill = catf_navy, color = "white",
+                                     face = "bold", size = 11, linecolor = "white"),
+    tbody.style    = tbody_style(fill = c("white", "gray97"), color = catf_text,
+                                 size = 10, hjust = 0, x = 0.05, linecolor = "white")
+  )
+  g <- ggtexttable(df, rows = NULL, theme = tbl_style) +
+    labs(title = title, subtitle = str_wrap(subtitle, 95),
+         caption = str_wrap(footnote, 125)) +
+    theme(
+      plot.title      = element_text(face = "bold", size = 14, color = catf_navy,
+                                     hjust = 0.5, margin = margin(b = 4)),
+      plot.subtitle   = element_text(size = 9.5, color = "gray40", hjust = 0.5,
+                                     margin = margin(b = 12)),
+      plot.caption    = element_text(size = 8, color = "gray40", face = "italic",
+                                     hjust = 0.5, margin = margin(t = 12)),
+      plot.margin     = margin(16, 16, 16, 16),
+      plot.background = element_rect(fill = "white", color = NA)
+    )
+  ggsave(file, g, width = width, height = height, dpi = 300, bg = "white")
+}
+
+# Full-dataset document-date range (context for the Table 1 footnote). Only the
+# full YYYY-MM-DD values are parseable; ~84% of documents carry no date.
+docs_dates <- read_parquet(here("phase1", "data", "analysis", "documents_combined.parquet")) %>%
+  pull(document_date_from_file_name)
+docs_dates <- as.Date(docs_dates[!is.na(docs_dates) &
+                                 str_detect(docs_dates, "^[0-9]{4}-[0-9]{2}-[0-9]{2}$")])
+doc_date_range <- fmt_date_range(docs_dates)
+
+# --- Table 1: all decarbonization projects (full coverage, incl. partial) ---
+summarise_coverage <- function(df) {
+  tibble(
+    Projects                 = nrow(df),
+    `With initiation date`   = sum(!is.na(df$timeline_initiation_date_final)),
+    `Initiation date range`  = fmt_date_range(df$timeline_initiation_date_final),
+    `With decision date`     = sum(!is.na(df$timeline_decision_date_final)),
+    `Decision date range`    = fmt_date_range(df$timeline_decision_date_final)
+  )
+}
+
+date_coverage_tbl <- timeline_harmonized %>%
+  mutate(process = factor(dataset_source, levels = c("CE", "EA", "EIS"))) %>%
+  group_split(process) %>%
+  map_dfr(~ summarise_coverage(.x) %>% mutate(Process = as.character(.x$process[1]), .before = 1)) %>%
+  bind_rows(summarise_coverage(timeline_harmonized) %>% mutate(Process = "All decarbonization", .before = 1)) %>%
+  mutate(across(c(Projects, `With initiation date`, `With decision date`), scales::comma))
+
+save_catf_table_png(
+  date_coverage_tbl,
+  title    = "Date Coverage of the NEPATEC 2.0 Decarbonization Timeline Analysis",
+  subtitle = paste0("Initiation and decision dates extracted by the Phase 1 timeline pipeline ",
+                    "(BERT for CE; LLM for EA/EIS); n = ", scales::comma(nrow(timeline_harmonized)),
+                    " clean-energy projects"),
+  footnote = paste0(
+    "Note: Initiation and decision dates are extracted independently and have different coverage, so the ",
+    "earliest decision and earliest initiation can come from different projects (13 of the 15 pre-2000 EIS ",
+    "decisions have no extracted initiation date). The earliest decisions — e.g., the single 1981 EIS — ",
+    "are isolated outliers, most likely in-text dates (citations to prior decisions or baseline years) misread ",
+    "as the decision date; the bulk of decisions fall in 2009-2024. Separately, ~5-7% of projects with both ",
+    "dates show a decision earlier than their own initiation. Full NEPATEC 2.0 document dates ",
+    "(document_date_from_file_name) span ", doc_date_range, " but cover only ~16% of documents, so the ",
+    "dataset's window is best read as ~2010 to August 2025."
+  ),
+  file  = file.path(tables_dir, "date_coverage_decarb.png"),
+  width = 13, height = 3.6
+)
+message("  Saved: date_coverage_decarb.png")
+
+# --- Table 2: complete + valid timelines only ---
+#     Eligibility: both initiation and decision present, decision not earlier
+#     than initiation (removes the impossible orderings).
+both_present <- timeline_harmonized %>%
+  filter(!is.na(timeline_initiation_date_final), !is.na(timeline_decision_date_final))
+n_missing_dates <- nrow(timeline_harmonized) - nrow(both_present)
+n_invalid_order <- sum(both_present$timeline_decision_date_final <
+                       both_present$timeline_initiation_date_final)
+
+valid_timeline <- both_present %>%
+  filter(timeline_decision_date_final >= timeline_initiation_date_final)
+
+# Reports the actual DATE at each percentile (Earliest / 25th / Median / 75th /
+# Latest) for the initiation and decision dates, so the temporal spread of
+# complete projects is visible — e.g., how far back the dates actually reach.
+date_quantile <- function(d, p) {
+  d <- d[!is.na(d)]
+  # type = 1 returns an observed date (no interpolation between two records).
+  as.Date(quantile(as.numeric(d), p, type = 1, names = FALSE), origin = "1970-01-01")
+}
+date_percentiles <- function(d, process, date_label) {
+  d <- d[!is.na(d)]
+  tibble(
+    Process     = process,
+    `Date type` = date_label,
+    Earliest    = format(min(d), "%Y-%m-%d"),
+    `25th pct`  = format(date_quantile(d, 0.25), "%Y-%m-%d"),
+    Median      = format(date_quantile(d, 0.50), "%Y-%m-%d"),
+    `75th pct`  = format(date_quantile(d, 0.75), "%Y-%m-%d"),
+    Latest      = format(max(d), "%Y-%m-%d")
+  )
+}
+process_percentiles <- function(df, process) {
+  bind_rows(
+    date_percentiles(df$timeline_initiation_date_final, process, "Initiation"),
+    date_percentiles(df$timeline_decision_date_final,   process, "Decision")
+  )
+}
+
+valid_coverage_tbl <- bind_rows(
+  valid_timeline %>%
+    mutate(process = factor(dataset_source, levels = c("CE", "EA", "EIS"))) %>%
+    group_split(process) %>%
+    map_dfr(~ process_percentiles(.x, as.character(.x$process[1]))),
+  process_percentiles(valid_timeline, "All decarbonization"),
+  # Pooled row: all dates across all complete projects, ignoring the
+  # initiation vs. decision distinction (every project contributes both dates).
+  date_percentiles(
+    c(valid_timeline$timeline_initiation_date_final,
+      valid_timeline$timeline_decision_date_final),
+    "All decarbonization", "All dates"
+  )
+)
+
+save_catf_table_png(
+  valid_coverage_tbl,
+  title    = "Date Coverage — Decarbonization Projects with Complete, Valid Timelines",
+  subtitle = paste0("Date at each percentile for projects with both an initiation and decision date, ",
+                    "decision not earlier than initiation (BERT for CE; LLM for EA/EIS); n = ",
+                    scales::comma(nrow(valid_timeline)), " of ", scales::comma(nrow(timeline_harmonized)),
+                    " clean-energy projects"),
+  footnote = paste0(
+    "Note: Each cell is the date at that percentile of the column's distribution (e.g., 25% of projects ",
+    "fall on or before the 25th-percentile date). Eligibility excludes ", scales::comma(n_missing_dates),
+    " projects missing either date and ", scales::comma(n_invalid_order),
+    " with a decision earlier than their own initiation. The final \"All dates\" row pools every initiation ",
+    "and decision date across all complete projects. No complete project predates 2000; the few 1980s-1990s ",
+    "dates in the raw data (~23 of 16,048 decisions) are almost all decision-only records with no initiation date."
+  ),
+  file  = file.path(tables_dir, "date_coverage_decarb_valid.png"),
+  width = 12, height = 4.5
+)
+message("  Saved: date_coverage_decarb_valid.png")
+
+# --- Table 3: one-line date-coverage summary (date_coverage.png) ---
+#     Two rows: the decarbonization timeline analysis (extracted initiation +
+#     decision dates, complete projects) vs. the full NEPATEC 2.0 dataset
+#     (document dates parsed from filenames). Different date fields, so the rows
+#     are not directly comparable -- see footnote.
+date_coverage_summary <- bind_rows(
+  date_percentiles(c(valid_timeline$timeline_initiation_date_final,
+                     valid_timeline$timeline_decision_date_final),
+                   "All decarbonization", "All dates"),
+  date_percentiles(docs_dates, "All NEPA projects", "Document dates")
+)
+
+save_catf_table_png(
+  date_coverage_summary,
+  title    = "Date Coverage at a Glance — NEPATEC 2.0",
+  subtitle = "Date at each percentile: the decarbonization timeline analysis vs. the full dataset",
+  footnote = paste0(
+    "Note: Each cell is the date at that percentile. Row 1 pools every extracted initiation and decision ",
+    "date for decarbonization projects with complete, valid timelines (", scales::comma(nrow(valid_timeline)),
+    " projects). Row 2 uses document dates parsed from filenames — the only date field spanning all NEPA ",
+    "projects — which exist for only ~16% of documents (", scales::comma(length(docs_dates)),
+    " full dates) and skew toward recent filings, so the two rows are not directly comparable."
+  ),
+  file  = file.path(tables_dir, "date_coverage.png"),
+  width = 12, height = 3.2
+)
+message("  Saved: date_coverage.png")
+
 message("\n=== Done. All factsheet figures written to: ", out_dir, " ===")
+message("=== Tables written to: ", tables_dir, " ===")

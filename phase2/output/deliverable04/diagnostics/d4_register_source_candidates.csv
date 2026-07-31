@@ -1,0 +1,29 @@
+process_type,source_path,n_candidates,n_selected,endpoint
+CE,Register,38328,11422,Initiation
+CE,Doc text – full page,280521,13614,Initiation
+CE,Doc text – keyword,53497,2984,Initiation
+CE,Other,27599,2015,Initiation
+EA,Register,2740,1150,Initiation
+EA,Doc text – full page,7645,114,Initiation
+EA,Doc text – section,1816,27,Initiation
+EA,Doc text – keyword,16844,335,Initiation
+EA,Doc text – EA full read,14483,175,Initiation
+EIS,Register,259,69,Initiation
+EIS,Doc text – full page,176913,1131,Initiation
+EIS,Doc text – section,19473,119,Initiation
+EIS,Doc text – keyword,70032,769,Initiation
+EIS,Other,178,0,Initiation
+CE,Register,38328,17998,Decision
+CE,Doc text – full page,280521,24058,Decision
+CE,Doc text – keyword,53497,4610,Decision
+CE,Other,27599,4,Decision
+EA,Register,2740,1454,Decision
+EA,Doc text – full page,7645,14,Decision
+EA,Doc text – section,1816,2,Decision
+EA,Doc text – keyword,16844,164,Decision
+EA,Doc text – EA full read,14483,609,Decision
+EIS,Register,259,108,Decision
+EIS,Doc text – full page,176913,1286,Decision
+EIS,Doc text – section,19473,9,Decision
+EIS,Doc text – keyword,70032,86,Decision
+EIS,Other,178,0,Decision

@@ -1,0 +1,5 @@
+process_type,fra_period,n_projects,mean_pages,median_pages,sd_pages,p25_pages,p75_pages
+EA,Pre-FRA,2021,33,19,44,7,41
+EA,Post-FRA,218,39,24,42,7,63
+EIS,Pre-FRA,1347,318,261,268,128,440
+EIS,Post-FRA,97,269,212,250,130,394

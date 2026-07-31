@@ -8,8 +8,6 @@ format:
     toc-depth: 2
     toc-location: left
     fig-align: center
-    resources:
-      - ../output/deliverable03/visual_scattertext_decarb_vs_fossil.html
 execute:
   echo: false
   warning: false
@@ -37,9 +35,7 @@ OUTPUT_DIR <- here("phase2", "output", "deliverable03")
 
 REVIEWS_PATH  <- file.path(D03_DIR, "projects_nepa_reviews.parquet")
 CE_PATH       <- file.path(D03_DIR, "ce_citations.parquet")
-VISUAL_PATH   <- file.path(D03_DIR, "projects_visual_impacts.parquet")
 GEO_OG_PATH   <- file.path(D03_DIR, "projects_geothermal_og.parquet")
-TIMELINE_PATH <- here("phase2", "data", "analysis", "timeline.parquet")
 
 reviews <- read_parquet(REVIEWS_PATH)
 ce_cits <- read_parquet(CE_PATH) |>
@@ -51,9 +47,6 @@ ce_cits <- read_parquet(CE_PATH) |>
     )
   )
 geo_og <- read_parquet(GEO_OG_PATH)
-
-visual_available <- file.exists(VISUAL_PATH)
-visual <- if (visual_available) read_parquet(VISUAL_PATH) else NULL
 
 geo_comp <- read_csv(file.path(OUTPUT_DIR, "geothermal_comparison_table.csv"),
                      show_col_types = FALSE)
@@ -123,7 +116,7 @@ chi_p_label <- if (chi_res$p.value < 0.001) "< 0.001" else sprintf("%.3f", chi_r
 # Multi-tag technology attribution: count a project under EVERY technology it is
 # tagged with (Phase-1 Deliverable 1 parity), rather than the first-match-wins
 # scalar tech_group from 02_build_nepa_reviews.py. Taxonomy mirrors the CASE in
-# that build script and the explode_tech_tags() helper in 04_analyze_nepa_reviews.R.
+# that build script and the explode_tech_tags() helper in 04_create_figures.R.
 # This is the data twin of fig2; a multi-tagged project appears in multiple groups.
 tech_tag_patterns <- tibble::tribble(
   ~tech_label,            ~pattern,                    ~group,
@@ -182,9 +175,6 @@ top_eis_tech <- tech_wide |>
 top_ce_tech <- tech_wide |>
   arrange(desc(CE), desc(total)) |>
   slice_head(n = 8)
-
-top_eis_names <- join_words(top_eis_tech$tech_group[seq_len(min(5, nrow(top_eis_tech)))])
-top_ce_names <- join_words(top_ce_tech$tech_group[seq_len(min(5, nrow(top_ce_tech)))])
 
 agency_rates <- bind_rows(
   within_blm |> mutate(`Agency Subset` = "BLM"),
@@ -245,7 +235,7 @@ top_states <- function(group) {
 }
 
 make_state_gt <- function(group) {
-  hdr_color <- if (group == "Decarbonization") "#002169B3" else "#7B241CB3"
+  hdr_color <- if (group == "Decarbonization") "#002169B3" else "#C22A90B3"
   raw <- state_counts |>
     filter(energy_group == group) |>
     arrange(desc(n_projects), project_state) |>
@@ -270,7 +260,7 @@ make_state_gt <- function(group) {
 }
 
 make_ce_gt <- function(tbl, group) {
-  hdr_color <- if (group == "Decarbonization") "#002169B3" else "#7B241CB3"
+  hdr_color <- if (group == "Decarbonization") "#002169B3" else "#C22A90B3"
   raw <- tbl |>
     transmute(`CE Citation` = ce_code, Documents = n)
   color_fn <- scales::col_numeric(palette = c("white", hdr_color), domain = c(0, NA))
@@ -367,7 +357,7 @@ analysis_universe_table <- tibble::tibble(
 pipeline_table <- tibble::tibble(
   Script = c(
     "phase2/code/deliverable03/02_build_nepa_reviews.py",
-    "phase2/code/deliverable03/04_analyze_nepa_reviews.R"
+    "phase2/code/deliverable03/04_create_figures.R"
   ),
   Role = c(
     "Builds project-level review data, normalized CE citations, visual-impact extraction outputs, and the all-agency geothermal/oil-and-gas subset",
@@ -379,25 +369,23 @@ availability_table_raw <- tibble::tibble(
   Component = c(
     "Review process type", "Technology group", "CE citations", "Geography",
     "Visual impacts", "Geothermal vs. oil and gas", "NEPA trigger",
-    "Linear vs. non-linear geometry", "Timelines"
+    "Linear vs. non-linear geometry"
   ),
   Status = c(
     "Complete", "Complete", "Complete", "Complete",
     "Complete",
     "Complete", "Partial",
-    if_else(any(!is.na(reviews$is_linear)), "Complete", "**Not yet available**"),
-    if_else(file.exists(TIMELINE_PATH), "Complete", "**Not yet available**")
+    if_else(any(!is.na(reviews$is_linear)), "Complete", "**Not yet available**")
   ),
   Notes = c(
     "CE, EA, and EIS populated for clean and fossil projects",
     "Derived from NEPATEC project-type labels",
     "Parsed and normalized from document-level CE categories",
     "State and county fields are exploded from project metadata; multi-state projects can count in multiple states",
-    "Full visual-section text extracted from EA/EIS pages via heading-anchored extraction with keyword-run fallback; supports topic modeling, framing scoring, illustrative excerpts, and an interactive distinguishing-terms explorer",
+    "Full visual-section text extracted from EA/EIS pages via heading-anchored extraction with keyword-run fallback; supports topic modeling, framing scoring, and illustrative excerpts",
     "Dedicated comparison output includes review-rate bars, all-state stacked shares, and a state geothermal-share map",
     "Deliverable 1 trigger classifications cover clean-energy projects; fossil projects currently have NULL trigger values",
-    "is_linear is still empty, so geometry analysis is omitted",
-    "Duration analysis is omitted unless phase2/data/analysis/timeline.parquet exists"
+    "Derived from the NEPATEC project-type taxonomy (transmission, pipelines, and corridors classified as linear); advisory"
   )
 )
 
@@ -417,15 +405,15 @@ availability_table <- availability_table_raw |>
 ## Key Findings
 
 -   **Decarbonization projects are more often resolved through Categorical Exclusions than fossil fuel projects.** Across `r fmt_n(n_decarb)` decarbonization projects, `r fmt_pct(energy_pct("Decarbonization", "CE"))` are CEs, compared to `r fmt_pct(energy_pct("Fossil Fuel", "CE"))` across `r fmt_n(n_fossil)` fossil fuel projects (see @fig-review-rates-energy).
--   **Agency controls narrow the headline decarb/fossil difference.** The overall decarb/fossil gap for CEs is 9%. Within DOE, that gap persists at 8%; within BLM it narrows to just 4%. Agency practice and project mix are important explanations alongside energy category (see @fig-within-agency).
--   **Categorical Exclusions are more concentrated in fossil fuel than decarbonization projects.** Fossil fuel CEs are heavily concentrated in oil-and-gas-specific pathways — particularly `r join_words(top_fossil_ce$ce_code[seq_len(min(2, nrow(top_fossil_ce)))])`, whereas decarbonization CEs are more diffuse `r decarb_ce_code_list` (see @fig-ce-by-energy).
--   **Fossil fuel projects are more geographically concentrated.** Fossil fuel projects are more geographically concentrated in Interior West states (WY, NM, CA, CO, and TX), whereas decarbonization projects are more spread out across the West (WA, CA, OR, ID, AZ, NV, WY) (see @fig-state-decarb–@fig-state-process-fossil).
--   **Geothermal is CE-heavy and geographically distinct from oil and gas.** Geothermal and Oil & Gas CE projects track the overall averages fairly closely at 94% and 85%, respectively. Fossil fuel dominates most states, with geothermal concentrated in a smaller set of states (see @fig-geo-og-states and @fig-geo-og-map).
--   **The visual impact analysis treats Fossil and Decarb similarly.**
-    -   **Wordcloud.** Results for *decarb* focus on transmission lines, cooling towers, and shadow flickers connected to turbines, whereas *fossil* focuses on compression stations, power plants, contrast rating and light pollution that "attract attention" (see @fig-wordcloud). 
-    -   **Section Length.** Visual impact sections are roughly equal in median length across portfolios, though most fossil project types — rural energy and offshore oil & gas — have longer average sections (see @fig-section-length-energy).
-    -   **Framing analysis.** Results suggest *decarb* scores higher on negative visual adversity scores (sentences framing impact as negative) but *fossil* scores higher on (sentences with specific commitments to correct), likely reflecting decarb projects acknowledging visual effects more explicitly but addressing them through design standards and programmatic commitments rather than project-level enumerated actions (see @fig-framing).
-    - **Topic modeling.** The dominant finding is that visual impact prose **clusters by project type and regulatory context rather than by energy category** — the two largest topics each span both portfolios, and the most coherent topic (shadow flicker) is entirely technology-specific. Wind and solar EISs concentrate in the contrast-rating topic; O&G and pipeline EISs split between the infrastructure-corridor topic and the formal VRM-objectives topic depending on whether they operate under a BLM plan of development (see @fig-topic-prevalence).
+-   **Agency controls narrow the headline gap between decarbonization and fossil fuel projects.** The overall CE gap is 8%, and it persists at 8% within DOE, but within BLM it narrows to just 4%, indicating that agency practice and project mix, not energy category alone, do much of the work (see @fig-within-agency).
+-   **Categorical Exclusions are more concentrated in fossil fuel than decarbonization projects.** Fossil fuel CEs are heavily concentrated in oil-and-gas-specific pathways, particularly `r join_words(top_fossil_ce$ce_code[seq_len(min(2, nrow(top_fossil_ce)))])`, whereas decarbonization CEs are more diffuse (`r decarb_ce_code_list`) (see @fig-ce-by-energy).
+-   **Fossil fuel projects are more geographically concentrated.** They cluster in Interior West states (WY, NM, CA, CO, and TX), whereas decarbonization projects are more spread out across the West (WA, CA, OR, ID, AZ, NV, WY) (see @fig-state-decarb–@fig-state-process-fossil).
+-   **Geothermal is CE-heavy and geographically distinct from oil and gas.** Geothermal and Oil & Gas CE projects track the overall averages fairly closely at 94% and 86%, respectively. Fossil fuel dominates most states, with geothermal concentrated in a smaller set of states (see @fig-geo-og-states and @fig-geo-og-map).
+-   **The visual-impact analysis treats fossil fuel and decarbonization projects similarly.**
+    -   The word clouds separate the portfolios by project-specific vocabulary: decarbonization sections focus on transmission lines, cooling towers, and the shadow flicker connected to turbines, whereas fossil fuel sections focus on compression stations, power plants, contrast rating and light pollution that "attract attention" (see @fig-wordcloud).
+    -   Visual-impact sections are roughly equal in median length across portfolios, though several fossil fuel project types (offshore and land-based oil and gas, and coal) have longer average sections (see @fig-section-length-energy).
+    -   Decarbonization sections score higher on negative visual-adversity framing (sentences framing impact as negative), while fossil fuel sections score higher on mitigation specificity (sentences with specific commitments to correct), likely reflecting that decarbonization projects acknowledge visual effects more explicitly but address them through design standards and programmatic commitments rather than project-level enumerated actions (see @fig-framing).
+    -   Visual-impact prose clusters by project type and regulatory context rather than by energy category: the two largest topics each span both portfolios, and the most coherent topic (shadow flicker) is entirely technology-specific; wind and solar EISs concentrate in the contrast-rating topic, while oil-and-gas and pipeline EISs split between the infrastructure-corridor topic and the formal VRM-objectives topic depending on whether they operate under a BLM plan of development (see @fig-topic-prevalence).
 
 :::
 
@@ -437,27 +425,38 @@ This report delivers:
 
 # Methodology
 
-## Analysis Universe
+Deliverable 3 scopes the analysis to `r fmt_n(n_total)` energy projects — `r fmt_n(n_decarb)` decarbonization and `r fmt_n(n_fossil)` fossil fuel — drawn from NEPATEC 2.0 by excluding projects classified as `Other`. Review-process, citation, and geographic patterns are built from project metadata; visual-impact patterns are extracted from EA/EIS document text. The pipeline runs in four stages:
 
-The Deliverable 3 build script scopes the analysis to **`r fmt_n(n_total)` energy projects**:
-
-```{r}
-kable_tbl(analysis_universe_table)
+```{=html}
+<div style="max-width:660px;margin:1.25rem auto;">
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 · Scope the energy universe</div>
+    <div style="color:#1A1A2E;">Filter NEPATEC&nbsp;2.0's <code>projects_combined.parquet</code> to the 31,508 <b>Clean</b> and <b>Fossil</b> energy projects; projects classified as <b>Other</b> are excluded so the clean/fossil comparison is not diluted by unrelated federal actions</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 · Build the review dataset</div>
+    <div style="color:#1A1A2E;"><code>02_build_nepa_reviews.py</code> assigns each project an energy group and technology tag, its review process (CE / EA / EIS), lead agency and geography, normalized CE citations, a linear-vs-non-linear geometry flag, and Deliverable&nbsp;1 NEPA-trigger classifications (clean-energy projects)</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 · Extract visual-impact text</div>
+    <div style="color:#1A1A2E;">For EA / EIS projects, heading-anchored retrieval pulls visual-resource sections; sentence-transformer embeddings (all-MiniLM-L6-v2) support NMF topic modeling and CEQ-anchored framing scores</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">4 · Generate figures and tables</div>
+    <div style="color:#1A1A2E;"><code>04_create_figures.R</code> produces the review-rate, CE-citation, geography, geometry, visual-impact, and geothermal outputs read by this report</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #012169;border-radius:8px;padding:.65rem 1rem;background:#012169;">
+    <div style="font-weight:700;color:#ffffff;font-size:1.05rem;">Deliverable 3 report</div>
+    <div style="color:#ffffff;">A comparison of how <b>decarbonization</b> and <b>fossil fuel</b> projects move through NEPA</div>
+  </div>
+</div>
 ```
 
-Projects classified as `Other` are excluded before analysis. This keeps the denominator focused on energy projects and avoids diluting clean/fossil comparisons with unrelated federal actions.
-
-## Data Pipeline
-
-The analysis is built in two scripts:
-
-```{r}
-kable_tbl(pipeline_table)
-```
-
-The main project-level output is `phase2/data/analysis/deliverable03/projects_nepa_reviews.parquet`. It contains one row per project with energy category, technology group, review process, lead agency, geography, and clean-energy trigger information where available.
-
-## Current Data Availability
+The main project-level output is `phase2/data/analysis/deliverable03/projects_nepa_reviews.parquet` — one row per project with energy category, technology group, review process, lead agency, geography, geometry, and clean-energy trigger information. The components currently available are:
 
 ```{r}
 kable_tbl(availability_table)
@@ -471,7 +470,7 @@ kable_tbl(availability_table)
 
 Decarbonization projects are more CE-heavy than fossil fuel projects. Fossil fuel projects are `r number((1 - energy_pct("Fossil Fuel", "CE")) / (1 - energy_pct("Decarbonization", "CE")), accuracy = 0.1)` times as likely to require either an EA or EIS (`r fmt_pct(1 - energy_pct("Fossil Fuel", "CE"))`) as decarbonization projects (`r fmt_pct(1 - energy_pct("Decarbonization", "CE"))`).
 
-The distinction is especially pronounced for EAs. Fossil fuel projects have a `r fmt_pct(energy_pct("Fossil Fuel", "EA"))` EA share, compared with `r fmt_pct(energy_pct("Decarbonization", "EA"))` for decarbonization projects. EIS rates are closer but still higher for fossil fuel projects: `r fmt_pct(energy_pct("Fossil Fuel", "EIS"))` vs. `r fmt_pct(energy_pct("Decarbonization", "EIS"))`.
+The distinction is especially pronounced for EAs. Fossil fuel projects have a `r fmt_pct(energy_pct("Fossil Fuel", "EA"))` EA share, compared with `r fmt_pct(energy_pct("Decarbonization", "EA"))` for decarbonization projects. EIS rates are closer but still higher for fossil fuel projects: `r fmt_pct(energy_pct("Fossil Fuel", "EIS"))` vs. `r fmt_pct(energy_pct("Decarbonization", "EIS"))`. The association between energy category and review type is statistically significant (χ² = `r sprintf("%.0f", chi_res$statistic)`, df = `r chi_res$parameter`, p `r chi_p_label`), but at this sample size significance is guaranteed — the informative quantity is the effect size, Cramér's V = `r sprintf("%.2f", cramers_v)`.
 
 ```{r}
 #| label: fig-review-rates-energy
@@ -483,7 +482,7 @@ include_fig("fig1_review_rates_by_energy.png")
 
 The technology view shows why the clean/fossil headline should not be overinterpreted. Some clean technologies have materially higher EIS shares than the decarbonization average. Some fossil categories remain highly CE-heavy because many oil and gas actions are processed through repeatable BLM or statutory CE pathways.
 
-The figure below plots CE, EA, and EIS shares for all technology groups, sorted by categorical exclusion share from highest to lowest. The spread — from near-universal CE use (CCS, nuclear) to double-digit EIS rates (hydropower, wind) — illustrates that a project's technology type predicts its review pathway as reliably as its clean/fossil designation.
+The figure below plots CE, EA, and EIS shares for all technology groups, sorted by categorical exclusion share from highest to lowest. The spread, from near-universal CE use (CCS, rural energy) to double-digit EIS rates (coal, offshore oil and gas, hydropower, wind), illustrates that a project's technology type predicts its review pathway as reliably as its clean/fossil designation.
 
 ```{r}
 #| label: fig-review-rates-tech
@@ -493,7 +492,13 @@ include_fig("fig2_review_rates_by_tech.png")
 
 ## Linear vs. Non-linear Geometry
 
-A planned breakdown by project geometry (linear infrastructure such as transmission lines and pipelines vs. non-linear point or area projects) is omitted from this version. The `is_linear` field is not yet populated. See the Known Gaps table.
+Projects are split by geometry into linear infrastructure — transmission lines, pipelines, and corridors — versus non-linear point or area projects (solar arrays, wind farms, geothermal fields, well pads, plants, and storage). The `is_linear` flag is derived from the NEPATEC project-type taxonomy and is advisory: a project carrying any linear label is treated as linear, since geometry is a property of the built infrastructure. The figure below shows CE, EA, and EIS shares within each geometry class, faceted by energy category.
+
+```{r}
+#| label: fig-linear-geometry
+#| fig-cap: "NEPA review type shares by project geometry (linear vs. non-linear) and energy category. Linear = transmission, pipelines, and corridors; non-linear = point or area projects."
+include_fig("fig3_review_rates_linear.png")
+```
 
 ## Within-Agency Comparisons
 
@@ -505,7 +510,7 @@ Agency controls help separate technology effects from agency practice. Within-ag
 include_fig("fig1b_within_agency.png")
 ```
 
-The BLM comparison is the more informative of the two: within a single land-management agency, the clean/fossil CE gap narrows relative to the headline rate, indicating that federal land exposure and repeatable permitting pathways — not energy category alone — drive a meaningful share of the headline difference. The DOE comparison points in a different direction: clean-energy DOE reviews are overwhelmingly CEs, likely because the DOE clean portfolio contains many financial-assistance and low-disturbance actions, while DOE fossil projects include a smaller and more heterogeneous set.
+The BLM comparison is the more informative of the two: within a single land-management agency, the clean/fossil CE gap narrows relative to the headline rate, indicating that federal land exposure and repeatable permitting pathways, not energy category alone, drive a meaningful share of the headline difference. The DOE comparison points in a different direction: clean-energy DOE reviews are overwhelmingly CEs, likely because the DOE clean portfolio contains many financial-assistance and low-disturbance actions, while DOE fossil projects include a smaller and more heterogeneous set.
 
 ------------------------------------------------------------------------
 
@@ -625,7 +630,7 @@ include_fig("fig10_county_fossil.png")
 
 ## Process Type by State
 
-The state-by-process maps show each state's share of all national projects of a given review type **within its energy category** — for example, Texas Decarbonization CE projects as a share of all Decarbonization CE projects nationally. Colors use a square-root scale to surface variation when one or two states dominate. This helps identify where review activity concentrates by type, and supports targeted questions — for example, whether EIS-heavy states reflect project size, federal land exposure, agency practice, technology mix, or state-specific project portfolios.
+The state-by-process maps show each state's share of all national projects of a given review type within its energy category — for example, Texas Decarbonization CE projects as a share of all Decarbonization CE projects nationally. Colors use a square-root scale to surface variation when one or two states dominate. This helps identify where review activity concentrates by type, and supports targeted questions — for example, whether EIS-heavy states reflect project size, federal land exposure, agency practice, technology mix, or state-specific project portfolios.
 
 ```{r}
 #| label: fig-state-process-decarb
@@ -643,7 +648,7 @@ include_fig("fig11b_state_process_fossil.png")
 
 # Geothermal vs. Oil and Gas
 
-This comparison covers **all lead agencies** — BLM, USFS, DOE, and others. The Python builder classifies geothermal only within clean-energy projects and subsets the project table to clean geothermal, land-based oil and gas, and offshore oil and gas. The R analysis collapses land-based and offshore oil and gas into a single `Oil & Gas` comparison group.
+This comparison covers all lead agencies (BLM, USFS, DOE, and others). The Python builder classifies geothermal only within clean-energy projects and subsets the project table to clean geothermal, land-based oil and gas, and offshore oil and gas. The R analysis collapses land-based and offshore oil and gas into a single `Oil & Gas` comparison group.
 
 Across all agencies, geothermal tracks closely with the decarbonization average. Geothermal has a `r fmt_pct(geo_pct("Geothermal", "CE"))` CE share, compared with `r fmt_pct(energy_pct("Decarbonization", "CE"))` for the full decarbonization portfolio. Oil and gas is more review-intensive, with a `r fmt_pct(geo_pct("Oil & Gas", "CE"))` CE share and a higher EA share.
 
@@ -660,7 +665,7 @@ geo_og_wide |>
   kable_tbl()
 ```
 
-This figure answers a broad technology-comparison question: how geothermal projects compare with oil-and-gas projects across all lead agencies. It does **not** isolate public-land or BLM permitting pathways.
+This figure answers a broad technology-comparison question: how geothermal projects compare with oil-and-gas projects across all lead agencies. It does not isolate public-land or BLM permitting pathways.
 
 ```{r}
 geo_comp_table |>
@@ -683,7 +688,13 @@ geo_comp_table |>
   tab_options(table.font.size = px(12), table.width = pct(100))
 ```
 
-This is potentially one of the most important findings in the deliverable, but it should be framed carefully. If the policy question is whether geothermal generally moves through NEPA more like decarbonization or oil and gas, the all-agency comparison suggests geothermal is closer to the decarbonization average. If the policy question is whether **BLM geothermal development** faces a pathway more similar to oil and gas, that should be tested with a separate BLM-controlled geothermal sensitivity analysis.
+This is potentially one of the most important findings in the deliverable, but it should be framed carefully. If the policy question is whether geothermal generally moves through NEPA more like decarbonization or oil and gas, the all-agency comparison suggests geothermal is closer to the decarbonization average. If the policy question is whether BLM geothermal development faces a pathway more similar to oil and gas, that is a different question that this comparison does not answer.
+
+Three control caveats bound how far this comparison should be read:
+
+-   **The comparison is an all-agency blend.** It pools BLM, USFS, DOE, and other lead agencies, so it mixes different permitting pathways and does not isolate any single agency's practice.
+-   **A BLM-only control was considered and deliberately not included.** A public-land (BLM-lead) geothermal-versus-oil-and-gas comparison would be the right way to test the public-land question above, but it is out of scope for this version and is noted as a candidate follow-up rather than an available result.
+-   **The federal-land trigger share is not classified for oil and gas.** The comparison table's Federal-Land Trigger Share column reads "Not yet classified" for the oil-and-gas rows because NEPA-trigger classification was not extended to the fossil portfolio; only the clean-energy (including geothermal) side carries trigger values.
 
 ```{r}
 #| label: fig-geo-og-rates
@@ -711,7 +722,7 @@ include_fig("fig17_geo_og_state_map.png")
 
 # Visual Impact Analysis
 
-The visual-impact module is no longer purely exploratory. It now extracts full visual-section text for roughly 2,918 EA/EIS projects, then runs topic modeling, CEQ-anchored framing scoring, illustrative-excerpt sampling, and an interactive distinguishing-terms explorer. Section text is recovered via **heading-anchored extraction** (visual-resource heading detection plus same-or-shallower-depth termination so subsections such as *Affected Environment* and *Environmental Consequences* are retained) with a **contiguous-keyword-run fallback** for projects whose documents lack clean heading hierarchies — most commonly land-based oil and gas EAs that rely on form-style templates. CE forms remain out of scope.
+The visual-impact module extracts full visual-section text for 1,591 of the roughly 2,918 EA/EIS projects (~55%; see the Coverage & Limitations page for what the remainder lack), then runs topic modeling, CEQ-anchored framing scoring, illustrative-excerpt sampling, and an interactive distinguishing-terms explorer. Section text is recovered via heading-anchored extraction (visual-resource heading detection plus same-or-shallower-depth termination, so subsections such as *Affected Environment* and *Environmental Consequences* are retained), with a contiguous-keyword-run fallback for projects whose documents lack clean heading hierarchies — most commonly land-based oil and gas EAs that rely on form-style templates. CE forms remain out of scope.
 
 ## Visual Analysis Universe
 
@@ -735,7 +746,7 @@ include_fig("fig13_wordcloud_grid.png")
 
 ## Section Length
 
-At the portfolio level, decarbonization and fossil fuel projects produce visual sections of similar median length, but the decarbonization distribution is wider — driven by wind, solar, and transmission EISs that generate long dedicated glare and viewshed sections.
+At the portfolio level, decarbonization and fossil fuel projects produce visual sections of similar median length, but the decarbonization distribution is wider, driven by wind, solar, and transmission EISs that generate long dedicated glare and viewshed sections.
 
 ```{r}
 #| label: fig-section-length-energy
@@ -834,7 +845,7 @@ Framing scores are CEQ §1508.27-anchored and computed with negation-aware phras
 -   **Adversity**: share of directional-impact sentences framing impact as negative (*adverse*, *detrimental*, *degrade*, *harm*) vs. positive or no-effect (*beneficial*, *enhance*, *no effect*).
 -   **Mitigation strength**: share of mitigation sentences with specific, action-level commitments (*shall install*, *required to*, *design feature*) vs. weak or residual language (*residual impact*, *unavoidable*, *cannot fully mitigate*).
 
-This approach is conceptually similar to sentiment analysis, but uses domain-specific lexicons rather than general-purpose sentiment tools. Standard sentiment tools (VADER, TextBlob) would score nearly all NEPA text as strongly negative — the word *impact* alone triggers a negative score — because they are trained on social media and reviews where "impact" carries negative valence. In NEPA, "impact" is a neutral term of art; a finding of "no significant adverse impact" is a positive outcome but would register as strongly negative under general sentiment scoring. The framing measures here are calibrated to the actual meaning of CEQ terminology.
+This approach is conceptually similar to sentiment analysis, but uses domain-specific lexicons rather than general-purpose sentiment tools. Standard sentiment tools (VADER, TextBlob) would score nearly all NEPA text as strongly negative (the word *impact* alone triggers a negative score) because they are trained on social media and reviews where "impact" carries negative valence. In NEPA, "impact" is a neutral term of art; a finding of "no significant adverse impact" is a positive outcome but would register as strongly negative under general sentiment scoring. The framing measures here are calibrated to the actual meaning of CEQ terminology.
 
 ```{r}
 #| label: fig-framing
@@ -894,17 +905,17 @@ if (file.exists(tbl_ex_path)) {
       table.width       = pct(100)
     )
 } else {
-  cat("*[framing_examples.csv not yet generated -- re-run 04_analyze_nepa_reviews.R]*\n")
+  cat("*[framing_examples.csv not yet generated -- re-run 04_create_figures.R]*\n")
 }
 ```
 
-Comparing the two portfolios: decarbonization projects carry meaningfully higher adversity scores than fossil fuel projects. This is not because solar and wind are more harmful to visual resources — it reflects that wind, solar, and transmission EISs document site-specific adverse effects explicitly (viewshed intrusion, glare, landscape character alteration) rather than relying on residual or no-effect language. Fossil fuel documents score higher on significance framing, likely because oil and gas EAs invoke CEQ significance thresholds and context language more routinely as a matter of form. Fossil fuel documents also score higher on both mitigation ratio and mitigation specificity — projects subject to formal BLM mitigation plans or Record of Decision commitments produce more enumerated, action-level language (*shall install*, *required to*, *design feature*) even when adversity framing is lower. The decarbonization portfolio's higher adversity framing without a corresponding mitigation specificity premium likely reflects that wind and solar EISs acknowledge site-specific visual effects explicitly but address them through design standards and programmatic commitments rather than project-level enumerated actions.
+Comparing the two portfolios: decarbonization projects carry meaningfully higher adversity scores than fossil fuel projects. This is not because solar and wind are more harmful to visual resources; it reflects that wind, solar, and transmission EISs document site-specific adverse effects explicitly (viewshed intrusion, glare, landscape character alteration) rather than relying on residual or no-effect language. Fossil fuel documents score higher on significance framing, likely because oil and gas EAs invoke CEQ significance thresholds and context language more routinely as a matter of form. Fossil fuel documents also score higher on both mitigation ratio and mitigation specificity — projects subject to formal BLM mitigation plans or Record of Decision commitments produce more enumerated, action-level language (*shall install*, *required to*, *design feature*) even when adversity framing is lower. The decarbonization portfolio's higher adversity framing without a corresponding mitigation specificity premium likely reflects that wind and solar EISs acknowledge site-specific visual effects explicitly but address them through design standards and programmatic commitments rather than project-level enumerated actions.
 
 A typical decarbonization EIS will name the impact directly — *"moderate, long-term adverse impacts due to altering the scenic attractiveness rating from typical to indistinctive"* — and resolve it by invoking a design standard: *"anti-reflective PV panel surfaces would minimize glare"* or *"deviations must repeat the form, line, color, and texture of the surrounding landscape"* (USFS Scenic Integrity Objective). A fossil fuel EA under a formal BLM plan of development tends to write it differently: *"operator shall install opaque screening of specified height along the north perimeter"* or *"facilities required to use earth-tone paint matching an approved Munsell color"* — inspectable, project-specific commitments that produce more action-level language by default. The higher fossil fuel mitigation specificity score is therefore a product of the BLM permit-and-plan regime for oil and gas rather than evidence of stronger mitigation outcomes.
 
 ## VRM Contrast Analysis
 
-Among projects with sufficient detail for element-level extraction (\~4% of the corpus, primarily BLM EIS documents with formal VRM contrast rating tables), the dominant contrast elements are form and line — reflecting that project structures and linear disturbances are the primary visual concern. Color and texture contrasts are rated moderate-to-strong for a portion of projects, particularly solar arrays and pipeline corridors where surface treatment differs from the surrounding landscape.
+Among projects with sufficient detail for element-level extraction (\~4% of the corpus, primarily BLM EIS documents with formal VRM contrast rating tables), the dominant contrast elements are form and line, reflecting that project structures and linear disturbances are the primary visual concern. Color and texture contrasts are rated moderate-to-strong for a portion of projects, particularly solar arrays and pipeline corridors where surface treatment differs from the surrounding landscape.
 
 Elements with fewer than 5 projects recorded across both energy categories are excluded from the chart — Scale is the primary example, appearing in only one decarbonization project and no fossil fuel projects. The chart shows rated projects only (Weak, Moderate, Strong); projects with no recorded contrast for a given element are excluded.
 
@@ -917,15 +928,15 @@ include_fig("fig21_vrm_elements.png")
 ## Topic Analysis
 
 ::: callout-note
-**A note on "contrast" appearing in multiple topics.** In BLM Visual Resource Management (VRM) terminology, *contrast* is the technical measure of how visually distinct a project is from its surrounding landscape — assessed across form, line, color, texture, and vividness. It is the foundational concept in virtually all federal visual impact analysis, appearing in approximately 45% of documents in this corpus. Because NMF topic components are additive (each document's representation is a weighted mix of all four topics), a term that common across the corpus will have non-zero weight in multiple components. What distinguishes the two VRM-heavy topics is their *secondary* vocabulary, not their anchor term: Topic 0's secondary terms (solar, sensitivity, moderate, glare) reflect applied contrast-rating outcomes on solar projects; Topic 3's (managed, VRI, classes, integrity, dominate) reflect the formal BLM VRM compliance framework in O&G and pipeline EIS documents.
+**A note on "contrast" appearing in multiple topics.** In BLM Visual Resource Management (VRM) terminology, *contrast* is the technical measure of how visually distinct a project is from its surrounding landscape, assessed across form, line, color, texture, and vividness. It is the foundational concept in virtually all federal visual impact analysis, appearing in approximately 45% of documents in this corpus. Because NMF topic components are additive (each document's representation is a weighted mix of all four topics), a term that is common across the corpus will have non-zero weight in multiple components. What distinguishes the two VRM-heavy topics is their *secondary* vocabulary, not their anchor term: Topic 0's secondary terms (solar, sensitivity, moderate, glare) reflect applied contrast-rating outcomes on solar projects; Topic 3's (managed, VRI, classes, integrity, dominate) reflect the formal BLM VRM compliance framework in O&G and pipeline EIS documents.
 :::
 
 Four topics emerge from NMF applied to the sentence-filtered visual-impact text (\~1,310 heading-anchored documents), ordered below by project count (largest first):
 
--   **Industrial & Infrastructure Corridors** (n ≈ 804): The largest topic. Visual impact of linear and industrial facilities — O&G pipelines, transmission lines, LNG terminals, substations. The term-weight profile is notably flat (all top terms between 0.20–0.24), reflecting that these project types genuinely share overlapping infrastructure-corridor language that NMF cannot further discriminate. This is a corpus property, not a modeling failure.
--   **VRM Contrast Rating & Solar Glare** (n ≈ 432): BLM VRM contrast rating methodology applied to solar and transmission projects. Sections score contrast of form, line, color, and texture against the characteristic landscape; glare from panels is a secondary element. Dominated by the vocabulary of applied contrast outcomes: *moderate*, *solar*, *sensitivity*, *glare*.
--   **BLM VRM Objectives & Landscape Management** (n ≈ 286): Formal BLM VRM compliance framework used primarily in O&G and pipeline EIS documents on BLM land. Distinguished from Topic 2 by its secondary vocabulary: *managed*, *VRI*, *classes*, *integrity*, *dominate*, *landscape character*, *scenic integrity objectives*.
--   **Wind Turbine Shadow Flicker** (n ≈ 69): The most coherent topic — *shadow*, *flicker*, and *shadow flicker* together have weights 3× higher than any secondary term. This specialized vocabulary is unique to wind projects and identifies a textbook-coherent NMF cluster.
+-   Industrial & Infrastructure Corridors (n ≈ 804) is the largest topic: the visual impact of linear and industrial facilities — O&G pipelines, transmission lines, LNG terminals, substations. The term-weight profile is notably flat (all top terms between 0.20–0.24), reflecting that these project types genuinely share overlapping infrastructure-corridor language that NMF cannot further discriminate. This is a corpus property, not a modeling failure.
+-   VRM Contrast Rating & Solar Glare (n ≈ 432) is the BLM VRM contrast rating methodology applied to solar and transmission projects. Sections score contrast of form, line, color, and texture against the characteristic landscape; glare from panels is a secondary element. It is dominated by the vocabulary of applied contrast outcomes: *moderate*, *solar*, *sensitivity*, *glare*.
+-   BLM VRM Objectives & Landscape Management (n ≈ 286) is the formal BLM VRM compliance framework used primarily in O&G and pipeline EIS documents on BLM land. It is distinguished from Topic 2 by its secondary vocabulary: *managed*, *VRI*, *classes*, *integrity*, *dominate*, *landscape character*, *scenic integrity objectives*.
+-   Wind Turbine Shadow Flicker (n ≈ 69) is the most coherent topic: *shadow*, *flicker*, and *shadow flicker* together have weights 3× higher than any secondary term. This specialized vocabulary is unique to wind projects and identifies a textbook-coherent NMF cluster.
 
 ```{r}
 #| label: fig-topic-prevalence
@@ -1007,70 +1018,12 @@ include_fig("fig14b_topic_terms.png")
 
 ### Topic Validation
 
-The elbow analysis formalises why four topics is the right choice. Reconstruction error — how well the topic model re-creates the original term-frequency matrix — drops sharply from k=2 to k=3, then makes a smaller but meaningful improvement at k=4. From k=4 onward the error flatlines: adding a fifth or sixth topic produces no reduction in reconstruction error, and those extra components receive zero project assignments at inference time. Reducing to three topics would collapse the two distinct VRM subtopics (solar-glare contrast rating vs. O&G landscape management objectives) into one coarser category. The flat term-weight profile of Topic 2 (Industrial & Infrastructure Corridors) is not grounds for adding more topics — it is evidence that O&G, pipeline, and transmission projects share visual-impact prose at a level the NMF vocabulary cannot separate, regardless of k.
+The elbow analysis formalises why four topics is the right choice. Reconstruction error — how well the topic model re-creates the original term-frequency matrix — drops sharply from k=2 to k=3, then makes a smaller but meaningful improvement at k=4. From k=4 onward the error flatlines: adding a fifth or sixth topic produces no reduction in reconstruction error, and those extra components receive zero project assignments at inference time. Reducing to three topics would collapse the two distinct VRM subtopics (solar-glare contrast rating vs. O&G landscape management objectives) into one coarser category. The flat term-weight profile of Topic 2 (Industrial & Infrastructure Corridors) is not grounds for adding more topics; it is evidence that O&G, pipeline, and transmission projects share visual-impact prose at a level the NMF vocabulary cannot separate, regardless of k.
 
 ```{r}
 #| label: fig-nmf-elbow
 #| fig-cap: "NMF topic-count validation — normalised reconstruction error by k. Dotted line marks chosen k=4."
 include_fig("fig14d_nmf_elbow.png")
-```
-
-## Interactive: Distinguishing Terms
-
-The interactive scattertext explorer plots every term in the corpus by its association with decarbonization (Y axis) versus fossil fuel (X axis). Dot size reflects term frequency, color reflects which side the term leans toward, and hovering over a term reveals representative excerpts from the underlying visual sections. This is the most direct view of vocabulary that distinguishes decarbonization visual-impact prose from fossil prose.
-
-```{r}
-scattertext_path <- file.path(OUTPUT_DIR, "visual_scattertext_decarb_vs_fossil.html")
-if (file.exists(scattertext_path)) {
-  cat(sprintf(
-    '<iframe src="visual_scattertext_decarb_vs_fossil.html" width="100%%" height="800px" style="border:1px solid #ccc;"></iframe>'
-  ))
-} else {
-  cat("> **Note:** The interactive scattertext explorer requires the Python `scattertext` package (not currently installed). Run `pip install scattertext` and re-run `02_build_nepa_reviews.py` to generate the file.")
-}
-```
-
-------------------------------------------------------------------------
-
-# Timelines
-
-Timeline data — initiation date, decision date, and computed review duration — are not yet available in the analysis database. When `phase2/data/analysis/timeline.parquet` is built and audited for coverage, this section will include:
-
--   **Coverage table:** how many projects have both initiation and decision dates, broken out by energy category and process type
--   **Duration by regulatory period and process type:** median review length before and after the 2020 CEQ rule revision and the 2023 Fiscal Responsibility Act
--   **Clean vs. fossil duration comparison:** controlled within process type to isolate the energy-category effect
-
-See the Known Gaps table for current status.
-
-------------------------------------------------------------------------
-
-# Known Gaps and Cautions
-
-```{r}
-tibble::tibble(
-  Gap = c(
-    "Fossil trigger classifications are missing",
-    "Timeline data are missing",
-    "Linear geometry is missing",
-    "All-agency geothermal blends different pathways",
-    "State and county counts can duplicate multi-state projects"
-  ),
-  `Why It Matters` = c(
-    "Trigger comparisons are currently clean-energy only",
-    "Cannot yet compare review duration or pre/post reform periods",
-    "Cannot yet compare transmission/pipelines against point or area projects",
-    "The current geothermal comparison is not a BLM/public-land control",
-    "Geography maps show footprint, not unique project counts"
-  ),
-  `Recommended Treatment` = c(
-    "Extend Deliverable 1 trigger logic to fossil projects before making trigger-based clean/fossil claims",
-    "Omit duration claims until timeline.parquet exists and coverage is audited",
-    "Add geometry derivation before interpreting infrastructure corridor effects",
-    "Add a BLM-only geothermal sensitivity analysis for a controlled public-land development comparison",
-    "Label outputs as project-state or project-county records when relevant"
-  )
-) |>
-  kable_tbl()
 ```
 
 ------------------------------------------------------------------------
@@ -1081,7 +1034,7 @@ Run from the repository root in the `nepa` conda environment:
 
 ``` bash
 conda run -n nepa python phase2/code/deliverable03/02_build_nepa_reviews.py
-Rscript phase2/code/deliverable03/04_analyze_nepa_reviews.R
+Rscript phase2/code/deliverable03/04_create_figures.R
 ```
 
 Outputs are written to:

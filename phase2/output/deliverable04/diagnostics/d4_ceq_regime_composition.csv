@@ -1,0 +1,13 @@
+process_type,ceq_regime,n,n_decided,completeness,pct_decarb,pct_fossil,pct_other,top_agency,top_agency_share
+CE,1978,17223,32463,0.531,0.349,0.183,0.468,Department of Energy,0.556
+CE,2020_trump,4879,7175,0.68,0.272,0.165,0.563,Bureau of Land Management,0.504
+CE,2022_phase1,5127,9704,0.528,0.335,0.208,0.457,Bureau of Land Management,0.504
+CE,2024_phase2_plus,46,50,0.92,0.174,0.37,0.457,Bureau of Land Management,0.543
+EA,1978,1096,1662,0.659,0.165,0.422,0.413,Bureau of Land Management,0.824
+EA,2020_trump,290,364,0.797,0.114,0.531,0.355,Bureau of Land Management,0.91
+EA,2022_phase1,295,366,0.806,0.108,0.434,0.458,Bureau of Land Management,0.892
+EA,2024_phase2_plus,55,66,0.833,0.255,0.255,0.491,Bureau of Land Management,0.764
+EIS,1978,1080,1467,0.736,0.228,0.212,0.56,Bureau of Land Management,0.273
+EIS,2020_trump,101,118,0.856,0.129,0.198,0.673,Department of Energy,0.208
+EIS,2022_phase1,98,110,0.891,0.214,0.163,0.622,Bureau of Land Management,0.224
+EIS,2024_phase2_plus,50,54,0.926,0.36,0.12,0.52,Bureau of Land Management,0.24

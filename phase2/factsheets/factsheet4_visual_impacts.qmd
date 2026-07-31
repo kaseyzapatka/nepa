@@ -1,0 +1,147 @@
+---
+title: "How NEPA Reviews Talk About Visual Impacts"
+subtitle: "NEPA by the Numbers — Fact Sheet 4: Visual Impacts"
+date: today
+date-format: long
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    fig-align: center
+  docx:
+    toc: false
+    number-sections: false
+    fig-align: center
+    fig-width: 6.5
+    fig-height: 4.5
+    reference-doc: catf-reference.docx
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+```{r setup}
+library(tidyverse)
+library(here)
+library(knitr)
+library(scales)
+library(arrow)
+
+fs_figures <- here("phase2", "output", "factsheet", "figures")
+include_fig <- function(name) knitr::include_graphics(file.path(fs_figures, name))
+
+# NMF topic counts (per-topic project assignments)
+topics <- read_parquet(here("phase2", "data", "analysis", "deliverable03",
+                            "visual_topic_summary.parquet")) |>
+  filter(model == "nmf")
+tn <- function(lbl) topics$n_total[topics$label == lbl]
+n_corridor <- tn("glare / transmission / light")
+n_contrast <- tn("contrast / visual contrast")
+n_vrm      <- tn("contrast / visual contrast / objectives")
+n_flicker  <- tn("shadow / flicker")
+```
+
+## Key Findings
+
+::: {.callout-note}
+## Key Findings
+
+- **Visual impact concerns appear across all energy technologies — fossil and decarbonization alike.** Visual-resource sections are roughly equal in median length across the two portfolios, and the largest visual-impact theme (industrial and infrastructure corridors, n ≈ `r n_corridor` projects) spans both.
+- **The specific concerns are technology-shaped.** Decarbonization documents center on shadow flicker (wind), glare and panel reflectivity (solar), and transmission-line intrusion; fossil documents center on compressor stations, contrast ratings, and the lasting footprint of surface disturbance.
+- **Decarbonization documents name adverse visual effects more explicitly, while fossil documents contain more specific mitigation commitments** — a difference in regulatory drafting regimes (design standards vs. BLM permit conditions), not in actual visual harm.
+- **Visual-impact prose clusters by project type and regulatory context, not by energy category.** The most coherent topic — wind turbine shadow flicker (n ≈ `r n_flicker`) — is entirely technology-specific.
+- **Developers should take visual concerns seriously.** They are pervasive enough to appear in essentially every EA/EIS with a landscape footprint, and specific enough to be anticipated and mitigated by design.
+:::
+
+---
+
+# Introduction
+
+Nearly every environmental assessment or impact statement for a project with a physical footprint must analyze visual impacts — how the project will change what people see. Federal practice is anchored by the Bureau of Land Management's Visual Resource Management (VRM) system, which inventories landscapes into classes, assigns management objectives, and scores a proposed project's *contrast* with the existing landscape across form, line, color, and texture. Other agencies use parallel frameworks (the Forest Service's Scenic Integrity Objectives, for example), but the underlying question is the same: how visually distinct will this project be, for whom, and can that change be reduced?
+
+Visual impacts loom especially large for the energy transition. Transmission lines and wind turbines are tall, linear, and sited in open landscapes — precisely the attributes that generate viewshed concern and local opposition — and solar arrays introduce glare and large contiguous surface change. Fossil infrastructure raises the same issues in different forms: compressor stations, well pads, and pipelines on public land, where BLM's VRM machinery applies with full force. Yet how NEPA documents actually discuss visual impacts — which concerns dominate, how impacts are framed, and how the language differs across technologies — has never been measured at scale.
+
+This fact sheet analyzes the visual-resource sections of roughly 2,900 EA and EIS projects in NEPATEC 2.0, comparing decarbonization and fossil portfolios.
+
+# Methodology
+
+We extracted the full visual-resources section from each EA and EIS using heading-anchored extraction (locating visual-resource headings and capturing the section through its natural end), with a keyword-based fallback for documents without clean heading structures — most commonly form-style oil-and-gas EAs. CE forms are out of scope (they rarely contain visual analysis). Three analyses were run on the extracted text:
+
+1. **Distinctive vocabulary** — TF-IDF scoring of the two-word phrases that most distinguish each portfolio's visual sections from the other's.
+2. **Framing analysis** — sentence-level scoring on three axes anchored to CEQ significance terminology (§1508.27), using negation-aware matching so "no significant adverse impact" counts as *low* adversity: significance language, adversity language, and mitigation-commitment strength. General-purpose sentiment tools would misread NEPA text (the word "impact" itself scores negative), so the lexicons are domain-calibrated.
+3. **Topic modeling** — non-negative matrix factorization (NMF) over the ~1,300 heading-anchored sections to find the recurring themes, with the topic count validated by reconstruction-error analysis.
+
+Full detail is in the [Phase 2 Deliverable 3 report](https://www.kaseyzapatka.com/nepa/phase2/reports/deliverable03.html).
+
+# Results
+
+## Distinctive vocabulary reflects technology-specific visual concerns
+
+The phrases most distinctive to each portfolio show technology-specific concerns. Decarbonization sections are dominated by *shadow flicker*, *transmission line*, *solar panels*, *anti-reflective*, and *viewer sensitivity* — the glare, shadow, and skyline analyses that wind and solar require. Fossil sections surface *contrast rating*, *compressor station*, *wilderness characteristics*, and *permanent change* — pipeline and oil-and-gas language about BLM contrast scoring and lasting surface disturbance.
+
+```{r}
+#| label: fig-wordcloud
+#| fig-cap: "Note: TF-IDF word clouds — the bigrams most distinctive to each portfolio's visual-impact sections (EA and EIS combined; top 30 terms per panel)."
+#| out-width: "100%"
+include_fig("fig13_wordcloud_grid.png")
+```
+
+Section length tells the same story from another angle: median visual-section length is similar across the portfolios, with the decarbonization distribution wider — wind, solar, and transmission EISs produce long dedicated glare and viewshed analyses.
+
+```{r}
+#| label: fig-length
+#| fig-cap: "Note: Visual section length (words) by energy category, heading-anchored EA/EIS sections only."
+#| out-width: "90%"
+include_fig("fig19a_section_length_energy.png")
+```
+
+## Decarbonization documents name the harm more openly; fossil documents enumerate more mitigation
+
+Scored against CEQ significance terminology, decarbonization documents carry higher adversity framing — they explicitly name adverse visual effects ("moderate, long-term adverse impacts... altering the scenic attractiveness rating") — while fossil documents score higher on mitigation specificity, with enumerated, inspectable commitments ("operator shall install opaque screening of specified height," "earth-tone paint matching an approved Munsell color").
+
+This is not evidence that wind and solar harm views more than gas wells do. It reflects two different drafting regimes: wind/solar EISs acknowledge site-specific visual effects openly and resolve them through design standards and programmatic commitments, while oil-and-gas documents written under BLM's permit-and-plan regime inherit enumerated mitigation conditions as a matter of form.
+
+```{r}
+#| label: fig-framing
+#| fig-cap: "Note: CEQ §1508.27-anchored framing scores by energy category — significance, adversity, and mitigation strength. Negation-aware phrase matching."
+#| out-width: "100%"
+include_fig("fig18_visual_framing.png")
+```
+
+## Visual-impact prose clusters into four themes defined by project type, not energy category
+
+Topic modeling finds four coherent themes in the visual-impact prose, and the dominant finding is that prose clusters by project type and regulatory context rather than by energy category:
+
+- Industrial and infrastructure corridors (n ≈ `r n_corridor`) — the largest topic, spanning both portfolios: pipelines, transmission lines, LNG terminals, substations. Linear industrial infrastructure raises the same visual questions whatever it carries.
+- VRM contrast rating and solar glare (n ≈ `r n_contrast`) — applied BLM contrast-rating outcomes, concentrated in solar and transmission projects.
+- BLM VRM objectives and landscape management (n ≈ `r n_vrm`) — the formal VRM compliance framework, mostly oil-and-gas and pipeline EISs on BLM land.
+- Wind turbine shadow flicker (n ≈ `r n_flicker`) — the most coherent topic in the model, entirely wind-specific: quantifying annual shadow-hours per receptor against thresholds (commonly 30 hours/year).
+
+```{r}
+#| label: fig-topics
+#| fig-cap: "Note: NMF topic prevalence — project count by topic and energy category."
+#| out-width: "95%"
+include_fig("fig14_topic_prevalence.png")
+```
+
+The four-topic structure is validated rather than assumed: reconstruction error improves sharply up to four topics and flatlines beyond, and added topics receive zero project assignments. Collapsing to three would merge the two distinct VRM subtopics (applied solar contrast rating vs. formal O&G landscape-management compliance).
+
+```{r}
+#| label: fig-elbow
+#| fig-cap: "Note: Topic-count validation — normalized reconstruction error by number of topics; dotted line marks the chosen k = 4."
+#| out-width: "85%"
+include_fig("fig14d_nmf_elbow.png")
+```
+
+# Conclusion
+
+**Visual impact concerns exist across technologies.** They are not a renewables problem or a fossil problem: the largest visual-impact theme spans both portfolios, and every energy technology with a landscape footprint draws visual analysis.
+
+**The specific concerns, and their intensity, vary by technology and regulatory setting.** Industrial and infrastructure corridors lead the list corpus-wide; shadow flicker is a large, quantified, wind-specific concern; solar carries glare and contrast-rating analysis; oil and gas carries formal VRM compliance on public land. Framing differences between portfolios reflect drafting regimes more than differential harm.
+
+**Developers should take visual concerns seriously and mitigate by design.** The record shows these analyses are universal, the concerns are predictable by technology, and the most credible documents pair honest acknowledgment of adverse effects with specific, verifiable commitments — anti-reflective surfaces, screening, color treatments, siting within existing corridors. Anticipating the visual analysis rather than litigating it afterward is both good practice and, on this evidence, the norm the strongest documents already follow.
+
+---
+
+*Data: NEPATEC 2.0 — visual-resource sections from ~2,900 EA/EIS projects. Methods and full results: [Phase 2 Deliverable 3](https://www.kaseyzapatka.com/nepa/phase2/reports/deliverable03.html).*

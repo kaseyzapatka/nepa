@@ -4513,8 +4513,24 @@ vertical-align: -.125em;
  <span class="dropdown-text">Deliverable 1</span></a>
   </li>  
         <li>
+    <a class="dropdown-item" href="../../phase2/reports/deliverable02.html" rel target>
+ <span class="dropdown-text">Deliverable 2</span></a>
+  </li>  
+        <li>
     <a class="dropdown-item" href="../../phase2/reports/deliverable03.html" rel target>
  <span class="dropdown-text">Deliverable 3</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../phase2/reports/deliverable04.html" rel target>
+ <span class="dropdown-text">Deliverable 4</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../phase2/reports/deliverable05.html" rel target>
+ <span class="dropdown-text">Deliverable 5</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../phase2/reports/deliverable06.html" rel target>
+ <span class="dropdown-text">Deliverable 6</span></a>
   </li>  
     </ul>
   </li>
@@ -4555,6 +4571,17 @@ vertical-align: -.125em;
 </header>
 
 <p>Phase 2 extends the <a href="../reports/project_overview.html">Phase 1 analysis</a> with an improved DuckDB-based pipeline and deeper extraction capabilities.</p>
+<section id="available-reports" class="level2">
+<h2 class="anchored" data-anchor-id="available-reports">Available reports</h2>
+<ul>
+<li><a href="deliverable01.html">Deliverable 1 — NEPA Triggers</a></li>
+<li><a href="deliverable02.html">Deliverable 2 — Determinations of Significance (FONSI &amp; EIS)</a></li>
+<li><a href="deliverable03.html">Deliverable 3 — Review Patterns: Fossil vs. Decarbonization</a></li>
+<li><a href="deliverable04.html">Deliverable 4 — Review Timelines (CE / EA / EIS)</a></li>
+<li><a href="deliverable05.html">Deliverable 5 — Categorical-Exclusion Spikes</a></li>
+<li><a href="deliverable06.html">Deliverable 6 — Patterns in FONSIs: CE Opportunities</a></li>
+</ul>
+</section>
 <section id="status" class="level2">
 <h2 class="anchored" data-anchor-id="status">Status</h2>
 <p>Phase 2 is in active development. Reports will appear here as deliverables are completed.</p>
@@ -4621,77 +4648,108 @@ transform: none;
 
     const menuItems = Array.from(phase2Menu.querySelectorAll("a.dropdown-item"));
     const overviewItem = menuItems.find((item) => item.textContent.trim() === "Overview");
-    const deliverableItem = menuItems.find((item) => item.textContent.trim() === "Deliverable 1");
-    if (!overviewItem || !deliverableItem) {
+    if (!overviewItem) {
       return;
     }
 
-    const siteRoot = deliverableItem.href
-      .replace(/phase2\/reports\/deliverable01\.html$/, "");
-
-    const submenuItems = [
-      ["Report", "phase2/reports/deliverable01.html"],
-      ["Trigger Classification", "phase2/notes/deliverable01/trigger_classification.html"],
-      ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"],
-      ["Funding Mechanism Schema", "phase2/notes/deliverable01/funding_mechanism.html"]
+    const submenuConfigs = [
+      ["Deliverable 1", [
+        ["Report", "phase2/reports/deliverable01.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable01/coverage_limitations.html"],
+        ["Trigger Classification", "phase2/notes/deliverable01/trigger_classification.html"],
+        ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"],
+        ["Funding Mechanism Schema", "phase2/notes/deliverable01/funding_mechanism.html"]
+      ]],
+      ["Deliverable 2", [
+        ["Report", "phase2/reports/deliverable02.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable02/coverage_limitations.html"]
+      ]],
+      ["Deliverable 3", [
+        ["Report", "phase2/reports/deliverable03.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable03/coverage_limitations.html"]
+      ]],
+      ["Deliverable 4", [
+        ["Report", "phase2/reports/deliverable04.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable04/coverage_limitations.html"],
+        ["Date Sourcing & Provenance", "phase2/notes/deliverable04/date_sourcing.html"],
+        ["Known Issues & Deferred Items", "phase2/notes/deliverable04/known_issues.html"]
+      ]],
+      ["Deliverable 5", [
+        ["Report", "phase2/reports/deliverable05.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable05/coverage_limitations.html"]
+      ]],
+      ["Deliverable 6", [
+        ["Report", "phase2/reports/deliverable06.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable06/coverage_limitations.html"]
+      ]]
     ];
 
-    const deliverableParent = deliverableItem.closest("li");
-    const submenu = window.document.createElement("ul");
-    submenu.className = "dropdown-menu";
-
-    submenuItems.forEach(function ([label, path]) {
-      const item = window.document.createElement("li");
-      const link = window.document.createElement("a");
-      const text = window.document.createElement("span");
-
-      link.className = "dropdown-item";
-      link.href = siteRoot + path;
-      text.className = "dropdown-text";
-      text.textContent = label;
-
-      link.appendChild(text);
-      item.appendChild(link);
-      submenu.appendChild(item);
-    });
-
-    deliverableItem.classList.add("dropdown-toggle");
-    deliverableItem.setAttribute("aria-expanded", "false");
-    deliverableItem.removeAttribute("data-bs-toggle");
-    deliverableItem.setAttribute("role", "menuitem");
-
-    deliverableParent.addEventListener("mouseenter", function () {
-      submenu.classList.add("show");
-      deliverableItem.setAttribute("aria-expanded", "true");
-    });
-
-    deliverableParent.addEventListener("mouseleave", function () {
-      submenu.classList.remove("show");
-      deliverableItem.setAttribute("aria-expanded", "false");
-    });
-
-    deliverableItem.addEventListener("click", function (event) {
-      if (window.matchMedia("(min-width: 992px)").matches) {
+    submenuConfigs.forEach(function ([menuText, submenuItems]) {
+      const deliverableItem = menuItems.find((item) => item.textContent.trim() === menuText);
+      if (!deliverableItem) {
         return;
       }
 
-      event.preventDefault();
-      submenu.classList.toggle("show");
-      deliverableItem.setAttribute(
-        "aria-expanded",
-        submenu.classList.contains("show") ? "true" : "false"
-      );
-    });
+      const siteRoot = deliverableItem.href
+        .replace(/phase2\/reports\/deliverable\d+\.html$/, "");
 
-    window.document.addEventListener("click", function (event) {
-      if (!deliverableParent.contains(event.target)) {
+      const deliverableParent = deliverableItem.closest("li");
+      const submenu = window.document.createElement("ul");
+      submenu.className = "dropdown-menu";
+
+      submenuItems.forEach(function ([label, path]) {
+        const item = window.document.createElement("li");
+        const link = window.document.createElement("a");
+        const text = window.document.createElement("span");
+
+        link.className = "dropdown-item";
+        link.href = siteRoot + path;
+        text.className = "dropdown-text";
+        text.textContent = label;
+
+        link.appendChild(text);
+        item.appendChild(link);
+        submenu.appendChild(item);
+      });
+
+      deliverableItem.classList.add("dropdown-toggle");
+      deliverableItem.setAttribute("aria-expanded", "false");
+      deliverableItem.removeAttribute("data-bs-toggle");
+      deliverableItem.setAttribute("role", "menuitem");
+
+      deliverableParent.addEventListener("mouseenter", function () {
+        submenu.classList.add("show");
+        deliverableItem.setAttribute("aria-expanded", "true");
+      });
+
+      deliverableParent.addEventListener("mouseleave", function () {
         submenu.classList.remove("show");
         deliverableItem.setAttribute("aria-expanded", "false");
-      }
-    });
+      });
 
-    deliverableParent.classList.add("dropdown-submenu");
-    deliverableParent.appendChild(submenu);
+      deliverableItem.addEventListener("click", function (event) {
+        if (window.matchMedia("(min-width: 992px)").matches) {
+          return;
+        }
+
+        event.preventDefault();
+        submenu.classList.toggle("show");
+        deliverableItem.setAttribute(
+          "aria-expanded",
+          submenu.classList.contains("show") ? "true" : "false"
+        );
+      });
+
+      window.document.addEventListener("click", function (event) {
+        if (!deliverableParent.contains(event.target)) {
+          submenu.classList.remove("show");
+          deliverableItem.setAttribute("aria-expanded", "false");
+        }
+      });
+
+      deliverableParent.classList.add("dropdown-submenu");
+      deliverableParent.appendChild(submenu);
+    });
   });
 </script>
 <script id="quarto-html-after-body" type="application/javascript">

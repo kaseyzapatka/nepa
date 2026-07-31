@@ -1,0 +1,4 @@
+process_type,n_total,n_initiation,n_decision,n_complete_clear,pct_initiation,pct_decision,pct_complete_clear
+CE,54668,32613,49392,12712,59.7,90.3,23.3
+EA,3083,2060,2458,1594,66.8,79.7,51.7
+EIS,4130,2585,1749,428,62.6,42.3,10.4

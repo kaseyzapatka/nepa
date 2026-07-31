@@ -1,0 +1,15 @@
+shared_resource_area,n_determinations,n_matched,share_matched,n_determinations_suppressed
+project_wide,12,7,0.583,FALSE
+biological,182,80,0.44,FALSE
+water,114,38,0.333,FALSE
+unknown,19,6,0.316,FALSE
+air_quality,78,17,0.218,FALSE
+cultural,75,15,0.2,FALSE
+noise,46,7,0.152,FALSE
+land_use,67,10,0.149,FALSE
+soils_geology,83,11,0.133,FALSE
+visual,82,10,0.122,FALSE
+transportation,43,5,0.116,FALSE
+socioeconomic,55,6,0.109,FALSE
+public_health,87,9,0.103,FALSE
+climate_ghg,31,1,0.032,FALSE

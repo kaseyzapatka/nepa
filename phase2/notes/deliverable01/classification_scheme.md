@@ -59,20 +59,31 @@ Many projects have multiple forms of federal involvement. For example:
 
 ### Rule: assign the primary trigger as the federal nexus most directly responsible for the agency's NEPA decision.
 
-### Suggested priority order for primary trigger assignment
+### Priority order for primary trigger assignment (as implemented)
 
-Use this only when the text is ambiguous.
+Use this only when the text is ambiguous. This is the order implemented in
+`TRIGGER_HIERARCHY` in `01_extract_nepa_trigger.py`:
 
-1. `federal_direct_action`
-2. `pma` *(Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA))*
-3. `federal_property_transaction`
-4. `federal_land`
-5. `federal_permit`
-6. `federal_program`
+1. `federal_program`
+2. `federal_direct_action`
+3. `pma` *(Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA))*
+4. `federal_property_transaction`
+5. `federal_land`
+6. `federal_permit`
 7. `federal_funding`
 8. `unknown`
 
-**Why this order:** Gives priority to the federal role when the agency is the principal actor or decision-maker, rather than simply one source of support or one regulatory checkpoint. PMA/TVA projects are elevated above land and permit because the agency identity is the clearest nexus signal for those entities.
+**Why this order:** A programmatic umbrella outranks everything because it changes the level
+of the NEPA review itself (see the example below). Below that, priority goes to the federal
+role when the agency is the principal actor or decision-maker, rather than simply one source
+of support or one regulatory checkpoint. PMA/TVA projects are elevated above land and permit
+because the agency identity is the clearest nexus signal for those entities.
+
+**Note (updated 2026-07):** the ordering is no longer empirically inert for `federal_program` —
+17 projects in the current published output carry `federal_program` together with another class
+in `nepa_trigger_multi` (7 + federal_funding, 4 + federal_land, 3 + federal_direct_action,
+3 + federal_permit), and in all 17 cases the hierarchy determines the primary
+(federal_program wins).
 
 Examples:
 - If BLM is approving a right-of-way across federal land, `federal_land` is often more informative than `federal_permit`
@@ -101,7 +112,7 @@ Indicative terms: permit, license, authorization, approval, certification, permi
 
 Agencies often associated: USACE, FERC, FAA, FCC, NOAA/NMFS, USFWS
 
-### `federal_action`
+### `federal_direct_action`
 Indicative terms: agency proposes to, the Bureau proposes, the Department proposes, federal action consists of, construct, install, upgrade, operate, implement, federal facility, base operations
 
 Agencies often associated: DoD, VA, USFS, BLM, Bureau of Reclamation, DOE, USACE

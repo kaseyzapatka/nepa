@@ -36,7 +36,7 @@ PROJECTS_PATH <- here("phase2", "data", "analysis", "projects_combined.parquet")
 # lead_agency_harmonized, etc.) so collect() returns a plain R tibble with no
 # arrow_list vctrs columns that would break sum() / mean().
 trigger_cols <- c(
-  "project_id", "nepa_trigger_primary", "nepa_trigger_count",
+  "project_id", "nepa_trigger_primary", "nepa_trigger_count", "nepa_trigger_combo",
   "nepa_trigger_confidence", "nepa_trigger_rule_id",
   "nepa_trigger_evidence_source", "nepa_trigger_manual_review", "is_dual_nexus"
 )
@@ -67,17 +67,62 @@ n_land         <- get_n("federal_land")
 n_permit       <- get_n("federal_permit")
 n_program      <- get_n("federal_program")
 n_property     <- get_n("federal_property_transaction")
+n_pma          <- get_n("pma")
 n_dual_nexus   <- sum(df$is_dual_nexus,          na.rm = TRUE)
 n_multi_label  <- sum(df$nepa_trigger_count > 1, na.rm = TRUE)
 flag_rate      <- mean(df$nepa_trigger_manual_review, na.rm = TRUE)
 
+# Multi-label overlap structure (recomputed from nepa_trigger_combo each render)
+multi_combo   <- df$nepa_trigger_combo[df$nepa_trigger_count > 1]
+n_pma_land    <- sum(str_detect(multi_combo, "pma") &
+                     str_detect(multi_combo, "federal_land"), na.rm = TRUE)
+n_multi_other <- n_multi_label - sum(str_detect(multi_combo, "pma"), na.rm = TRUE)
+
 pct <- function(x) sprintf("%.1f%%", x / n_total * 100)
+
+# Tier-by-tier yield, derived from the rule_id prefix so the pipeline table always
+# reflects the parquet actually on disk (unknowns are the T4 rows that failed all gates).
+tier_key <- str_extract(df$nepa_trigger_rule_id, "^T[0-9]+[ab]?")
+tier_n   <- function(key) sum(tier_key == key & df$nepa_trigger_primary != "unknown",
+                              na.rm = TRUE)
+n_t0  <- tier_n("T0");  n_t1a <- tier_n("T1a"); n_t1b <- tier_n("T1b")
+n_t2  <- tier_n("T2");  n_t3  <- tier_n("T3");  n_t3b <- tier_n("T3b")
+n_t4  <- tier_n("T4");  n_t5  <- tier_n("T5")
+cum_t0  <- n_t0;            cum_t1a <- cum_t0  + n_t1a; cum_t1b <- cum_t1a + n_t1b
+cum_t2  <- cum_t1b + n_t2;  cum_t3  <- cum_t2  + n_t3;  cum_t3b <- cum_t3  + n_t3b
+cum_t4  <- cum_t3b + n_t4;  cum_t5  <- cum_t4  + n_t5
 
 # Pre-computed analysis outputs
 source_dist <- read_csv(file.path(OUTPUT_DIR, "trigger_source_distribution.csv"),
                         show_col_types = FALSE)
 excerpts    <- read_csv(file.path(OUTPUT_DIR, "trigger_evidence_excerpts.csv"),
                         show_col_types = FALSE)
+
+# Secondary-trigger + review-status cross-tabs (04_secondary_review_crosstabs.R)
+secondary_combos    <- read_csv(file.path(OUTPUT_DIR, "secondary_top_combos.csv"),
+                                show_col_types = FALSE)
+ml_by_process       <- read_csv(file.path(OUTPUT_DIR, "secondary_multilabel_by_process.csv"),
+                                show_col_types = FALSE)
+ml_by_technology    <- read_csv(file.path(OUTPUT_DIR, "secondary_multilabel_by_technology.csv"),
+                                show_col_types = FALSE)
+trigger_tiering     <- read_csv(file.path(OUTPUT_DIR, "trigger_tiering_crosstab.csv"),
+                                show_col_types = FALSE)
+trigger_regime      <- read_csv(file.path(OUTPUT_DIR, "trigger_regime_crosstab.csv"),
+                                show_col_types = FALSE)
+
+# Derived scalars for prose (recomputed from the CSVs each render)
+top_combo_label  <- secondary_combos$combo_label[1]
+top_combo_n      <- secondary_combos$n[1]
+top_combo_share  <- secondary_combos$pct_of_multi[1]
+second_combo_label <- secondary_combos$combo_label[2]
+second_combo_n     <- secondary_combos$n[2]
+ml_eis_rate      <- ml_by_process$pct_multi[ml_by_process$process_type == "EIS"]
+ml_ce_rate       <- ml_by_process$pct_multi[ml_by_process$process_type == "CE"]
+ml_transmission_rate <- ml_by_technology$pct_multi[ml_by_technology$project_technology == "Transmission"]
+tier_n_enriched  <- trigger_tiering$total |> sum()
+tier_n_determined <- (trigger_tiering$Tiered + trigger_tiering$Standalone) |> sum()
+tier_n_tiered    <- trigger_tiering$Tiered |> sum()
+regime_n_universe <- trigger_regime$n_regime |> sum()
 
 # Funding deep-dive figures are optional (require the funding sidecar to exist)
 has_funding_figs <- file.exists(file.path(OUTPUT_DIR, "fig8_funding_mechanism_counts.png"))
@@ -95,24 +140,28 @@ large_finance_amounts <- if (has_large_finance_table) {
 ::: {.callout-note}
 ## Key Findings
 
-- **Funding is the dominant NEPA trigger**, accounting for `r comma(n_funding)` projects
-  (`r pct(n_funding)`). DOE's grant and loan guarantee portfolio is the single largest
+- **Funding is the dominant NEPA trigger, accounting for `r comma(n_funding)` projects
+  (`r pct(n_funding)`).** DOE's grant and loan guarantee portfolio is the single largest
   source of decarbonization NEPA reviews.
-- **Direct Action** is the second-largest class at `r comma(n_direct)` projects
-  (`r pct(n_direct)`), driven by federal power authorities (BPA, WAPA, Power Marketing
-  Administrations) building and operating transmission and generation infrastructure directly.
-- **Land** accounts for `r comma(n_land)` projects (`r pct(n_land)`)—BLM and Forest
-  Service right-of-way and special use permits for utility-scale renewables on public land.
-- **Review process profiles differ sharply by trigger**: Categorical Exclusions are dominated
-  by Funding (DOE's CE authority for grants); Environmental Impact Statements skew toward
-  Land and Direct Action; Environmental Assessments show the most balanced trigger mix.
-- **Trigger class predicts regulatory intensity**: Funding projects are overwhelmingly CEs;
-  Land and Permit generate proportionally more EAs and EISs—land disturbance and regulatory
-  licensing carry heavier review burdens than financial assistance.
-- **Technology patterns reflect nexus logic**: Transmission has the highest Direct Action
-  share (PMAs build federal lines); Solar and Wind split between Land (BLM right-of-way) and
-  Funding (DOE grants); CCS and Energy Storage skew toward Funding via DOE emerging
-  technology programs.
+- **Land is the second-largest class, at `r comma(n_land)` projects (`r pct(n_land)`).** These
+  are BLM and Forest Service right-of-way and special use permits for utility-scale renewables on
+  public land.
+- **PMA/TVA is third, at `r comma(n_pma)` projects (`r pct(n_pma)`).** The federal power
+  marketing administrations (BPA, WAPA, SEPA, SWPA) and the Tennessee Valley Authority
+  act as project proponent for transmission and power infrastructure.
+- **Direct Action is fourth, at `r comma(n_direct)` projects (`r pct(n_direct)`).** It is driven
+  overwhelmingly by DOE building, operating, and modifying its own facilities, including national
+  laboratories and site operations.
+- **Review process profiles differ by trigger class.** Categorical Exclusions are dominated
+  by Funding (DOE's CE authority for grants), Environmental Impact Statements skew toward
+  Land and PMA/TVA, and Environmental Assessments show the most balanced trigger mix.
+- **Trigger class predicts regulatory intensity.** Funding projects are overwhelmingly CEs,
+  while Land and Permit generate proportionally more EAs and EISs, reflecting the heavier
+  review burden that land disturbance and regulatory licensing carry relative to financial assistance.
+- **Technology patterns reflect nexus logic.** Transmission has the highest PMA/TVA share
+  (BPA and WAPA build and maintain federal lines); Solar and Wind split between Land (BLM
+  right-of-way) and Funding (DOE grants); and CCS and Energy Storage skew toward Funding via DOE
+  emerging-technology programs.
 :::
 
 This report delivers:
@@ -126,15 +175,16 @@ This report delivers:
 ## Trigger Definitions
 
 NEPA applies whenever a federal nexus exists—but the *nature* of that nexus varies. We classify
-each project into one of seven mutually exclusive primary trigger classes using a strict priority
+each project into one of eight mutually exclusive primary trigger classes using a strict priority
 ordering (highest to lowest). When evidence points to multiple classes, the higher-priority class
 wins as the primary; lower-priority matches are retained as secondary triggers.
 
 ::: {tbl-colwidths="[15,85]"}
 | Trigger | Federal Nexus |
 |:-|:---|
-| **Direct Action** | The federal agency *is* the proposer — building, operating, or managing the project (e.g., federal power lines, agency construction, military facilities) |
 | **Program** | A programmatic EIS, land-use plan, or rulemaking umbrella covers the action — the NEPA review is at the policy or program level |
+| **Direct Action** | The federal agency is the proposer — building, operating, or managing the project (e.g., agency construction, national laboratory operations, military facilities) |
+| **PMA/TVA** | A federal power marketing administration (BPA, WAPA, SEPA, SWPA) or the Tennessee Valley Authority is the acting agency — building, upgrading, or maintaining federal power and transmission infrastructure |
 | **Property Transaction** | A land exchange, disposal, or conveyance of federal property is the triggering event |
 | **Land** | A private or state actor seeks a right-of-way, special use permit, or lease on federal land (BLM, National Forest) |
 | **Permit** | A federal license or permit issued by a regulatory body (FERC license, FAA authorization, Section 404 dredge-and-fill) is the primary nexus |
@@ -142,7 +192,55 @@ wins as the primary; lower-priority matches are retained as secondary triggers.
 | **Unknown** | NEPA is confirmed but the trigger cannot be reliably identified from available text or metadata |
 :::
 
-Secondary triggers are stored separately in the `nepa_trigger_secondary` field; `r comma(n_multi_label)` projects have more than one trigger class detected.
+All five classification tiers obey this priority ordering. Tiers 0–4 enforce it mechanically
+(each rule detects a single class, and the ladder settles conflicts). Tier 5—the LLM
+fallback—proposes both the classes and its own ranking; the pipeline reconciles that ranking
+to the fixed hierarchy at ingest, so every published primary follows the ordering above. The
+LLM's raw verdicts are preserved verbatim in a committed adjudication record
+([`tier5_adjudication_record.csv`](https://github.com/kaseyzapatka/nepa/blob/main/phase2/code/deliverable01/tier5_adjudication_record.csv)), and
+the published Tier 5 classifications can be reproduced exactly—without any LLM call—by
+running `03_rerun_tier5.py --from-record` against that record.
+
+Secondary triggers are stored separately in the `nepa_trigger_secondary` field; `r comma(n_multi_label)` projects (`r pct(n_multi_label)`) have more than one trigger class detected. The overlap is dominated by a single structural pattern: `r comma(n_pma_land)` of these pair **PMA/TVA with federal land**—BPA and WAPA transmission and power infrastructure that also crosses BLM or National Forest land, so both the power-authority-proponent nexus and the federal-land nexus apply. The remaining `r comma(n_multi_other)` multi-class projects form a longer tail—most often federal land paired with a federal permit, or direct action paired with federal land—surfaced largely by the Tier 5 pass, which records a secondary trigger whenever its adjudication of a previously-uncertain project identifies a second nexus.
+
+## Workflow
+
+The approach spends effort where it is needed. Cheap deterministic rules classify everything
+they can; machine-learning models take the bulk that rules cannot reach; and a carefully
+audited LLM pass handles only the hardest residue. Every automated judgment is gated, logged,
+and reproducible.
+
+```{=html}
+<div style="max-width:660px;margin:1.25rem auto;">
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 &middot; Scope</div>
+    <div style="color:#1A1A2E;">All 20,725 decarbonization projects in NEPATEC&nbsp;2.0 &mdash; every CE, EA, and EIS &mdash; each to be assigned one of eight federal-nexus classes answering <b>why NEPA applied</b></div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 &middot; Deterministic rules first</div>
+    <div style="color:#1A1A2E;">Hand-labeled seed cases, agency-jurisdiction lookups (FERC &rarr; Permit; BLM &rarr; Land; BPA/WAPA &rarr; PMA/TVA), and text-pattern rules on titles, descriptions, and purpose-and-need sections resolve nearly half the universe (48%) with no model at all</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 &middot; Local models for the bulk</div>
+    <div style="color:#1A1A2E;">A SetFit classifier fine-tuned on the labeled example bank reads the ~10K ambiguous DOE Categorical Exclusions; an NLI cross-encoder adjudicates the rest against retrieved document evidence, accepting only projects that clear three evidence gates &mdash; together lifting resolution to 97.6%</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">4 &middot; LLM fallback for the residue</div>
+    <div style="color:#1A1A2E;">Claude (Haiku) reads the retrieved evidence for the 501 projects nothing else could settle, abstaining when the evidence is genuinely uninformative. Every verdict is reconciled to the fixed priority hierarchy and frozen in a committed adjudication record &mdash; the published classifications replay exactly, with no API call</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #012169;border-radius:8px;padding:.65rem 1rem;background:#012169;">
+    <div style="font-weight:700;color:#ffffff;font-size:1.05rem;">5 &middot; Validate, analyze, report</div>
+    <div style="color:#ffffff;">Row-count and coverage gates, a human spot-check of the LLM's answers, and figures computed live from the published data &mdash; 99.6% of projects classified, the 0.4% residue flagged for manual review</div>
+  </div>
+  <div style="text-align:center;color:#6b7280;font-size:.85rem;margin-top:.5rem;">
+    The five steps of the classification &mdash; the pipeline chart below shows each tier's yield.
+  </div>
+</div>
+```
 
 ## Classification Pipeline
 
@@ -151,25 +249,36 @@ next; a project is finalized the moment it clears a tier's acceptance gate and i
 re-processed by later tiers. This preserves precision at each level while reserving compute-
 intensive methods for the genuinely ambiguous cases.
 
-::: {tbl-colwidths="[16,54,10,10,10]"}
-| Tier | Method | Projects | Cumulative | % Resolved |
-|:---|:---|--:|--:|--:|
-| Tier 0 — Manual labels | Hand-labeled seed set loaded first and locked — no downstream tier can override a manual label | 890 | 890 | 4.3% |
-| Tier 1a — Agency metadata | Known agency-to-class lookup: FERC → Permit; BLM/USFS → Land; BPA/WAPA/PMAs → Direct Action; DOE/USACE routed to Tier 4 for document confirmation | 5,568 | 6,458 | 31.2% |
-| Tier 1b — Title + description | Regex patterns on concatenated title and description; specificity-ranked; high-confidence matches auto-accepted | 1,751 | 8,209 | 39.6% |
-| Tier 2 — Document title scan | Regex on document-level titles in the CE/EA/EIS page corpus; catches programmatic EIS, ROW grants, and FERC license amendments | 62 | 8,271 | 39.9% |
-| Tier 3 — Purpose-and-need | Regex extraction from Purpose-and-Need section; auto-accepts BLM/NFS land, NPDES permit, and agency grant patterns | 435 | 8,706 | 42.0% |
-| Tier 3b — SetFit (DOE CE) | Sentence-transformer + logistic regression head fine-tuned on labeled DOE CE examples; runs only on DOE Categorical Exclusions | 10,846 | 19,552 | 94.3% |
-| Tier 4 — NLI adjudication | Cross-encoder NLI: retrieved passage vs. natural-language class hypothesis; must pass doc score, margin, and affirmative-support gates | 37 | 19,589 | 94.5% |
-| — Unknown | Failed all three Tier 4 gates; queued for Tier 5 LLM review or manual inspection | 1,136 | — | 5.5% |
+```{r}
+#| label: fig-pipeline-flow
+#| fig-cap: !expr sprintf("Cumulative trigger resolution across the classification pipeline. Each project is finalized by the first tier whose acceptance gate it clears; the %s residual unknowns are flagged for manual review.", comma(n_unknown))
+#| out-width: "95%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig12_pipeline_flow.png"))
+```
+
+::: {tbl-colwidths="[40,20,20,20]"}
+| Tier | Projects | Resolved (cum.) | % of Universe |
+|:---|--:|--:|--:|
+| Tier 0 — Manual labels | `r comma(n_t0)` | `r comma(cum_t0)` | `r pct(cum_t0)` |
+| Tier 1a — Agency metadata | `r comma(n_t1a)` | `r comma(cum_t1a)` | `r pct(cum_t1a)` |
+| Tier 1b — Title + description | `r comma(n_t1b)` | `r comma(cum_t1b)` | `r pct(cum_t1b)` |
+| Tier 2 — Document title scan | `r comma(n_t2)` | `r comma(cum_t2)` | `r pct(cum_t2)` |
+| Tier 3 — Purpose-and-need | `r comma(n_t3)` | `r comma(cum_t3)` | `r pct(cum_t3)` |
+| Tier 3b — SetFit (DOE CE) | `r comma(n_t3b)` | `r comma(cum_t3b)` | `r pct(cum_t3b)` |
+| Tier 4 — NLI adjudication | `r comma(n_t4)` | `r comma(cum_t4)` | `r pct(cum_t4)` |
+| Tier 5 — LLM fallback | `r comma(n_t5)` | `r comma(cum_t5)` | `r pct(cum_t5)` |
+| — Unknown | `r comma(n_unknown)` | — | `r pct(n_unknown)` |
 :::
 
 **Total resolved: `r comma(n_resolved)` / `r comma(n_total)` (`r sprintf("%.1f%%", pct_resolved)`).**
+Per-tier methods (rule sets, model configurations, acceptance gates) are documented in the
+[architecture doc](https://github.com/kaseyzapatka/nepa/blob/main/phase2/architecture/deliverables/deliverable01.md).
 
 The pipeline is implemented in
-[`phase2/code/deliverable01/01_extract_nepa_trigger.py`](../code/deliverable01/01_extract_nepa_trigger.py).
+[`phase2/code/deliverable01/01_extract_nepa_trigger.py`](https://github.com/kaseyzapatka/nepa/blob/main/phase2/code/deliverable01/01_extract_nepa_trigger.py).
 The full output schema is documented in
-[`phase2/architecture/deliverables/deliverable01.md`](../architecture/deliverables/deliverable01.md).
+[`phase2/architecture/deliverables/deliverable01.md`](https://github.com/kaseyzapatka/nepa/blob/main/phase2/architecture/deliverables/deliverable01.md).
 
 ## Evidence Sources
 
@@ -237,26 +346,24 @@ source_wide |>
               table.width = "100%", table.layout = "fixed")
 ```
 
-## Next Steps and Known Gaps
-
-| Item | Status | Notes |
-|:---|:---|:---|
-| **Tier 5 — LLM fallback** | Not run | `r comma(n_unknown)` unknowns queued; run with `--use-llm` flag when budget is approved |
-| **Secondary trigger analysis** | Pending | Secondary triggers are populated in output; multi-label cross-tabulations deferred to next iteration |
-| **Multi-process / tiered review integration** | Future — D2 dependency | Combining trigger class with programmatic and tiered review status requires joining D1 + D2 outputs |
+Coverage rates, residual-unknown composition, confidence tiers, and the caveats that should
+accompany any reuse of this data are collected on the
+[Coverage & Limitations](../notes/deliverable01/coverage_limitations.html) page.
 
 ---
 
 # Trigger Distribution Overview
 
 @fig-trigger-counts shows the total number of decarbonization projects in each primary trigger
-class. **Funding** is by far the largest class—DOE's vast grant and loan guarantee portfolio
-generates more NEPA reviews than any other federal nexus. **Direct Action** is second, driven
-by federal power authorities (BPA, WAPA) building and operating transmission and generation
-infrastructure directly. **Land** is third, reflecting utility-scale renewables sited on BLM and
-National Forest lands under right-of-way or special use permits.
+class. Funding is by far the largest class: DOE's grant and loan guarantee portfolio
+generates more NEPA reviews than any other federal nexus. Land is second, reflecting
+utility-scale renewables sited on BLM and National Forest lands under right-of-way or special
+use permits. PMA/TVA is third, as the federal power marketing administrations (BPA, WAPA) and
+TVA build and operate transmission and generation infrastructure directly. Direct
+Action is fourth, driven almost entirely by DOE actions at its own facilities, including national
+laboratories and site operations.
 
-Permit, Program, and Property Transaction together account for fewer than
+Permit, Program, and Property Transaction together account for
 `r comma(n_permit + n_program + n_property)` projects (`r pct(n_permit + n_program + n_property)`)—
 these are real but narrow categories of federal nexus.
 
@@ -275,16 +382,20 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig1_trigger_counts.png"))
 ## How triggers distribute across CE, EA, and EIS
 
 @fig-trigger-by-process shows what share of each review process is driven by each trigger class.
-The three processes reveal strikingly different trigger profiles:
+The three processes reveal distinct trigger profiles:
 
-- **Categorical Exclusions** are dominated by Funding—DOE's clean energy grant and loan
-  programs generate an enormous volume of low-complexity actions that qualify for CE-level review.
-- **Environmental Assessments** show a more balanced mix: Land (BLM/USFS right-of-way grants
-  for solar and wind) and Direct Action (federal transmission projects) each contribute
+- Categorical Exclusions are dominated by Funding—DOE's clean energy grant and loan
+  programs generate a high volume of low-complexity actions that qualify for CE-level review.
+- Environmental Assessments show a more balanced mix: Land (BLM/USFS right-of-way grants
+  for solar and wind) and PMA/TVA (federal transmission projects) each contribute
   meaningfully alongside Funding.
-- **Environmental Impact Statements** skew heavily toward Land and Direct Action—larger,
-  more complex projects requiring full EIS review tend to be sited on public lands or are
-  federally constructed.
+- Environmental Impact Statements skew heavily toward Land, PMA/TVA, and Permit—larger,
+  more complex projects requiring full EIS review tend to be sited on public lands, be
+  federally constructed transmission, or carry FERC licensing.
+- Unknowns are now a small residual across all three processes (`r pct(n_unknown)` of the
+  portfolio overall). The Tier 5 LLM pass resolved most of the previously-large EA and EIS
+  uncertain pools; the unknowns that remain—still modestly more common in EAs and EISs than in
+  CEs—are the long-document cases where neither Tier 4 nor the LLM found decisive trigger evidence.
 
 ```{r}
 #| label: fig-trigger-by-process
@@ -294,18 +405,21 @@ The three processes reveal strikingly different trigger profiles:
 knitr::include_graphics(file.path(OUTPUT_DIR, "fig2_trigger_by_process.png"))
 ```
 
-## What review process does each trigger class use?
+## Typical review pathway by trigger class
 
 @fig-process-by-trigger inverts the view: for each trigger class, it shows the share of
-projects that went through CE, EA, or EIS review. This reveals the *typical regulatory pathway*
+projects that went through CE, EA, or EIS review. This reveals the typical regulatory pathway
 associated with each nexus type.
 
-- **Funding** is overwhelmingly resolved at the CE level—consistent with DOE's categorical
+- Funding is overwhelmingly resolved at the CE level—consistent with DOE's categorical
   exclusion authority for grants and financial assistance that don't individually require
   significant analysis.
-- **Direct Action** and to a a somewhat lesser degree **Property Transaction** are still overwhelmingly CE level reviews, owing to the clear rote transactional natural of these actions that likely require less rigorous reviews. 
-- **Land, Program, and Permit** produce substantially more EAs and EISs per project than Funding, Direct Action, and Property Transaction, reflecting the environmental scrutiny attached to land disturbance, programming, and regulatory
-  licensing.
+- Direct Action, Property Transaction, and PMA/TVA are likewise overwhelmingly
+  CE-level reviews, owing to the routine, transactional nature of these actions—facility
+  maintenance, conveyances, and line upgrades that require less rigorous review.
+- Land, Program, and Permit produce substantially more EAs and EISs per project than
+  Funding, Direct Action, and Property Transaction, reflecting the environmental scrutiny
+  attached to land disturbance, programming, and regulatory licensing.
 
 ```{r}
 #| label: fig-process-by-trigger
@@ -314,6 +428,198 @@ associated with each nexus type.
 
 knitr::include_graphics(file.path(OUTPUT_DIR, "fig3_process_by_trigger.png"))
 ```
+
+---
+
+# Multi-Label Structure: Secondary Triggers
+
+Every project receives one **primary** trigger — the highest-priority federal nexus the
+hierarchy resolves — but `r comma(n_multi_label)` projects (`r pct(n_multi_label)`) carry at
+least one **secondary** trigger, a second nexus the pipeline detected but ranked below the
+primary. These secondary labels are stored in `nepa_trigger_secondary`; this section
+cross-tabulates them to show which nexuses co-occur and where multi-label projects concentrate.
+
+## Which trigger classes co-occur
+
+@fig-secondary-cooccurrence pairs each multi-label project's primary trigger (rows) against its
+secondary trigger(s) (columns). The structure is overwhelmingly dominated by a single pattern.
+
+```{r}
+#| label: fig-secondary-cooccurrence
+#| fig-cap: "Primary × secondary trigger co-occurrence among multi-label projects. Cell values count projects with that primary/secondary pairing; a project with two secondaries contributes to two cells."
+#| out-width: "85%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig13_secondary_cooccurrence.png"))
+```
+
+`r sprintf("%s of the %s multi-label projects (%s)", comma(top_combo_n), comma(n_multi_label), scales::percent(top_combo_share, accuracy = 0.1))`
+share the same combination — **`r top_combo_label`**: BPA and WAPA transmission and power
+infrastructure that also crosses BLM or National Forest land, so the power-authority-proponent
+nexus and the federal-land nexus both apply. Every other combination is a long tail; the
+next-largest, `r second_combo_label` (`r comma(second_combo_n)` projects), is roughly a twelfth
+the size.
+
+```{r}
+#| label: tbl-secondary-combos
+#| tbl-cap: "Dominant trigger combinations among multi-label projects. Share of multi-label denominates by the 1,559 projects with 2+ trigger classes; share of portfolio by all 20,725 decarbonization projects."
+
+secondary_combos |>
+  slice_head(n = 8) |>
+  gt() |>
+  cols_label(
+    combo_label  = "Trigger Combination",
+    n            = "Projects",
+    pct_of_multi = "Share of Multi-Label",
+    pct_of_all   = "Share of Portfolio"
+  ) |>
+  fmt_number(columns = n, decimals = 0, use_seps = TRUE) |>
+  fmt_percent(columns = c(pct_of_multi, pct_of_all), decimals = 1) |>
+  cols_align(align = "left",  columns = combo_label) |>
+  cols_align(align = "right", columns = c(n, pct_of_multi, pct_of_all)) |>
+  tab_style(style = cell_text(weight = "bold", color = "white"),
+            locations = cells_column_labels()) |>
+  tab_style(style = cell_fill(color = "#012169"),
+            locations = cells_column_labels()) |>
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_body(columns = combo_label)) |>
+  tab_options(table.font.size = px(15), data_row.padding = px(8),
+              container.width = "100%", table.width = "100%")
+```
+
+## Where multi-label projects concentrate
+
+Multi-label projects are not spread evenly. @fig-secondary-rates shows the share carrying a
+secondary trigger by review process and by energy technology.
+
+```{r}
+#| label: fig-secondary-rates
+#| fig-cap: "Share of projects with 2+ trigger classes, by review process and by energy technology (technologies with n ≥ 50)."
+#| out-width: "80%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig14_secondary_multilabel_rates.png"))
+```
+
+- **Multi-label rates rise with review depth.** EISs carry a secondary trigger
+  `r sprintf("%s of the time (%s), against %s for CEs", scales::percent(ml_eis_rate, accuracy = 0.1), "EIS", scales::percent(ml_ce_rate, accuracy = 0.1))` —
+  the larger, more complex projects that warrant a full EIS are precisely the ones likely to
+  implicate more than one federal nexus.
+- **Transmission dominates.** `r scales::percent(ml_transmission_rate, accuracy = 0.1)` of
+  transmission projects are multi-label — more than double any other technology — reflecting
+  the PMA/TVA-plus-federal-land pattern that drives the entire overlap. Offshore wind and
+  hydropower follow at roughly 10%, both siting-heavy technologies that routinely touch a
+  second nexus.
+
+---
+
+# Trigger Class × Review Status
+
+The natural next question is how trigger class interacts with the kind of NEPA review a
+project received. The review-type axis — CE vs. EA vs. EIS — is covered in
+[Trigger Type by Review Process](#trigger-type-by-review-process) above. This section addresses
+the programmatic vs. tiered dimension: whether a review stands alone or tiers from an
+umbrella programmatic document.
+
+::: {.callout-note title="Data source"}
+A portfolio-wide programmatic/tiered classifier does not exist in Phase 2. D2's outputs
+(significance determinations, regulatory regimes) do not carry a programmatic/tiered flag. The
+only committed programmatic/tiered signal is D6's FONSI-enrichment `is_tiered` / `tiers_from`
+field, which is populated for the FONSI-enriched subset. The cross-tab below uses that
+source and is scoped accordingly; a full-portfolio tiering classifier remains
+deferred (see [Coverage & Limitations](../notes/deliverable01/coverage_limitations.html)).
+:::
+
+## Programmatic tiering by trigger class
+
+Among the `r comma(tier_n_enriched)` FONSI-enriched decarbonization projects, D6 makes an
+explicit tiering determination for `r comma(tier_n_determined)`; `r comma(tier_n_tiered)` of
+those tier from a programmatic document. @fig-trigger-tiering shows how those determinations
+split across trigger classes.
+
+```{r}
+#| label: fig-trigger-tiering
+#| fig-cap: "Trigger class × programmatic tiering status, D6 FONSI-enrichment subset. Only classes with ≥ 3 determined FONSIs shown; 'Tiered' = review tiers from an umbrella programmatic EIS/EA."
+#| out-width: "80%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig15_trigger_tiering.png"))
+```
+
+```{r}
+#| label: tbl-trigger-tiering
+#| tbl-cap: "Trigger class × programmatic tiering (D6 FONSI-enrichment subset). 'Determined' = Tiered + Standalone; the tiered share denominates by the determined count only."
+
+trigger_tiering |>
+  select(trigger_label, Tiered, Standalone, Undetermined, pct_tiered_of_determined) |>
+  gt() |>
+  cols_label(
+    trigger_label            = "Trigger Class",
+    Tiered                   = "Tiered",
+    Standalone               = "Standalone",
+    Undetermined             = "Undetermined",
+    pct_tiered_of_determined = "Tiered Share (of determined)"
+  ) |>
+  fmt_number(columns = c(Tiered, Standalone, Undetermined), decimals = 0) |>
+  fmt_percent(columns = pct_tiered_of_determined, decimals = 0) |>
+  sub_missing(columns = pct_tiered_of_determined, missing_text = "—") |>
+  cols_align(align = "left",  columns = trigger_label) |>
+  cols_align(align = "right", columns = where(is.numeric)) |>
+  tab_style(style = cell_text(weight = "bold", color = "white"),
+            locations = cells_column_labels()) |>
+  tab_style(style = cell_fill(color = "#012169"),
+            locations = cells_column_labels()) |>
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_body(columns = trigger_label)) |>
+  tab_options(table.font.size = px(15), data_row.padding = px(8),
+              container.width = "100%", table.width = "100%")
+```
+
+**Land-nexus reviews are the ones that tier.** Land is both the most common determined class
+(36 FONSIs) and the most frequently tiered — 23 of its 36 determined reviews tier from a
+programmatic document, overwhelmingly BLM's vegetation-treatment and herbicide PEISs. PMA/TVA
+and Funding follow. The pattern is intuitive: tiering is a public-lands management device, so
+it concentrates in exactly the trigger classes tied to BLM and Forest Service land. This is a
+FONSI-subset signal, not a portfolio rate, and should be read as directional.
+
+## Regulatory review regime by trigger class
+
+For portfolio-scale context, D2's `project_regime` output assigns each EA/EIS project a
+regulatory regime keyed to the CEQ rule in force at its decision date. The table below
+cross-tabulates trigger class against that regime for the `r comma(regime_n_universe)` EA/EIS
+projects with a regime assignment. This is a regulatory-vintage axis, distinct from the
+programmatic/tiered question above.
+
+```{r}
+#| label: tbl-trigger-regime
+#| tbl-cap: "Trigger class × regulatory review regime (D2 project_regime; EA/EIS decision universe). 'Pre-2020 CEQ' and '2020–2025 CEQ rules' bin the decision-date regime; 'FRA overlay' counts projects whose review window overlaps the June 2023 Fiscal Responsibility Act amendments."
+
+trigger_regime |>
+  select(trigger_label, n_regime, n_pre_2020ceq, n_ceq_2020_25,
+         n_period_unknown, n_fra_overlay) |>
+  gt() |>
+  cols_label(
+    trigger_label    = "Trigger Class",
+    n_regime         = "EA/EIS Projects",
+    n_pre_2020ceq    = "Pre-2020 CEQ",
+    n_ceq_2020_25    = "2020–2025 CEQ Rules",
+    n_period_unknown = "Undated",
+    n_fra_overlay    = "FRA Overlay"
+  ) |>
+  fmt_number(columns = where(is.numeric), decimals = 0, use_seps = TRUE) |>
+  cols_align(align = "left",  columns = trigger_label) |>
+  cols_align(align = "right", columns = where(is.numeric)) |>
+  tab_style(style = cell_text(weight = "bold", color = "white"),
+            locations = cells_column_labels()) |>
+  tab_style(style = cell_fill(color = "#012169"),
+            locations = cells_column_labels()) |>
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_body(columns = trigger_label)) |>
+  tab_options(table.font.size = px(14), data_row.padding = px(7),
+              container.width = "100%", table.width = "100%")
+```
+
+Land and PMA/TVA supply the largest EA/EIS caseloads, and both skew toward the pre-2020 CEQ
+regime — the bulk of these public-lands and transmission reviews predate the 2020–2025 rule
+churn. Roughly two in five of the regime universe is undated (no reliable decision date recovered),
+so these counts are lower bounds on each vintage.
 
 ---
 
@@ -326,11 +632,13 @@ agency names collapses the ~18+ distinct agencies into a legible set of ~8 entit
 The heatmap reads row by row: each row sums to 100%, showing how a given department's projects
 are distributed across trigger classes. For example:
 
-- **Department of Energy** projects are largely Funding—DOE's primary mechanism for
-  decarbonization investment is grant and loan programs rather than direct construction.
-- **Department of the Interior** (primarily BLM) projects skew toward Land, as expected
+- Department of Energy projects are largely Funding—DOE's primary mechanism for
+  decarbonization investment is grant and loan programs—with sizable PMA/TVA and Direct
+  Action shares from the power marketing administrations housed within DOE and from DOE's
+  own facility and laboratory actions.
+- Department of the Interior (primarily BLM) projects skew toward Land, as expected
   given BLM's public land jurisdiction.
-- **Department of Agriculture** (Forest Service) mirrors Interior but at smaller scale—
+- Department of Agriculture (Forest Service) mirrors Interior but at smaller scale—
   National Forest special use permits for biomass, wind, and transmission lines.
 
 ```{r}
@@ -350,13 +658,15 @@ technologies with at least 50 projects. Technology assignment uses the first mat
 clean-energy NEPATEC tag per project (e.g., a project tagged Solar + Utilities is assigned
 to Solar).
 
-- **Solar** and **Wind (Onshore)** projects are driven mainly by Land and Funding—utility-scale
+- Solar and Wind (Onshore) projects are driven mainly by Land and Funding—utility-scale
   renewables either sit on BLM land or receive DOE financial assistance.
-- **Transmission** shows the highest Direct Action share, consistent with the Power Marketing
-  Administrations (BPA, WAPA) building federal transmission infrastructure.
-- **Hydropower** shows a distinctive mix of Direct Action (federal dams) and Permit (FERC
-  licensing for non-federal hydro).
-- **Carbon Capture & Storage** and **Energy Storage** skew toward Funding, reflecting DOE's
+- Transmission shows the highest PMA/TVA share, consistent with the Power Marketing
+  Administrations (BPA, WAPA) building and maintaining federal transmission infrastructure.
+- Nuclear Technology shows the highest Direct Action share—DOE national laboratory and
+  site actions dominate this category.
+- Hydropower shows a distinctive mix of PMA/TVA (federal hydropower and transmission
+  operations) and Permit (FERC licensing for non-federal hydro) alongside Funding.
+- Carbon Capture & Storage and Energy Storage skew toward Funding, reflecting DOE's
   active grant program for emerging technologies.
 
 ```{r}
@@ -372,12 +682,12 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig5_trigger_by_technology.png"))
 # Federal Funding Deep Dive
 
 The `r comma(n_funding)` Funding-primary projects (`r pct(n_funding)` of the portfolio) warrant
-closer examination of *how* federal money flows and *how much* each mechanism typically awards.
+closer examination of how federal money flows and how much each mechanism typically awards.
 The figures below use a funding details sidecar produced by the funding mechanism extractor.
 
 ## Funding Mechanism Types
 
-@fig-funding-mechanism breaks down Funding-primary projects by the *type* of federal financial
+@fig-funding-mechanism breaks down Funding-primary projects by the type of federal financial
 instrument: grant, loan guarantee, cooperative agreement, cost-share, etc. This reveals the
 dominant instruments DOE and other agencies use to trigger NEPA review.
 
@@ -422,7 +732,7 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig10_funding_amount_coverage.png
 ```
 
 @fig-funding-amounts complements the coverage view with the actual dollar distribution per
-mechanism type. **A note on coverage:** dollar amounts are extracted only when the document text
+mechanism type. A note on coverage: dollar amounts are extracted only when the document text
 contains an explicit award figure — most NEPA documents do not. As a result, only a fraction of
 the `r comma(n_funding)` Funding-primary projects have an extracted amount; the caption reports
 the exact count. Despite the limited coverage, the distributions are informative about typical
@@ -478,14 +788,16 @@ large_finance_amounts |>
 
 ## State-Level Dominant Trigger
 
-@fig-choropleth shows the *dominant* trigger class in each state — the trigger type with the most
+@fig-choropleth shows the dominant trigger class in each state — the trigger type with the most
 projects in that state. The map captures broad regional patterns:
 
-- **Funding** dominates most states, consistent with DOE's nationwide grant footprint.
-- **Land** dominates in the intermountain West (Nevada, Utah, Wyoming, Montana,
+- Funding dominates most states, consistent with DOE's nationwide grant footprint.
+- Land dominates in the intermountain West (Nevada, Utah, Wyoming, Montana,
   Arizona, and New Mexico)—states with high proportions of BLM land and active solar and wind development.
-- **Direct Action** appears in states with significant federal power authority
-  infrastructure (Pacific Northwest, Colorado, Nebraska, and South Carolina).
+- PMA/TVA dominates states with significant federal power authority infrastructure—
+  Washington and Oregon (BPA) and Colorado and Nebraska (WAPA).
+- Direct Action dominates Idaho, West Virginia, and South Carolina—states anchored by
+  DOE national laboratories and site operations (INL, NETL, Savannah River).
 
 Note that dominant trigger is determined by project count, not by area or capacity. A state
 where a single large BLM wind project is the only decarbonization project will appear as Land
@@ -505,11 +817,11 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig6_state_choropleth.png"))
 fine-grained geographic patterns in trigger type. Counties are colored by the dominant trigger
 class among all decarbonization projects located in that county.
 
-- The **Funding / Land boundary** maps closely onto federal land ownership: counties spanning
+- The Funding / Land boundary maps closely onto federal land ownership: counties spanning
   BLM or National Forest land (interior West) show Land as dominant; counties without
   substantial federal land show Funding.
-- **Direct Action** clusters in counties with federal power authority infrastructure—Pacific
-  Northwest corridors (BPA transmission), parts of the MidWest, and Southwest transmission hubs.
+- PMA/TVA clusters in counties with federal power authority infrastructure—Pacific
+  Northwest corridors (BPA transmission), parts of the Midwest, and Southwest transmission hubs.
 - Many rural counties host only one or two projects and are therefore colored by a single
   project's trigger type; interpret sparse interior counties with caution.
 
@@ -580,6 +892,52 @@ excerpts |>
               row_group.padding = px(6), table.width = "100%",
               container.width = "100%")
 ```
+
+---
+
+# Reproducibility
+
+Every number and figure in this report is regenerated by committed code, run from the
+repository root. The one **billable step** — the Tier 5 LLM fallback — never needs to be
+repeated: its raw verdicts are frozen in a committed adjudication record, and the record
+replay reproduces the published classifications exactly, with no API call.
+
+``` bash
+# 1. Full trigger classification, tiers 0–4 (deterministic*, no API key)
+conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py
+
+# 2. Tier 5 — EXACT replication of the published classifications from the
+#    committed record (deterministic, no API key, no cost)
+conda run -n nepa python phase2/code/deliverable01/03_rerun_tier5.py \
+  --from-record phase2/code/deliverable01/tier5_adjudication_record.csv
+
+#    (alternative: statistical replication by re-running the LLM live —
+#     ~$2 at claude-haiku-4-5 pricing; results equivalent in aggregate
+#     but not guaranteed row-for-row)
+# conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py \
+#   --use-llm --tier5-budget 25
+
+# 3. Funding sidecar (deterministic; reads the trigger output)
+conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py \
+  --funding-details-only
+
+# 4. Figures + report CSVs (base R, not the nepa env)
+Rscript phase2/code/deliverable01/02_create_figures.R
+
+# 4b. Secondary-trigger + review-status cross-tabs (base R; reads D2/D6 outputs)
+Rscript phase2/code/deliverable01/04_secondary_review_crosstabs.R
+
+# 5. This report
+quarto render phase2/reports/deliverable01.qmd
+```
+
+^\*^ Tiers 0–3 are exactly deterministic. Tiers 3b/4 run neural inference on Apple MPS
+without a pinned seed and can drift by a few borderline projects between machines or runs
+(measured: 1 project between the May and July 2026 runs); any such project enters the Tier 5
+queue, where the committed record pins its published classification. See the
+[Coverage & Limitations](../notes/deliverable01/coverage_limitations.html) page and the
+[architecture doc](https://github.com/kaseyzapatka/nepa/blob/main/phase2/architecture/deliverables/deliverable01.md) for the full
+reproducibility discussion.
 
 ---
 

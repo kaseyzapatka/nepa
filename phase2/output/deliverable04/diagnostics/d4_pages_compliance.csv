@@ -1,0 +1,12 @@
+process_type,compliance,n,total,pct,label
+EA,Compliant,182,218,83.4862385321101,"182
+(83%)"
+EA,Exceeds standard limit,0,218,0,
+EA,Exceeds limit,36,218,16.51376146788991,"36
+(17%)"
+EIS,Compliant,31,97,31.958762886597935,"31
+(32%)"
+EIS,Exceeds standard limit,32,97,32.98969072164948,"32
+(33%)"
+EIS,Exceeds limit,34,97,35.051546391752574,"34
+(35%)"

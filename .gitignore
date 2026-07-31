@@ -28,6 +28,7 @@ scratch.R
 *docs/notes/phase2/
 phase2/plans/*
 tests/*
+_archived*/
 
 
 # Python bytecode
@@ -37,3 +38,8 @@ __pycache__/
 
 **/*.quarto_ipynb
 phase2/where_I_left_off. txt
+# personal resume-point notes (any directory)
+where_I_left_off.md
+
+# ggplot .rds sidecars (regenerable by NN_create_figures.R scripts; large)
+*.rds

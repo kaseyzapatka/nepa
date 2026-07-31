@@ -8,12 +8,12 @@ These examples are **not** training data — the NLI model is zero-shot and runs
 
 ### 1. Validate NLI hypothesis templates
 
-Before running at scale, score each positive example through the NLI model using the hypothesis templates defined in `tier4_refactor_spec.md`. The correct class hypothesis should score **≥ 0.75**. If a positive example scores below this on its correct class, adjust the hypothesis wording before proceeding.
+Before running at scale, score each positive example through the NLI model using the `HYPOTHESIS_TEMPLATES` defined in `01_extract_nepa_trigger.py` (the `tier4_refactor_spec.md` working document referenced here previously no longer exists). The correct class hypothesis should score **≥ 0.75**. If a positive example scores below this on its correct class, adjust the hypothesis wording before proceeding.
 
 ```python
 # Quick validation loop (run once before full corpus)
 from sentence_transformers import CrossEncoder
-model = CrossEncoder("cross-encoder/nli-MiniLM2-L6-H768")
+model = CrossEncoder("cross-encoder/nli-deberta-v3-base")
 
 chunk = "DOE is proposing to provide federal funding..."
 hypothesis = "This text shows that a federal agency is funding this project."
@@ -89,16 +89,26 @@ DOE is proposing to provide federal funding to the Contra Costa Economic Partner
 DOE funding would be used to develop and implement a transparent, consistent, and expedient permitting and interconnection process for residential and small commercial rooftop PV systems throughout all participating jurisdictions.
 ```
 
-### federal_action
+
+> **⚠️ Historical note (2026-07-25):** the worked examples below predate the PMA/TVA
+> carve-out and the `federal_action` → `federal_direct_action` rename. Ten of the example
+> projects (all three `federal_program` examples, all three `federal_land` positives, two
+> `federal_direct_action` examples, the `federal_permit` positive, and the RMP boundary
+> case) now resolve to `pma` as primary in the published output because their lead agency
+> is BPA/WAPA/SEPA/SWPA/TVA. The *text-cue reasoning* each example teaches remains valid
+> for non-PMA projects; do not use these projects' IDs as class ground truth without
+> checking `projects_nepa_trigger.parquet` first.
+
+### federal_direct_action
 
 #### Example 1
 
 ```text
 Rule family: T1a_DOE_action
 Project ID: 55785ab38769051f617b47da1931e34f
-Suggested class: federal_action
+Suggested class: federal_direct_action
 
-Why: The description presents DOE as the proposing agency for direct construction and operation work at NREL. This is the type of DOE-led facility action that should support a true federal_action label.
+Why: The description presents DOE as the proposing agency for direct construction and operation work at NREL. This is the type of DOE-led facility action that should support a true federal_direct_action label.
 
 Chunk: The Department of Energy (DOE) prepared this Final Supplemental EA to assess the potential environmental effects resulting from the proposed improvements to the RFHP. Specifically, the DOE proposes to develop, construct and operate a woodchip fuel storage silo at the National Renewable Energy Laboratory’s (NREL) South Table Mountain (STM) site in Golden, Colorado.
 ```
@@ -108,7 +118,7 @@ Chunk: The Department of Energy (DOE) prepared this Final Supplemental EA to ass
 ```text
 Rule family: T1a_DOE_action
 Project ID: 05233996-c065-d1d6-4b6a-aebd57c4282f
-Suggested class: federal_action
+Suggested class: federal_direct_action
 
 Why: Western is not just funding or authorizing someone else here. The text says Western itself will construct, demolish, and install substation infrastructure. That is clean direct-action language.
 
@@ -120,7 +130,7 @@ Chunk: Western Area Power Administration (Western) will construct a new control 
 ```text
 Rule family: T1a_DOE_action
 Project ID: cd41bb62-9377-d1e4-8038-0d32c2001811
-Suggested class: federal_action
+Suggested class: federal_direct_action
 
 Why: This is another clean direct-action example because Western is the entity that will construct the communications building and do the associated site work.
 
@@ -289,14 +299,14 @@ Chunk: This final Environmental Impact Statement (EIS) describes a number of alt
 
 These are not simple positives or negatives. Save chunks that help distinguish between plausible classes.
 
-### DOE funding vs federal_action
+### DOE funding vs federal_direct_action
 
 #### Example 1
 
 ```text
 Rule family: T1a_DOE_funding
 Project ID: 97fca3873618664c1ca208c1874ebff7
-Suggested class: boundary case between federal_funding and federal_action
+Suggested class: boundary case between federal_funding and federal_direct_action
 
 Why: The title and opening language frame the project as DOE funding, but the description also says DOE’s proposed action under NEPA is the design, construction, and operation of the FRIB. This is a useful example of why DOE metadata alone is not enough.
 
@@ -392,7 +402,7 @@ American Recovery and Reinvestment Act: [x]
 ```text
 Rule family: T1a_BLM_action
 Project ID: 6997b8a719abdf2633b890254d964252
-Suggested class: boundary case between federal_land and federal_action
+Suggested class: boundary case between federal_land and federal_direct_action
 
 Why: This text is why BLM is difficult. It is about federal conveyances and perpetual ROWs, so it has both land-authorization and federal-decision language.
 

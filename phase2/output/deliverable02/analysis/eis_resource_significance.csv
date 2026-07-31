@@ -1,0 +1,13 @@
+shared_resource_area,n,n_adverse,n_unavoid,n_sig,share_sig,n_suppressed
+visual,959,190,126,316,0.33,FALSE
+cultural,1473,260,91,352,0.239,FALSE
+biological,1796,278,93,372,0.207,FALSE
+land_use,1063,129,59,189,0.178,FALSE
+air_quality,1073,112,76,188,0.175,FALSE
+noise,836,72,66,138,0.165,FALSE
+transportation,701,65,34,100,0.143,FALSE
+water,1610,169,49,218,0.135,FALSE
+socioeconomic,886,84,22,107,0.121,FALSE
+climate_ghg,456,23,9,33,0.072,FALSE
+soils_geology,782,36,19,55,0.07,FALSE
+public_health,962,40,18,58,0.06,FALSE

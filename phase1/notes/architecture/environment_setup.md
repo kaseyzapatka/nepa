@@ -9,7 +9,7 @@ The repository uses:
 - Python extraction pipelines (`code/extract/*.py`)
 - Python model workflows (Hugging Face `datasets`, `transformers`, `torch`)
 - Claude API integration (`anthropic` SDK + direct API calls)
-- DuckDB-backed app/data tooling (`app/app.py`, `code/rag/01_build_text_store.py`)
+- DuckDB-backed app/data tooling (`app/app.py`, `app/build_text_store.py`)
 - R analysis scripts (`code/**/*.R`)
 - Quarto reports and presentation rendering (`reports/*.qmd`, `presentations/*.qmd`)
 
@@ -40,7 +40,6 @@ Rationale:
 ## 4. Canonical files
 
 - `environment.yml` (repo root): full reproducible environment (`name: nepa`) for Python + R + Quarto
-- `environment.lock.yml` (repo root): exact lock snapshot exported from `nepa` on March 6, 2026 (`osx-64`)
 - `code/requirements.txt`: cleaned Python-only fallback for pip installs
 - `app/requirements.txt`: minimal dependency file for standalone Streamlit deployment
 
@@ -85,8 +84,8 @@ quarto --version
 
 After a successful install, create a machine-specific lock snapshot:
 
-```bash
-conda env export -n nepa > environment.lock.yml
-```
+The project keeps a single portable spec (`environment.yml`, with the exact versions used
+annotated in comments) rather than a platform-specific lock file — the from-scratch
+environment build is verified against the spec directly.
 
 Commit that lock file when you need exact rebuilds on the same platform/architecture.

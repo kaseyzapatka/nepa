@@ -1,0 +1,14 @@
+shared_resource_area,n_determinations,n_mit_class,share_mit_class,n_mit_dependent,n_determinations_suppressed
+biological,308,92,0.299,135,FALSE
+water,202,53,0.262,76,FALSE
+cultural,194,42,0.216,59,FALSE
+soils_geology,120,34,0.283,44,FALSE
+public_health,187,26,0.139,37,FALSE
+air_quality,132,14,0.106,29,FALSE
+visual,126,14,0.111,21,FALSE
+noise,83,8,0.096,12,FALSE
+land_use,142,5,0.035,18,FALSE
+unknown,62,5,0.081,18,FALSE
+transportation,66,4,0.061,8,FALSE
+socioeconomic,111,3,0.027,9,FALSE
+climate_ghg,64,0,0,2,FALSE

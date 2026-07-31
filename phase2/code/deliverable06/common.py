@@ -20,6 +20,7 @@ D6_ANALYSIS_DIR = ANALYSIS_DIR / "deliverable06"
 D6_RAW_DIR = DATA_DIR / "raw" / "deliverable06"
 D6_VALIDATION_DIR = DATA_DIR / "validation" / "deliverable06"
 D6_OUTPUT_DIR = PHASE2_DIR / "output" / "deliverable06"
+D6_REVIEW_DIR = D6_OUTPUT_DIR / "review"  # QA / drill-down tables (not client-facing)
 
 PROJECTS_COMBINED = ANALYSIS_DIR / "projects_combined.parquet"
 DOCUMENTS_COMBINED = ANALYSIS_DIR / "documents_combined.parquet"
@@ -31,7 +32,7 @@ TIMELINE_INDEX = ANALYSIS_DIR / "timeline" / "timeline_document_index.parquet"
 
 
 def ensure_d6_dirs() -> None:
-    for path in (D6_ANALYSIS_DIR, D6_RAW_DIR, D6_VALIDATION_DIR, D6_OUTPUT_DIR):
+    for path in (D6_ANALYSIS_DIR, D6_RAW_DIR, D6_VALIDATION_DIR, D6_OUTPUT_DIR, D6_REVIEW_DIR):
         path.mkdir(parents=True, exist_ok=True)
 
 

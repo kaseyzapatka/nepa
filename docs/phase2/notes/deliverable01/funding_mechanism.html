@@ -4513,8 +4513,24 @@ vertical-align: -.125em;
  <span class="dropdown-text">Deliverable 1</span></a>
   </li>  
         <li>
+    <a class="dropdown-item" href="../../../phase2/reports/deliverable02.html" rel target>
+ <span class="dropdown-text">Deliverable 2</span></a>
+  </li>  
+        <li>
     <a class="dropdown-item" href="../../../phase2/reports/deliverable03.html" rel target>
  <span class="dropdown-text">Deliverable 3</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../phase2/reports/deliverable04.html" rel target>
+ <span class="dropdown-text">Deliverable 4</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../phase2/reports/deliverable05.html" rel target>
+ <span class="dropdown-text">Deliverable 5</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../phase2/reports/deliverable06.html" rel target>
+ <span class="dropdown-text">Deliverable 6</span></a>
   </li>  
     </ul>
   </li>
@@ -4543,6 +4559,7 @@ vertical-align: -.125em;
 <h1>Federal Funding Mechanism Details</h1>
 <section id="current-schema-and-cues" class="level2">
 <h2 class="anchored" data-anchor-id="current-schema-and-cues">Current Schema And Cues</h2>
+<p><em>Updated 2026-07-25 from the published output (<code>federal_funding_detail_summary.csv</code>, n = 9,210 Funding-primary projects; mechanism priority order in <code>FUNDING_MECHANISM_PRIORITY</code>, <code>01_extract_nepa_trigger.py</code> lines ~1145–1155).</em></p>
 <table class="table">
 <colgroup>
 <col style="width: 18%">
@@ -4562,73 +4579,88 @@ vertical-align: -.125em;
 </thead>
 <tbody>
 <tr class="odd">
-<td>Grant/Award</td>
-<td style="text-align: right;">5,194</td>
-<td>Matches explicit grant or award terms.</td>
-<td><code>grant</code>, <code>grants</code>, <code>award</code>, <code>awards</code>, <code>DOE grant</code>, <code>federal grant</code>, <code>grant award</code>, <code>selected for funding</code>.</td>
-<td>A project where the evidence identifies a grant or award, but not a more specific higher-priority mechanism such as loan guarantee, cooperative agreement, or formula grant.</td>
+<td>EERE Grant (PMC-ND Form)</td>
+<td style="text-align: right;">3,350</td>
+<td>Matches the EERE PMC-ND standard-form grant boilerplate (regex <code>pmc_nd_form</code>).</td>
+<td>PMC-ND form headers and standard EERE grant-determination language.</td>
+<td>DOE EERE grants issued on the standardized PMC-ND CX form — the single largest mechanism; split out from Grant/Award because the form itself identifies the instrument.</td>
 </tr>
 <tr class="even">
-<td>Unknown Funding Type</td>
-<td style="text-align: right;">2,692</td>
-<td>The project was classified as funding-triggered, but the sidecar did not find a recognized mechanism cue in its funding evidence windows.</td>
-<td>Blank sidecar evidence; FOA header only; manual funding label without a mechanism; model-based funding label without extractable funding text.</td>
-<td>Funding may be real, but the instrument type was not identified. This is the weakest bucket and should be treated as unresolved, not as a meaningful funding mechanism.</td>
+<td>Grant/Award</td>
+<td style="text-align: right;">2,717</td>
+<td>Matches explicit grant or award terms (no higher-priority mechanism).</td>
+<td><code>grant</code>, <code>grants</code>, <code>award</code>, <code>awards</code>, <code>DOE grant</code>, <code>federal grant</code>, <code>grant award</code>, <code>selected for funding</code>.</td>
+<td>A project where the evidence identifies a grant or award, but not a more specific higher-priority mechanism.</td>
 </tr>
 <tr class="odd">
+<td>Unknown Funding Type</td>
+<td style="text-align: right;">2,091</td>
+<td>Funding-triggered, but no recognized mechanism cue in the funding evidence windows.</td>
+<td>Blank sidecar evidence; FOA header only; manual funding label without a mechanism.</td>
+<td>Funding may be real, but the instrument type was not identified. Treat as unresolved, not as a meaningful mechanism.</td>
+</tr>
+<tr class="even">
 <td>Formula Grant</td>
-<td style="text-align: right;">555</td>
+<td style="text-align: right;">577</td>
 <td>Matches formula grant language or EECBG.</td>
 <td><code>formula grant</code>, <code>formula-based grant</code>, <code>formula award</code>, <code>EECBG</code>, <code>State Energy Program Formula Grants</code>.</td>
 <td>A grant allocated by formula, often through DOE block-grant or state-energy-program channels.</td>
 </tr>
-<tr class="even">
-<td>Generic Funding</td>
-<td style="text-align: right;">201</td>
-<td>Matches broad funding language but no explicit instrument.</td>
-<td><code>DOE would provide funds</code>, <code>DOE funding</code>, <code>federal funding</code>, <code>recipient of federal funding</code>, <code>would receive federal funds</code>.</td>
-<td>The text clearly says federal money supports the project, but does not say whether the vehicle is a grant, loan, cooperative agreement, etc.</td>
-</tr>
 <tr class="odd">
+<td>ARPA-E Award</td>
+<td style="text-align: right;">200</td>
+<td>Matches ARPA-E award language (regex <code>arpa_e</code>).</td>
+<td><code>ARPA-E</code>, <code>Advanced Research Projects Agency–Energy</code> award language.</td>
+<td>ARPA-E research awards, split out from Grant/Award by the agency-specific instrument language.</td>
+</tr>
+<tr class="even">
 <td>Revolving Loan</td>
-<td style="text-align: right;">131</td>
+<td style="text-align: right;">130</td>
 <td>Matches revolving loan language.</td>
 <td><code>revolving loan</code>, <code>Revolving Loan Fund</code>, <code>Energy Bank Revolving Loan Program</code>.</td>
 <td>A loan mechanism where repayments replenish a fund for future lending.</td>
 </tr>
-<tr class="even">
-<td>Financial Assistance</td>
-<td style="text-align: right;">71</td>
-<td>Matches the formal phrase <code>financial assistance</code>.</td>
-<td><code>financial assistance</code>, <code>active financial assistance agreement</code>, <code>provide financial assistance</code>.</td>
-<td>Formal federal financial-assistance language, but not specific enough to call it a grant, loan, or cooperative agreement unless those cues also appear.</td>
-</tr>
 <tr class="odd">
 <td>Loan Guarantee</td>
-<td style="text-align: right;">59</td>
+<td style="text-align: right;">60</td>
 <td>Matches loan guarantee language.</td>
-<td><code>loan guarantee</code>, <code>guaranteed loan</code>, <code>issue a loan guarantee</code>, <code>provide a loan guarantee to</code>.</td>
+<td><code>loan guarantee</code>, <code>guaranteed loan</code>, <code>issue a loan guarantee</code>.</td>
 <td>The federal role is backing or guaranteeing a loan rather than directly granting funds.</td>
 </tr>
 <tr class="even">
 <td>Cooperative Agreement</td>
-<td style="text-align: right;">50</td>
+<td style="text-align: right;">58</td>
 <td>Matches cooperative agreement language.</td>
-<td><code>cooperative agreement</code>, <code>under the terms of the cooperative agreement</code>, <code>cooperative agreement with</code>.</td>
-<td>A specific federal assistance instrument with substantial agency involvement. This outranks cost-share if both are present.</td>
+<td><code>cooperative agreement</code>, <code>under the terms of the cooperative agreement</code>.</td>
+<td>A specific federal assistance instrument with substantial agency involvement. Outranks cost-share if both are present.</td>
 </tr>
 <tr class="odd">
+<td>Financial Assistance</td>
+<td style="text-align: right;">10</td>
+<td>Matches the formal phrase <code>financial assistance</code> with no more specific instrument.</td>
+<td><code>financial assistance</code>, <code>active financial assistance agreement</code>.</td>
+<td>Formal federal financial-assistance language, not specific enough to name the instrument.</td>
+</tr>
+<tr class="even">
 <td>Cost Share</td>
-<td style="text-align: right;">13</td>
-<td>Matches cost-share language, but only becomes primary if no higher-priority mechanism is found.</td>
-<td><code>cost share</code>, <code>cost-shared arrangement</code>, <code>federal cost share</code>, <code>cost share funds</code>.</td>
-<td>A financing structure where federal and non-federal parties split costs. It is not always the instrument itself, so many cost-share projects are counted under Grant/Award or Cooperative Agreement instead.</td>
+<td style="text-align: right;">9</td>
+<td>Matches cost-share language; primary only if no higher-priority mechanism found.</td>
+<td><code>cost share</code>, <code>cost-shared arrangement</code>, <code>federal cost share</code>.</td>
+<td>A financing structure where federal and non-federal parties split costs; most cost-share projects are counted under a more specific mechanism.</td>
+</tr>
+<tr class="odd">
+<td>Generic Funding</td>
+<td style="text-align: right;">8</td>
+<td>Matches broad funding language but no explicit instrument (lowest priority).</td>
+<td><code>DOE would provide funds</code>, <code>federal funding</code>, <code>would receive federal funds</code>.</td>
+<td>Clearly federal money, but no instrument named and no other cue matched — now rare because PMC-ND/ARPA-E capture most former members of this bucket.</td>
 </tr>
 </tbody>
 </table>
 </section>
 <section id="proposed-tighter-schema" class="level2">
 <h2 class="anchored" data-anchor-id="proposed-tighter-schema">Proposed Tighter Schema</h2>
+<p><em>(Note: this proposal predates the <code>pmc_nd_form</code> and <code>arpa_e</code> categories above and is retained as a design sketch — any future consolidation should start from the current 11-category schema.)</em></p>
 <table class="table">
 <colgroup>
 <col style="width: 20%">
@@ -4743,77 +4775,108 @@ transform: none;
 
     const menuItems = Array.from(phase2Menu.querySelectorAll("a.dropdown-item"));
     const overviewItem = menuItems.find((item) => item.textContent.trim() === "Overview");
-    const deliverableItem = menuItems.find((item) => item.textContent.trim() === "Deliverable 1");
-    if (!overviewItem || !deliverableItem) {
+    if (!overviewItem) {
       return;
     }
 
-    const siteRoot = deliverableItem.href
-      .replace(/phase2\/reports\/deliverable01\.html$/, "");
-
-    const submenuItems = [
-      ["Report", "phase2/reports/deliverable01.html"],
-      ["Trigger Classification", "phase2/notes/deliverable01/trigger_classification.html"],
-      ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"],
-      ["Funding Mechanism Schema", "phase2/notes/deliverable01/funding_mechanism.html"]
+    const submenuConfigs = [
+      ["Deliverable 1", [
+        ["Report", "phase2/reports/deliverable01.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable01/coverage_limitations.html"],
+        ["Trigger Classification", "phase2/notes/deliverable01/trigger_classification.html"],
+        ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"],
+        ["Funding Mechanism Schema", "phase2/notes/deliverable01/funding_mechanism.html"]
+      ]],
+      ["Deliverable 2", [
+        ["Report", "phase2/reports/deliverable02.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable02/coverage_limitations.html"]
+      ]],
+      ["Deliverable 3", [
+        ["Report", "phase2/reports/deliverable03.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable03/coverage_limitations.html"]
+      ]],
+      ["Deliverable 4", [
+        ["Report", "phase2/reports/deliverable04.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable04/coverage_limitations.html"],
+        ["Date Sourcing & Provenance", "phase2/notes/deliverable04/date_sourcing.html"],
+        ["Known Issues & Deferred Items", "phase2/notes/deliverable04/known_issues.html"]
+      ]],
+      ["Deliverable 5", [
+        ["Report", "phase2/reports/deliverable05.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable05/coverage_limitations.html"]
+      ]],
+      ["Deliverable 6", [
+        ["Report", "phase2/reports/deliverable06.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable06/coverage_limitations.html"]
+      ]]
     ];
 
-    const deliverableParent = deliverableItem.closest("li");
-    const submenu = window.document.createElement("ul");
-    submenu.className = "dropdown-menu";
-
-    submenuItems.forEach(function ([label, path]) {
-      const item = window.document.createElement("li");
-      const link = window.document.createElement("a");
-      const text = window.document.createElement("span");
-
-      link.className = "dropdown-item";
-      link.href = siteRoot + path;
-      text.className = "dropdown-text";
-      text.textContent = label;
-
-      link.appendChild(text);
-      item.appendChild(link);
-      submenu.appendChild(item);
-    });
-
-    deliverableItem.classList.add("dropdown-toggle");
-    deliverableItem.setAttribute("aria-expanded", "false");
-    deliverableItem.removeAttribute("data-bs-toggle");
-    deliverableItem.setAttribute("role", "menuitem");
-
-    deliverableParent.addEventListener("mouseenter", function () {
-      submenu.classList.add("show");
-      deliverableItem.setAttribute("aria-expanded", "true");
-    });
-
-    deliverableParent.addEventListener("mouseleave", function () {
-      submenu.classList.remove("show");
-      deliverableItem.setAttribute("aria-expanded", "false");
-    });
-
-    deliverableItem.addEventListener("click", function (event) {
-      if (window.matchMedia("(min-width: 992px)").matches) {
+    submenuConfigs.forEach(function ([menuText, submenuItems]) {
+      const deliverableItem = menuItems.find((item) => item.textContent.trim() === menuText);
+      if (!deliverableItem) {
         return;
       }
 
-      event.preventDefault();
-      submenu.classList.toggle("show");
-      deliverableItem.setAttribute(
-        "aria-expanded",
-        submenu.classList.contains("show") ? "true" : "false"
-      );
-    });
+      const siteRoot = deliverableItem.href
+        .replace(/phase2\/reports\/deliverable\d+\.html$/, "");
 
-    window.document.addEventListener("click", function (event) {
-      if (!deliverableParent.contains(event.target)) {
+      const deliverableParent = deliverableItem.closest("li");
+      const submenu = window.document.createElement("ul");
+      submenu.className = "dropdown-menu";
+
+      submenuItems.forEach(function ([label, path]) {
+        const item = window.document.createElement("li");
+        const link = window.document.createElement("a");
+        const text = window.document.createElement("span");
+
+        link.className = "dropdown-item";
+        link.href = siteRoot + path;
+        text.className = "dropdown-text";
+        text.textContent = label;
+
+        link.appendChild(text);
+        item.appendChild(link);
+        submenu.appendChild(item);
+      });
+
+      deliverableItem.classList.add("dropdown-toggle");
+      deliverableItem.setAttribute("aria-expanded", "false");
+      deliverableItem.removeAttribute("data-bs-toggle");
+      deliverableItem.setAttribute("role", "menuitem");
+
+      deliverableParent.addEventListener("mouseenter", function () {
+        submenu.classList.add("show");
+        deliverableItem.setAttribute("aria-expanded", "true");
+      });
+
+      deliverableParent.addEventListener("mouseleave", function () {
         submenu.classList.remove("show");
         deliverableItem.setAttribute("aria-expanded", "false");
-      }
-    });
+      });
 
-    deliverableParent.classList.add("dropdown-submenu");
-    deliverableParent.appendChild(submenu);
+      deliverableItem.addEventListener("click", function (event) {
+        if (window.matchMedia("(min-width: 992px)").matches) {
+          return;
+        }
+
+        event.preventDefault();
+        submenu.classList.toggle("show");
+        deliverableItem.setAttribute(
+          "aria-expanded",
+          submenu.classList.contains("show") ? "true" : "false"
+        );
+      });
+
+      window.document.addEventListener("click", function (event) {
+        if (!deliverableParent.contains(event.target)) {
+          submenu.classList.remove("show");
+          deliverableItem.setAttribute("aria-expanded", "false");
+        }
+      });
+
+      deliverableParent.classList.add("dropdown-submenu");
+      deliverableParent.appendChild(submenu);
+    });
   });
 </script>
 <script id="quarto-html-after-body" type="application/javascript">

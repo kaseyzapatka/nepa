@@ -43,6 +43,17 @@ CONDA_DEFAULT_ENV=nepa python phase2/code/api/doe_register/05_fetch_cx_register.
 CONDA_DEFAULT_ENV=nepa python phase2/code/api/doe_register/05_fetch_cx_register.py --dry-run
 ```
 
+After the CX register is crawled, match it to NEPATEC CE documents to produce the per-project CE determination dates D4 consumes:
+
+```bash
+# Step 4b: Join cx-NNNNNN.pdf filenames in NEPATEC CE docs to the CX register (integer match)
+#   Reads: doe_cx_register.parquet + NEPATEC CE documents/pages
+#   Writes: doe_cx_dates.parquet (one row per matched project, CE determination date)
+CONDA_DEFAULT_ENV=nepa python phase2/code/api/doe_register/06_match_cx_register.py
+```
+
+`doe_cx_dates.parquet` (not `doe_eplanning_dates.parquet`) is the CE-side Tier A source: D4's `01_index.py` reads it to attach DOE CX determination dates to CE projects at confidence 5.0.
+
 ---
 
 ## Re-fetch Project Pages (after network errors or new doc numbers)
@@ -69,7 +80,8 @@ CONDA_DEFAULT_ENV=nepa python phase2/code/api/doe_register/03_fetch_project_page
 | `doe_project_page_cache.json` | Raw HTTP cache for individual pages (367 entries) |
 | `doe_eplanning_dates.parquet` | Final output — one row per project (516 rows) |
 | `doe_manual_review.csv` | Projects with `acceptance=review` for human inspection |
-| `doe_cx_register.parquet` | CE determination dates — one row per CX number (~35,580 rows) |
+| `doe_cx_register.parquet` | CE determination dates — one row per CX number (~33,450 rows) |
+| `doe_cx_dates.parquet` | Per-project CE determination dates (from `06_match_cx_register.py`; the CE-side Tier A source for D4) |
 
 All files are in `phase2/data/analysis/doe_register/`.
 
@@ -178,13 +190,13 @@ After rebuilding `doe_eplanning_dates.parquet`, re-run the D4 pipeline:
 
 ```bash
 # Script 01: rebuild timeline index (adds DOE dates as new columns)
-CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/01_build_timeline_index.py
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/01_index.py
 
 # Script 02: emit Tier A metadata packets for DOE decision + initiation
-CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/02_retrieve_timeline_contexts.py
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/02_retrieve.py
 
 # Script 03: prelabel DOE packets as clear_decision / clear_initiation at confidence 5.0
-CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/03_extract_timeline_candidates.py
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/03_extract_candidates.py
 ```
 
 DOE packets are identifiable in the output by `retrieval_reason` containing

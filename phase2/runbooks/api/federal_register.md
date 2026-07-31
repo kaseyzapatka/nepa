@@ -50,7 +50,7 @@ The NEPATEC page scan always runs when `--refresh-federal-register` is set (~30â
 Run this directly for more control over paths and options:
 
 ```bash
-conda run -n nepa python phase2/code/extract/federal_register.py \
+conda run -n nepa python phase2/code/api/federal_regisiter/federal_register.py \
   --projects-path phase2/data/analysis/projects_combined.parquet \
   --output phase2/data/analysis/federal_register/federal_register.parquet \
   --corpus-output phase2/data/analysis/federal_register/noi_corups.parquet \

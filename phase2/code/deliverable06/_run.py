@@ -1,86 +1,104 @@
+"""D6 v2 (narrow-first) orchestrator: 01 -> 08.
+
+Runs the linear chain in numeric order (each step depends only on lower numbers):
+  01 select corpus -> 02 assemble evidence -> 03 extract facts
+  -> 04 base rates + existing-CE match/bounds -> 05 mitigation & boundary (Track B)
+  -> 06 CE landscape (Track C) -> 07 classify & rank (new/expand/adopt + tables)
+  -> 08 analyze (R: report figures)
+then phase2/reports/deliverable06.qmd embeds the 07 tables + 08 figures.
+
+Standalone (NOT in this chain): benchmark_models.py (model selection, run once
+before --use-llm), extract_ce_catalog.py (renders the CE catalog .md), and the
+ce_source/candidates/bounds/embeddings/common helpers.
+
+The superseded v1 scripts (01/03/04/05/06/07/08/09) remain in place for now;
+archive to `_archived_v1/` after validation.
+
+Usage:
+  CONDA_DEFAULT_ENV=nepa python _run.py            # deterministic Stage A
+  CONDA_DEFAULT_ENV=nepa python _run.py --use-llm  # OLD narrow facts LLM pass in 03_extract_candidate_facts (NOT the new 37-field enrichment)
+"""
+
 import os
 
 if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
     raise SystemExit("Please run in conda env 'nepa' (e.g., `conda run -n nepa python ...`).")
 
 import argparse
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-from common import D6_ANALYSIS_DIR, D6_RAW_DIR, PHASE2_DIR
-
-
 CODE_DIR = Path(__file__).resolve().parent
-EXTRACT_DIR = CODE_DIR.parent / "extract"
+
+PY_STEPS = (
+    "01_select_candidate_corpus.py",
+    "02_assemble_candidate_evidence.py",
+    "03_extract_candidate_facts.py",
+    "04_base_rates_and_ce.py",
+    "05_mitigation_and_boundary.py",
+    "06_ce_landscape.py",
+    "09_wire_enrichment.py",   # overwrites 03/05 facts+mitigation with LLM enrichment (if present)
+    "07_classify_and_rank.py",
+    "11_expand_analysis.py",   # #39 — size-vs-CE-cap distributions (reads facts + ce bounds)
+    "12_other_action_themes.py",  # #40 — within-cell clustering of the 92 action='other' (terminal, no verdict change)
+    "13_postfra_refresh.py",   # A2 — post-FRA recurrence tabulation
+    "14_threshold_retrieval.py",  # #44 — significance-threshold retrieval
+)
+# Standalone-BILLABLE prerequisites (NOT in the chain; run once, cached => re-runs $0; user-launched):
+#   03_enrich_llm.py             -> fonsi_enrichment.parquet (the 37-field pass; guarded by 09 below)
+#   10_action_label.py           -> fonsi_action_labels.parquet (the action verb)
+#   retag_condition_resources.py -> rebuilds fonsi_conditions with Tier-1 + Haiku multi-label (D6 #47; ~$4.23)
+# Network-dependent, cached, $0, run before 07 to (re)build the eCFR verification scaffold:
+#   ce_ecfr_verify.py            -> candidate_ce_coverage.parquet + worksheet
+ENRICHMENT = Path(__file__).resolve().parent.parent.parent / "data" / "analysis" / "deliverable06" / "fonsi_enrichment.parquet"
+R_STEP = "08_create_figures.R"
 
 
-def run(*args: object) -> None:
-    command = [str(arg) for arg in args]
-    print("+", " ".join(command), flush=True)
-    subprocess.run(command, check=True)
-
-
-def latest_ce_snapshot() -> Path | None:
-    snapshots = sorted((D6_RAW_DIR / "ce_explorer").glob("exclusions_*.json"))
-    return snapshots[-1] if snapshots else None
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the D6 Stage A FONSI opportunity scan.")
-    parser.add_argument("--skip-inventory", action="store_true")
-    parser.add_argument("--skip-sections", action="store_true")
-    parser.add_argument("--skip-crosswalk", action="store_true")
-    parser.add_argument("--skip-embeddings", action="store_true")
-    parser.add_argument("--topics", action="store_true", help="Run optional NMF diagnostics.")
-    parser.add_argument("--skip-input-hashes", action="store_true", help="Use only for smoke tests.")
-    return parser.parse_args()
-
-
-def crosswalk_command(args: argparse.Namespace, snapshot: Path | None = None) -> list[object]:
-    command: list[object] = [sys.executable, CODE_DIR / "04_build_ce_crosswalk.py"]
-    if snapshot:
-        command.extend(["--snapshot", snapshot])
-    if args.skip_embeddings:
-        command.append("--skip-embeddings")
-    return command
+def run(*cmd: str) -> None:
+    print("\n+ " + " ".join(str(c) for c in cmd), flush=True)
+    subprocess.run([str(c) for c in cmd], check=True)
 
 
 def main() -> None:
-    args = parse_args()
-    if not args.skip_inventory:
-        command: list[object] = [sys.executable, CODE_DIR / "01_build_fonsi_inventory.py"]
-        if args.skip_input_hashes:
-            command.append("--skip-input-hashes")
-        run(*command)
-    if not args.skip_sections:
-        run(
-            sys.executable,
-            EXTRACT_DIR / "build_document_sections.py",
-            "--process",
-            "EA",
-            "--target-documents",
-            D6_ANALYSIS_DIR / "fonsi_section_manifest.parquet",
-            "--output",
-            D6_ANALYSIS_DIR / "fonsi_document_sections.parquet",
-            "--qa-output",
-            PHASE2_DIR / "output" / "deliverable06" / "fonsi_document_sections_qa.csv",
-        )
-    run(sys.executable, CODE_DIR / "03_bootstrap_action_archetypes.py")
-    if not args.skip_crosswalk:
-        run(*crosswalk_command(args, latest_ce_snapshot()))
-    run(sys.executable, CODE_DIR / "05_build_fonsi_packets.py")
-    # Packet action text upgrades metadata-only assignments where it supports a seed rule.
-    run(sys.executable, CODE_DIR / "03_bootstrap_action_archetypes.py")
-    if not args.skip_crosswalk:
-        run(*crosswalk_command(args, latest_ce_snapshot()))
-    run(sys.executable, CODE_DIR / "06_extract_fonsi_actions.py")
-    run(sys.executable, CODE_DIR / "07_analyze_fonsi_patterns.py")
-    if args.topics:
-        run(sys.executable, CODE_DIR / "08_topic_model_diagnostics.py")
-    run(sys.executable, CODE_DIR / "09_render_fonsi_dossiers.py")
+    ap = argparse.ArgumentParser(description="Run the D6 v2 narrow-first pipeline (01-08).")
+    ap.add_argument("--use-llm", action="store_true",
+                    help="OLD narrow facts LLM pass in 03_extract_candidate_facts (NOT the new enrichment)")
+    ap.add_argument("--model", default="claude-sonnet-4-6")
+    ap.add_argument("--skip-figures", action="store_true", help="skip the 08 R figures step")
+    args = ap.parse_args()
+
+    if args.use_llm:
+        print("[_run] NOTE: --use-llm runs the OLD narrow facts pass in 03_extract_candidate_facts.py "
+              "(only action_definition / mitigation_dependence / mitigation_summary). The new 37-field "
+              "enrichment pass is 03_enrich_llm.py — standalone, NOT yet wired into this pipeline.")
+
+    for script in PY_STEPS:
+        if script == "09_wire_enrichment.py" and not ENRICHMENT.exists():
+            raise SystemExit(
+                f"\n[_run] ABORT: enrichment not found at {ENRICHMENT}.\n"
+                "The D6 report is LLM-backed; 08 and the report read fonsi_enrichment.parquet\n"
+                "unconditionally, so a deterministic build will not reproduce the reported\n"
+                "figures/claims. Run the enrichment first (billable; --dry-run for cost only):\n"
+                "  conda run -n nepa python phase2/code/deliverable06/03_enrich_llm.py --workers 4\n"
+                "  (model claude-sonnet-4-6, schema d6_enrich_schema_v5, ~451/452 FONSIs).")
+        if script == "03_extract_candidate_facts.py" and args.use_llm:
+            run(sys.executable, CODE_DIR / script, "--use-llm", "--model", args.model)
+        else:
+            run(sys.executable, CODE_DIR / script)
+
+    if not args.skip_figures:
+        rscript = shutil.which("Rscript")
+        if rscript:
+            run(rscript, CODE_DIR / R_STEP)
+        else:
+            print("\n[_run] Rscript not found — skipping 08 figures "
+                  "(run `Rscript phase2/code/deliverable06/08_create_figures.R` manually).")
+
+    print("\n[_run] D6 v2 pipeline complete (01-08). "
+          "Render phase2/reports/deliverable06.qmd for the report.")
 
 
 if __name__ == "__main__":
     main()
-

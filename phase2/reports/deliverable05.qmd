@@ -1,0 +1,377 @@
+---
+title: "NEPA Decarbonization Technology Analysis: Deliverable 5"
+subtitle: "Categorical Exclusion Spikes After Major Infrastructure Legislation"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+<!-- Render phase2/reports/deliverable05.qmd for automatic table and inline-value updates.
+     Figures are produced by phase2/code/deliverable05/03_create_figures.R; the law-citation and
+     CE-category inputs by 01_extract_law_citations.py and 02_build_ce_categories.py. -->
+
+```{r setup}
+library(arrow)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(stringr)
+library(lubridate)
+library(scales)
+library(knitr)
+library(gt)
+library(here)
+
+options(arrow.skip_nul = TRUE)
+
+TIMELINE <- here("phase2", "data", "analysis", "timeline", "timeline_project_dates.parquet")
+PROJECTS <- here("phase1", "data", "analysis", "projects_combined.parquet")
+CITES    <- here("phase2", "data", "analysis", "deliverable05", "law_citations.parquet")
+FIG_DIR  <- here("phase2", "output", "deliverable05", "figures")
+DIAG_DIR <- here("phase2", "output", "deliverable05", "diagnostics")
+
+# --- helpers ---------------------------------------------------------------
+fmt_n   <- function(x) comma(round(x), accuracy = 1)
+pct1    <- function(x) paste0(number(x, accuracy = 0.1), "%")        # x already on 0-100 scale
+ratio1  <- function(x) number(x, accuracy = 0.01)
+first0  <- function(x) if (length(x) == 0 || all(is.na(x))) 0 else x[[1]]
+include_fig <- function(name) knitr::include_graphics(file.path(FIG_DIR, name))
+
+# --- recompute CE-by-year by agency (live, mirrors 03_create_figures.R) -----
+dates <- read_parquet(TIMELINE)
+meta  <- read_parquet(PROJECTS, col_select = c("project_id", "project_energy_type",
+                                               "project_department", "lead_agency_harmonized"))
+ce <- dates |>
+  filter(process_type == "CE") |>
+  left_join(meta, by = "project_id") |>
+  mutate(
+    decision_date   = as.Date(decision_date),
+    initiation_date = as.Date(initiation_date),
+    year_date = coalesce(decision_date, initiation_date),
+    year = year(year_date),
+    agency2 = case_when(
+      str_detect(coalesce(lead_agency_harmonized, ""), "Department of Energy") ~ "DOE",
+      str_detect(coalesce(lead_agency_harmonized, ""), "Bureau of Land Management") ~ "BLM",
+      TRUE ~ "Other")
+  )
+
+n_ce_total     <- nrow(ce)
+n_ce_placeable <- sum(!is.na(ce$year))
+pct_ce_placeable <- 100 * n_ce_placeable / n_ce_total
+
+doe_year <- ce |> filter(agency2 == "DOE", !is.na(year)) |> count(year, name = "n")
+blm_year <- ce |> filter(agency2 == "BLM", !is.na(year)) |> count(year, name = "n")
+yr <- function(df, y) first0(df$n[df$year == y])
+doe_peak_year <- doe_year$year[which.max(doe_year$n)]
+doe_peak_n    <- max(doe_year$n)
+
+# --- diagnostic tables (written by 03) -------------------------------------
+spike      <- read_csv(file.path(DIAG_DIR, "d5_spike_summary.csv"), show_col_types = FALSE)
+citerate   <- read_csv(file.path(DIAG_DIR, "d5_citation_rates.csv"), show_col_types = FALSE)
+catshift   <- read_csv(file.path(DIAG_DIR, "d5_category_shift.csv"), show_col_types = FALSE)
+techshift  <- read_csv(file.path(DIAG_DIR, "d5_technology_shift.csv"), show_col_types = FALSE)
+
+cite_rate <- function(law_, scope_, period_) first0(
+  citerate$pct_cited[citerate$law == law_ & citerate$scope == scope_ & citerate$period == period_])
+cat_pct <- function(law_, scope_, period_, code_) first0(
+  catshift$pct[catshift$law == law_ & catshift$scope == scope_ &
+               catshift$period == period_ & catshift$code_norm == code_])
+spike_ratio_val <- function(subset_, law_) first0(
+  spike$spike_ratio[spike$subset == subset_ & spike$law == law_])
+
+# headline scalars
+arra_cite_ce  <- cite_rate("ARRA", "All CE", "spike window")
+b51_spike     <- cat_pct("ARRA", "All CE", "spike window", "B5.1")
+b51_base      <- cat_pct("ARRA", "All CE", "baseline", "B5.1")
+bil_doe_ratio <- spike_ratio_val("DOE", "BIL")
+ira_eis_win   <- cite_rate("IRA", "All EIS", "spike window")
+ira_eis_base  <- cite_rate("IRA", "All EIS", "baseline")
+bil_eis_win   <- cite_rate("BIL", "All EIS", "spike window")
+```
+
+# Executive Summary
+
+This deliverable examines whether the use of categorical exclusions (CEs), the lightest form of
+NEPA review, spikes after the passage of major infrastructure legislation, and if so, whether those
+actions are demonstrably tied to the new law. We anchor every CE to the date its determination was
+issued (from the Deliverable 4 timeline), detect explicit citations to the legislation in the CE
+documents, and read the specific categorical-exclusion category each action invoked.
+
+The three named laws are the American Recovery and Reinvestment Act (ARRA, Feb 2009), the
+Bipartisan Infrastructure Law / Infrastructure Investment and Jobs Act (BIL/IIJA, Nov 2021), and
+the Inflation Reduction Act (IRA, Aug 2022).
+
+::: callout-note
+## Key Findings
+
+1. **There is a large CE spike after ARRA — and it is almost entirely a Department of
+   Energy phenomenon.** DOE categorical exclusions jumped from `r fmt_n(yr(doe_year, 2008))` in 2008
+   to `r fmt_n(yr(doe_year, 2009))` in 2009 and `r fmt_n(yr(doe_year, 2010))` in 2010, while the
+   other major CE user, the Bureau of Land Management, stayed flat
+   (`r fmt_n(yr(blm_year, 2010))` in 2010). The agency that administered ARRA's energy money is
+   exactly the agency whose CEs surged.
+
+2. **The spiking actions are demonstrably tied to the law.** `r pct1(arra_cite_ce)` of CEs issued in
+   the ARRA window explicitly cite the Recovery Act in their documents — direct attribution, not a
+   temporal coincidence.
+
+3. **The type of CE used shifted toward the law's purpose.** Among DOE categorical
+   exclusions in the ARRA window, category B5.1, "Actions to conserve energy or water," rose to
+   `r pct1(b51_spike)` of all DOE CEs (from `r pct1(b51_base)` at baseline) — the energy-efficiency
+   stimulus showing up directly in the categorical-exclusion mix.
+
+4. **BIL and IRA show a real but far more muted pattern.** DOE CE activity rose after BIL
+   (`r ratio1(bil_doe_ratio)`× the pre-law monthly baseline), but explicit CE citations to BIL and IRA
+   are rare — those laws are referenced far more often in larger reviews (EISs) than in CEs
+   (IRA is cited in `r pct1(ira_eis_win)` of post-IRA EISs vs a negligible share of CEs).
+
+5. **Read raw counts with care.** The dataset's coverage thins before 2009 and is incomplete for
+   2024–2025, so aggregate counts overstate the ARRA step-change. The DOE-vs-BLM split and the
+   citation evidence isolate the genuine policy signal from this coverage ramp.
+:::
+
+# Methodology
+
+## The question, in three parts
+
+The deliverable asks three questions, each answered by a separate analysis:
+
+| Question | Analysis |
+|---|---|
+| **Is there a spike** in CE use after each law? | CE counts by determination year, with legislative markers — overall, by review type, by department, and DOE-vs-BLM. |
+| **Are the actions associated** with the law? | Detection of explicit law citations in the CE document text. A citation can only post-date the law, so it is coverage-robust attribution evidence. |
+| **What types of CEs** were used? | The specific categorical-exclusion category invoked (e.g. DOE's B5.1), plus the technology mix of the projects, in the spike window vs a baseline. |
+
+The pipeline runs in four stages:
+
+```{=html}
+<div style="max-width:660px;margin:1.25rem auto;">
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 · Anchor CEs in time</div>
+    <div style="color:#1A1A2E;">Place each CE by its <b>determination (decision) date</b> from the Deliverable&nbsp;4 timeline, falling back to the <b>initiation date</b> as a same-year proxy where the decision is absent (safe for CEs, whose median duration is ≈3 weeks). This locates <b>52,089 of 54,668</b> CEs (95.3%) in time — far broader than the complete-timeline base used for duration in Deliverable&nbsp;4</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 · Detect law citations</div>
+    <div style="color:#1A1A2E;"><code>01_extract_law_citations.py</code> scans CE / EA / EIS document pages for explicit <b>ARRA</b>, <b>BIL</b>, and <b>IRA</b> citations, with context-based disambiguation of the ambiguous IRA and BIL acronyms. A citation can only post-date the law, so it is coverage-robust attribution evidence</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 · Read CE categories</div>
+    <div style="color:#1A1A2E;"><code>02_build_ce_categories.py</code> parses the document-level <code>ce_category</code> metadata into normalized CFR codes (DOE 10 CFR 1021, DOI 516 DM 11, EPAct 2005 §390), so the categorical-exclusion mix can be compared across periods</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">4 · Compare spike windows vs baselines</div>
+    <div style="color:#1A1A2E;"><code>03_create_figures.R</code> joins dates, citations, and categories, then produces the counts, citation rates, and category- and technology-mix comparisons — spike window versus baseline — read by this report</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #012169;border-radius:8px;padding:.65rem 1rem;background:#012169;">
+    <div style="font-weight:700;color:#ffffff;font-size:1.05rem;">Deliverable 5 report</div>
+    <div style="color:#ffffff;">Whether CE use spikes after major legislation, whether the spike is tied to the law, and which categorical exclusions were used</div>
+  </div>
+</div>
+```
+
+The base population is every CE placeable in time. Anchoring on the determination date with an
+initiation-date fallback yields a base of `r fmt_n(n_ce_placeable)` of `r fmt_n(n_ce_total)` CE
+projects (`r pct1(pct_ce_placeable)`) — far broader than the complete-timeline base used for the
+duration analysis in Deliverable 4, because placing a CE in a year requires only one date, not two. How
+the analysis separates a genuine policy signal from the growth of the dataset's coverage over time is
+detailed on the [Coverage & Limitations page](../notes/deliverable05/coverage_limitations.html).
+
+# The Spike
+
+Categorical exclusions rise sharply around ARRA and again, more modestly, in the BIL/IRA period.
+
+```{r fig-ce-all}
+#| label: fig-ce-all
+#| fig-cap: "Categorical exclusions by determination year. Dashed lines mark ARRA (2009), BIL (2021), and IRA (2022)."
+include_fig("fig_d5_ce_counts_by_year_all.png")
+```
+
+The spike is specific to categorical exclusions. Faceting the same series by review type shows that
+the more demanding Environmental Assessment and Environmental Impact Statement processes do not exhibit
+the post-ARRA jump — consistent with a surge of fast, low-burden actions rather than a general increase
+in NEPA activity.
+
+```{r fig-byprocess}
+#| label: fig-byprocess
+#| fig-cap: "Reviews by year and review type (CE / EA / EIS). The post-ARRA spike appears only in the CE panel."
+include_fig("fig_d5_counts_by_year_byprocess.png")
+```
+
+## The spike is a DOE phenomenon
+
+The post-ARRA CE surge belongs almost entirely to the
+Department of Energy, the agency that administered ARRA's energy grants, loan guarantees, and
+weatherization funds. DOE CEs went from `r fmt_n(yr(doe_year, 2008))` (2008) to
+`r fmt_n(yr(doe_year, 2009))` (2009) to a peak of `r fmt_n(doe_peak_n)` in `r doe_peak_year`. Over
+the same years the Bureau of Land Management, the only other agency that issues CEs at scale and one
+drawing on the same dataset, barely moved (`r fmt_n(yr(blm_year, 2009))`, `r fmt_n(yr(blm_year, 2010))`,
+`r fmt_n(yr(blm_year, 2011))` in 2009–2011). BLM's own growth comes later (2016 onward) and is unrelated
+to the legislation. Because both agencies are subject to the identical coverage ramp, this contrast is
+the cleanest available evidence that the spike is a policy effect, not a data artifact.
+
+```{r fig-doe-blm}
+#| label: fig-doe-blm
+#| fig-cap: "Categorical exclusions by year, DOE vs BLM. The ARRA spike is a DOE phenomenon; BLM is flat through the ARRA window."
+include_fig("fig_d5_ce_counts_by_year_doe_blm.png")
+```
+
+```{r spike-table}
+spike_tbl <- spike |>
+  mutate(
+    Subset = subset, Law = law,
+    `Window (CEs/mo)` = number(window_mean_monthly, accuracy = 0.1),
+    `Baseline (CEs/mo)` = ifelse(is.na(baseline_mean_monthly), "—",
+                                 number(baseline_mean_monthly, accuracy = 0.1)),
+    `Spike ratio` = ifelse(is.na(spike_ratio), "—", number(spike_ratio, accuracy = 0.01))
+  ) |>
+  select(Subset, Law, `Window (CEs/mo)`, `Baseline (CEs/mo)`, `Spike ratio`)
+spike_tbl |>
+  gt() |>
+  tab_header(title = "Mean monthly CE volume: spike window vs pre-law baseline") |>
+  tab_source_note("ARRA has no usable pre-law baseline (the dataset is sparse before 2009); its spike is established by the DOE-vs-BLM contrast and citation evidence rather than a window/baseline ratio.") |>
+  tab_options(table.font.size = px(13))
+```
+
+## By energy type and department
+
+Splitting the CE series by energy type (decarbonization, fossil, other) and by lead department provides
+the all-data and breakdown views requested for every analysis.
+
+```{r fig-byenergy}
+#| label: fig-byenergy
+#| fig-cap: "CE counts by year, by energy type."
+include_fig("fig_d5_ce_counts_by_year_byenergy.png")
+```
+
+```{r fig-bydept}
+#| label: fig-bydept
+#| fig-cap: "CE counts by year, by lead department."
+include_fig("fig_d5_ce_counts_by_year_bydept.png")
+```
+
+```{r fig-byprocess-byenergy}
+#| label: fig-byprocess-byenergy
+#| fig-cap: "Reviews by year, faceted by review type and stacked by energy type."
+include_fig("fig_d5_counts_by_year_byprocess_byenergy.png")
+```
+
+# Association With the Law
+
+A temporal coincidence is not attribution. The strongest test is whether the spiking documents state that the
+action stems from the law. We detect explicit citations to each statute in the document text (with
+context disambiguation for the ambiguous "IRA" and "BIL" acronyms).
+
+```{r fig-cites-year}
+#| label: fig-cites-year
+#| fig-cap: "Reviews whose documents explicitly cite each law, by year. A citation cannot precede the law's passage."
+include_fig("fig_d5_citations_by_year_byprocess.png")
+```
+
+For ARRA the attribution is direct: `r pct1(arra_cite_ce)` of CEs issued in the ARRA window
+cite the Recovery Act by name, versus a negligible rate outside it. The Recovery Act citations themselves
+peak in 2010 and decay over the following years as stimulus obligations wound down — the citation curve
+tracks the disbursement curve.
+
+BIL and IRA follow a more muted pattern. Their citation rates rise after passage relative to baseline,
+confirming a real association, but the absolute rate within CEs stays low — these laws are seldom named
+in a one-page categorical exclusion. They surface far more often in larger reviews: IRA is cited in
+`r pct1(ira_eis_win)` of post-IRA EISs (vs `r pct1(ira_eis_base)` before), and BIL in
+`r pct1(bil_eis_win)` of post-BIL EISs. In other words, the citation evidence for BIL/IRA lives in the
+EIS record, even though the volume signal (more DOE CEs) is real.
+
+```{r fig-citerate}
+#| label: fig-citerate
+#| fig-cap: "Share of CEs citing each law, spike window vs baseline."
+include_fig("fig_d5_citation_rate_window_vs_baseline.png")
+```
+
+```{r citerate-table}
+citerate |>
+  mutate(`% citing` = pct1(pct_cited), N = fmt_n(n)) |>
+  transmute(Law = law, Scope = scope, Period = period, `% citing`, N) |>
+  filter(Scope %in% c("All CE", "All EIS")) |>
+  gt() |>
+  tab_header(title = "Law-citation rate by scope and period") |>
+  tab_options(table.font.size = px(12))
+```
+
+# What Types of CEs Were Used
+
+NEPATEC records the specific categorical-exclusion category each action invoked. For DOE these are the
+codes of 10 C.F.R. 1021 (e.g. `B5.1`, `A9`, `B1.3`); for the Interior/BLM they are the `516 DM 11`
+series; oil-and-gas drilling uses the Energy Policy Act of 2005 Section 390 exclusion. Comparing the mix
+inside the ARRA window against a stable baseline shows the categorical-exclusion profile shifting
+directly toward the stimulus's purpose.
+
+```{r fig-catshift}
+#| label: fig-catshift
+#| fig-cap: "DOE categorical-exclusion category mix, ARRA window (2009-2011) vs 2016-2019 baseline."
+include_fig("fig_d5_ce_category_shift_arra.png")
+```
+
+The largest shift is in B5.1, "Actions to conserve energy or water," which accounts for `r pct1(b51_spike)`
+of DOE categorical exclusions in the ARRA window versus only `r pct1(b51_base)` at baseline, a roughly
+forty-fold concentration. Information-gathering and technical-assistance categories (A9, A11, A1) are
+also elevated, consistent with a wave of grant- and study-related actions. By contrast, the baseline
+period is dominated by routine-maintenance exclusions (B1.3), which recede during the stimulus. The
+categorical-exclusion mix, in short, reorganizes around energy efficiency exactly when ARRA's efficiency
+money arrives.
+
+```{r catshift-table}
+catshift |>
+  filter(law == "ARRA", scope == "All CE", period == "spike window") |>
+  slice_max(pct, n = 8) |>
+  transmute(
+    Code = code_norm,
+    Description = ifelse(is.na(code_description) | code_description == code_norm, "—", code_description),
+    `ARRA window %` = pct1(pct),
+    `Baseline %` = pct1(sapply(code_norm, function(c) cat_pct("ARRA", "All CE", "baseline", c)))
+  ) |>
+  gt() |>
+  tab_header(title = "Top DOE categorical-exclusion codes in the ARRA window") |>
+  tab_options(table.font.size = px(13))
+```
+
+## Technology mix
+
+By project technology, the ARRA-window CEs are dominated by DOE environmental-management and
+research-and-development categories alongside the expected clean-energy build-out (solar, transmission).
+
+```{r fig-techshift}
+#| label: fig-techshift
+#| fig-cap: "Technology-tag mix of ARRA-window CEs (a project may carry multiple tags)."
+include_fig("fig_d5_technology_shift_arra.png")
+```
+
+```{r techshift-table}
+techshift |>
+  filter(law == "ARRA") |>
+  slice_max(pct, n = 8) |>
+  transmute(`Technology tag` = pt, `Share of ARRA-window CEs` = pct1(pct), N = fmt_n(n)) |>
+  kable(format = "pipe", align = "l")
+```
+
+# Reproducibility
+
+All figures and tables in this report regenerate from committed code. Run from the repository root in the `nepa` conda environment:
+
+``` bash
+python phase2/code/deliverable05/02_build_ce_categories.py
+python phase2/code/deliverable05/01_extract_law_citations.py --source all
+Rscript phase2/code/deliverable05/03_create_figures.R
+```
+
+Outputs are written to `phase2/output/deliverable05/{figures,diagnostics}/`; the intermediate
+citation and category datasets to `phase2/data/analysis/deliverable05/`.

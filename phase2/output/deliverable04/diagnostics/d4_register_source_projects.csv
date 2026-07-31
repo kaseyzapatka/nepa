@@ -1,0 +1,19 @@
+process_type,source,n,endpoint,total,pct
+CE,Doc Text,24818,Initiation,54668,45.4
+CE,No Date,22055,Initiation,54668,40.3
+CE,Register API,7795,Initiation,54668,14.3
+EA,Doc Text,949,Initiation,3083,30.8
+EA,No Date,1023,Initiation,3083,33.2
+EA,Register API,1111,Initiation,3083,36
+EIS,Doc Text,2523,Initiation,4130,61.1
+EIS,No Date,1545,Initiation,4130,37.4
+EIS,Register API,62,Initiation,4130,1.5
+CE,Doc Text,31801,Decision,54668,58.2
+CE,No Date,5276,Decision,54668,9.7
+CE,Register API,17591,Decision,54668,32.2
+EA,Doc Text,1182,Decision,3083,38.3
+EA,No Date,625,Decision,3083,20.3
+EA,Register API,1276,Decision,3083,41.4
+EIS,Doc Text,1655,Decision,4130,40.1
+EIS,No Date,2381,Decision,4130,57.7
+EIS,Register API,94,Decision,4130,2.3

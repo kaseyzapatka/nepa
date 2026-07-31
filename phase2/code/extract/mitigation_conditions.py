@@ -108,6 +108,25 @@ def classify_resource_area(text: str) -> str:
     return best if scores[best] else "unknown"
 
 
+def classify_resource_area_with_heading(text: str, heading: object = "") -> str:
+    """D6 #47 Tier-1: keyword-classify the sentence; if that is 'unknown', inherit the
+    resource area from the section HEADING (headings like 'Wildlife', 'Cultural Resources',
+    'Water Resources' name a resource explicitly, where the sentence may not). Generic
+    structural headings ('Environmental Consequences', 'Mitigation Measures', 'Decision',
+    'Finding of No Significant Impact') contain no resource keyword and so stay 'unknown'.
+
+    Pilot (phase2/notes/deliverable06/pilot47_findings.md): resolves ~4.8% of unknowns at
+    ~0.72 enrichment-agreement — high precision, opt-in so no existing build changes silently.
+    """
+    area = classify_resource_area(text)
+    if area != "unknown":
+        return area
+    heading_str = _normalize(heading)
+    if heading_str:
+        return classify_resource_area(heading_str)
+    return "unknown"
+
+
 def classify_obligation(text: str) -> str:
     if re.search(r"\b(?:shall|must|required|may not|will not|not exceed)\b", text, re.I):
         return "required"
@@ -199,8 +218,15 @@ def extract_condition_rows(
     use_llm: bool = False,
     llm_provider: str = "",
     llm_model: str = "",
+    use_heading_inheritance: bool = False,
 ) -> pd.DataFrame:
-    """Return normalized condition rows for bounded evidence spans."""
+    """Return normalized condition rows for bounded evidence spans.
+
+    use_heading_inheritance (D6 #47 Tier-1): when True, a sentence the keyword dict cannot
+    place inherits the resource area from its section heading. Default False preserves the
+    exact behavior of every existing caller (the current fonsi_conditions build); the D6
+    #47 re-tag path enables it. See classify_resource_area_with_heading().
+    """
     run_at = datetime.now(timezone.utc).isoformat()
     records: list[dict] = []
     for _, span in spans.iterrows():
@@ -237,7 +263,12 @@ def extract_condition_rows(
                     "document_id": _value(span, "document_id"),
                     "page_number": _value(span, "page_number", "page_start"),
                     "section_id": _value(span, "section_id", "evidence_span_id"),
-                    "resource_area": classify_resource_area(sentence),
+                    "resource_area": (
+                        classify_resource_area_with_heading(
+                            sentence, _value(span, "heading_title", "heading_raw"))
+                        if use_heading_inheritance
+                        else classify_resource_area(sentence)
+                    ),
                     "condition_text": sentence,
                     "condition_role": role,
                     "obligation_level": obligation,

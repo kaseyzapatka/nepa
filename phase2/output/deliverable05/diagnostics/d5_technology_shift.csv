@@ -1,0 +1,173 @@
+pt,n,pct,law,n_win
+Agriculture,196,2.798001427551749,ARRA,7005
+Artificial Intelligence and Machine Learning,43,0.6138472519628837,ARRA,7005
+Aviation - Airports and Air Traffic,26,0.371163454675232,ARRA,7005
+Aviation - Commercial Space,3,0.042826552462526764,ARRA,7005
+Broadband,93,1.3276231263383298,ARRA,7005
+Carbon Capture and Sequestration,306,4.36830835117773,ARRA,7005
+Conventional Energy Production - Coal,103,1.470378301213419,ARRA,7005
+Conventional Energy Production - Land-based Oil & Gas,385,5.496074232690935,ARRA,7005
+Conventional Energy Production - Nuclear,36,0.5139186295503212,ARRA,7005
+Conventional Energy Production - Offshore Oil and Gas,29,0.41399000713775874,ARRA,7005
+Conventional Energy Production - Other,220,3.140613847251963,ARRA,7005
+Conventional Energy Production - Rural Energy,59,0.8422555317630264,ARRA,7005
+Cybersecurity,37,0.5281941470378301,ARRA,7005
+Data Storage and Data Management,141,2.012847965738758,ARRA,7005
+Ecosystem Management and Restoration,319,4.553890078515346,ARRA,7005
+Electricity Transmission,941,13.433261955745897,ARRA,7005
+Emergency and Disaster Response,32,0.4568165596002855,ARRA,7005
+Habitat Conservation Plan,43,0.6138472519628837,ARRA,7005
+High Performance Computing and Advanced Computer Hardware and Software,138,1.9700214132762313,ARRA,7005
+Land Development - Housing,300,4.282655246252677,ARRA,7005
+Land Development - Other,835,11.92005710206995,ARRA,7005
+Land Development - Urban,1024,14.618129907209136,ARRA,7005
+Land Use or Forest Management Plan,116,1.655960028551035,ARRA,7005
+"Laws, Policies, Regulations, and Guidance",636,9.079229122055674,ARRA,7005
+Manufacturing,974,13.904354032833691,ARRA,7005
+Military and Defense,104,1.484653818700928,ARRA,7005
+Mining - Metals,20,0.28551034975017847,ARRA,7005
+Mining - Non-Metallic Minerals,26,0.371163454675232,ARRA,7005
+Nuclear Technology,474,6.766595289079229,ARRA,7005
+Other,7,0.09992862241256245,ARRA,7005
+Pipelines,103,1.470378301213419,ARRA,7005
+Ports and Waterways,13,0.185581727337616,ARRA,7005
+Public and Recreational Land Use,491,7.009279086366881,ARRA,7005
+Rangeland Management,44,0.6281227694503926,ARRA,7005
+Renewable Energy Production - Biomass,655,9.350463954318345,ARRA,7005
+Renewable Energy Production - Energy Storage,316,4.511063526052819,ARRA,7005
+Renewable Energy Production - Geothermal,491,7.009279086366881,ARRA,7005
+Renewable Energy Production - Hydrokinetic,60,0.8565310492505354,ARRA,7005
+Renewable Energy Production - Hydropower,50,0.7137758743754461,ARRA,7005
+Renewable Energy Production - Other,359,5.124910778015703,ARRA,7005
+Renewable Energy Production - Solar,951,13.576017130620984,ARRA,7005
+"Renewable Energy Production - Wind, Offshore",47,0.6709493219129193,ARRA,7005
+"Renewable Energy Production - Wind, Onshore",300,4.282655246252677,ARRA,7005
+Research and Development,2966,42.34118486795146,ARRA,7005
+Routine Maintenance,58,0.8279800142755175,ARRA,7005
+Semiconductors,60,0.8565310492505354,ARRA,7005
+Surface Transportation - Bridges,22,0.3140613847251963,ARRA,7005
+Surface Transportation - Other,763,10.892219842969308,ARRA,7005
+Surface Transportation - Public Transportation,151,2.1556031406138474,ARRA,7005
+Surface Transportation - Railroads,14,0.1998572448251249,ARRA,7005
+Threatened and Endangered Species Management,102,1.45610278372591,ARRA,7005
+"Utilities (electricity, gas, telecommunications)",2429,34.67523197715917,ARRA,7005
+Vegetation and Fuels Management,129,1.8415417558886509,ARRA,7005
+Waste Management,3974,56.73090649536046,ARRA,7005
+Water Resources - Irrigation and Water Supply,157,2.2412562455389007,ARRA,7005
+Water Resources - Other,1014,14.475374732334046,ARRA,7005
+Agriculture,529,4.952256131810523,BIL,10682
+Artificial Intelligence and Machine Learning,136,1.27316981838607,BIL,10682
+Aviation - Airports and Air Traffic,141,1.3199775322973226,BIL,10682
+Aviation - Commercial Space,17,0.15914622729825875,BIL,10682
+Broadband,424,3.9692941396742185,BIL,10682
+Carbon Capture and Sequestration,436,4.081632653061225,BIL,10682
+Conventional Energy Production - Coal,90,0.8425388504025464,BIL,10682
+Conventional Energy Production - Land-based Oil & Gas,1452,13.592960119827747,BIL,10682
+Conventional Energy Production - Nuclear,95,0.8893465643137989,BIL,10682
+Conventional Energy Production - Offshore Oil and Gas,5,0.046807713911252574,BIL,10682
+Conventional Energy Production - Other,138,1.291892903950571,BIL,10682
+Conventional Energy Production - Rural Energy,32,0.2995693690320165,BIL,10682
+Cybersecurity,109,1.0204081632653061,BIL,10682
+Data Storage and Data Management,164,1.5352930162890845,BIL,10682
+Ecosystem Management and Restoration,1391,13.021906010110467,BIL,10682
+Electricity Transmission,1510,14.135929601198278,BIL,10682
+Emergency and Disaster Response,107,1.001685077700805,BIL,10682
+Habitat Conservation Plan,135,1.2638082756038196,BIL,10682
+High Performance Computing and Advanced Computer Hardware and Software,144,1.3480621606440741,BIL,10682
+Land Development - Housing,188,1.759970043063097,BIL,10682
+Land Development - Other,1911,17.889908256880734,BIL,10682
+Land Development - Urban,193,1.8067777569743493,BIL,10682
+Land Use or Forest Management Plan,675,6.319041378019097,BIL,10682
+"Laws, Policies, Regulations, and Guidance",591,5.532671784310054,BIL,10682
+Manufacturing,1200,11.233851338700617,BIL,10682
+Military and Defense,210,1.9659239842726082,BIL,10682
+Mining - Marine Minerals,2,0.01872308556450103,BIL,10682
+Mining - Metals,97,0.9080696498783,BIL,10682
+Mining - Non-Metallic Minerals,217,2.031454783748362,BIL,10682
+Nuclear Technology,1215,11.374274480434375,BIL,10682
+Other,3,0.028084628346751545,BIL,10682
+Pipelines,1034,9.679835236847032,BIL,10682
+Ports and Waterways,29,0.27148474068526496,BIL,10682
+Public and Recreational Land Use,984,9.211758097734506,BIL,10682
+Quantum Information Science and Technology,9,0.08425388504025463,BIL,10682
+Rangeland Management,583,5.4577794420520505,BIL,10682
+Renewable Energy Production - Biomass,218,2.0408163265306123,BIL,10682
+Renewable Energy Production - Energy Storage,525,4.91480996068152,BIL,10682
+Renewable Energy Production - Geothermal,111,1.0391312488298072,BIL,10682
+Renewable Energy Production - Hydrokinetic,67,0.6272233664107845,BIL,10682
+Renewable Energy Production - Hydropower,30,0.28084628346751545,BIL,10682
+Renewable Energy Production - Other,184,1.7225238719340947,BIL,10682
+Renewable Energy Production - Solar,554,5.186294701366785,BIL,10682
+"Renewable Energy Production - Wind, Offshore",55,0.5148848530237783,BIL,10682
+"Renewable Energy Production - Wind, Onshore",76,0.7114772514510391,BIL,10682
+Research and Development,3383,31.670099232353493,BIL,10682
+Routine Maintenance,466,4.36247893652874,BIL,10682
+Semiconductors,40,0.3744617112900206,BIL,10682
+Surface Transportation - Bridges,42,0.3931847968545216,BIL,10682
+Surface Transportation - Other,1192,11.158958996442614,BIL,10682
+Surface Transportation - Public Transportation,67,0.6272233664107845,BIL,10682
+Surface Transportation - Railroads,41,0.38382325407227114,BIL,10682
+Threatened and Endangered Species Management,539,5.045871559633028,BIL,10682
+"Utilities (electricity, gas, telecommunications)",2850,26.680396929413966,BIL,10682
+Vegetation and Fuels Management,699,6.54371840479311,BIL,10682
+Waste Management,4197,39.290395057105414,BIL,10682
+Water Resources - Irrigation and Water Supply,422,3.950571054109717,BIL,10682
+Water Resources - Other,1629,15.249953192286089,BIL,10682
+Agriculture,383,4.6390503875969,IRA,8256
+Artificial Intelligence and Machine Learning,110,1.3323643410852712,IRA,8256
+Aviation - Airports and Air Traffic,96,1.1627906976744187,IRA,8256
+Aviation - Commercial Space,10,0.12112403100775193,IRA,8256
+Broadband,306,3.7063953488372094,IRA,8256
+Carbon Capture and Sequestration,404,4.8934108527131785,IRA,8256
+Conventional Energy Production - Coal,60,0.7267441860465116,IRA,8256
+Conventional Energy Production - Land-based Oil & Gas,1134,13.73546511627907,IRA,8256
+Conventional Energy Production - Nuclear,61,0.7388565891472868,IRA,8256
+Conventional Energy Production - Offshore Oil and Gas,5,0.060562015503875966,IRA,8256
+Conventional Energy Production - Other,107,1.2960271317829457,IRA,8256
+Conventional Energy Production - Rural Energy,30,0.3633720930232558,IRA,8256
+Cybersecurity,84,1.0174418604651163,IRA,8256
+Data Storage and Data Management,125,1.5140503875968991,IRA,8256
+Ecosystem Management and Restoration,1043,12.633236434108527,IRA,8256
+Electricity Transmission,1267,15.34641472868217,IRA,8256
+Emergency and Disaster Response,72,0.872093023255814,IRA,8256
+Habitat Conservation Plan,91,1.1022286821705427,IRA,8256
+High Performance Computing and Advanced Computer Hardware and Software,125,1.5140503875968991,IRA,8256
+Land Development - Housing,144,1.744186046511628,IRA,8256
+Land Development - Other,1425,17.260174418604652,IRA,8256
+Land Development - Urban,170,2.059108527131783,IRA,8256
+Land Use or Forest Management Plan,528,6.395348837209302,IRA,8256
+"Laws, Policies, Regulations, and Guidance",522,6.3226744186046515,IRA,8256
+Manufacturing,910,11.022286821705427,IRA,8256
+Military and Defense,125,1.5140503875968991,IRA,8256
+Mining - Marine Minerals,1,0.012112403100775194,IRA,8256
+Mining - Metals,96,1.1627906976744187,IRA,8256
+Mining - Non-Metallic Minerals,159,1.9258720930232558,IRA,8256
+Nuclear Technology,849,10.283430232558139,IRA,8256
+Other,1,0.012112403100775194,IRA,8256
+Pipelines,792,9.593023255813954,IRA,8256
+Ports and Waterways,25,0.30281007751937983,IRA,8256
+Public and Recreational Land Use,734,8.890503875968992,IRA,8256
+Quantum Information Science and Technology,7,0.08478682170542635,IRA,8256
+Rangeland Management,412,4.99031007751938,IRA,8256
+Renewable Energy Production - Biomass,173,2.0954457364341086,IRA,8256
+Renewable Energy Production - Energy Storage,465,5.632267441860465,IRA,8256
+Renewable Energy Production - Geothermal,96,1.1627906976744187,IRA,8256
+Renewable Energy Production - Hydrokinetic,43,0.5208333333333334,IRA,8256
+Renewable Energy Production - Hydropower,39,0.47238372093023256,IRA,8256
+Renewable Energy Production - Other,158,1.9137596899224807,IRA,8256
+Renewable Energy Production - Solar,426,5.159883720930233,IRA,8256
+"Renewable Energy Production - Wind, Offshore",42,0.5087209302325582,IRA,8256
+"Renewable Energy Production - Wind, Onshore",64,0.7751937984496124,IRA,8256
+Research and Development,2714,32.873062015503876,IRA,8256
+Routine Maintenance,347,4.203003875968992,IRA,8256
+Semiconductors,31,0.375484496124031,IRA,8256
+Surface Transportation - Bridges,26,0.31492248062015504,IRA,8256
+Surface Transportation - Other,876,10.61046511627907,IRA,8256
+Surface Transportation - Public Transportation,62,0.750968992248062,IRA,8256
+Surface Transportation - Railroads,33,0.3997093023255814,IRA,8256
+Threatened and Endangered Species Management,401,4.857073643410852,IRA,8256
+"Utilities (electricity, gas, telecommunications)",2254,27.301356589147286,IRA,8256
+Vegetation and Fuels Management,516,6.25,IRA,8256
+Waste Management,3255,39.42587209302326,IRA,8256
+Water Resources - Irrigation and Water Supply,296,3.5852713178294575,IRA,8256
+Water Resources - Other,1240,15.01937984496124,IRA,8256

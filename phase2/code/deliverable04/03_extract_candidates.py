@@ -19,7 +19,9 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 
 import argparse
 import hashlib
+import multiprocessing as mp
 import re
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -263,6 +265,35 @@ CLEAR_INITIATION_MED = re.compile(
 CE_INITIATOR_ROLE = re.compile(
     r"\b(doe\s+initiator|nepa\s+initiator|action\s+initiating\s+office|"
     r"project\s+(?:initiator|proponent|sponsor))\b",
+    re.IGNORECASE,
+)
+
+# EA/EIS scoping & NOI initiation cues. The SetFit classifier already scores these dates as
+# initiation (~0.86), but the regex roles them `unknown` because the exact phrasing isn't in the
+# clear-init patterns. Keying on the *phrase* (not the probability) recovers the real scoping/NOI
+# inits while excluding the comment-status / future / FONSI false positives. (Validated: matches the
+# real scoping/NOI dates, rejects "no comments received as of", "Final EIS will be published", etc.)
+SCOPING_NOI_INIT = re.compile(
+    r"scoping\s+(was\s+|period\s+)?(conducted|held|beg[au]n|initiated|opened|started|between|from)"
+    r"|public\s+scoping\s+between"
+    r"|scoping\s+(document|notice|letters?)[^.]{0,30}(distributed|sent|mailed|issued|publish)"
+    r"|notice\s+of\s+intent[^.]{0,40}(publish|issued|prepare)"
+    r"|\bnoi\b[^.]{0,25}(publish|issued)"
+    r"|uploaded\s+to[^.]{0,20}eplanning",
+    re.IGNORECASE,
+)
+
+# EA/EIS application & FERC pre-filing initiation cues. Same idea as SCOPING_NOI_INIT, different
+# vocabulary: a formal application filing or entry into FERC's pre-filing process is an initiation.
+# "applied for" is also Fix B for CE; here it is extended to EA/EIS along with application-filing and
+# pre-filing phrasings. Anchored to the date's clause like the scoping cue (no FP on "authorized on").
+APPLICATION_PREFILING_INIT = re.compile(
+    r"\bapplied\s+for\b"
+    r"|filed\s+(a|an|the)?\s*application"
+    r"|application\s+(was\s+)?(filed|received|submitted)"
+    r"|submitted\s+(a|an|the)?\s*(application|proposal|request)"
+    r"|entered\s+(the\s+)?pre[-\s]?filing|requested\s+to\s+use\s+the\s+pre[-\s]?filing"
+    r"|pre[-\s]?filing\s+(process|request|period)|pre[-\s]?application\s+(process|request|filing)",
     re.IGNORECASE,
 )
 
@@ -533,11 +564,11 @@ def _should_reject_date(
     Return (reject, reason) applying the plan §4 exclusion rules.
     Does not reject month-year candidates; those are granularity=month.
 
-    For CE, when ``date_span`` (the date match's char offsets within ``context``) is
-    supplied, the keyword/citation exclusions are scoped to a ±60-char window around the
-    date. This stops a bottom-of-form CE signature date from being killed by an unrelated
-    'expires on' / statute citation elsewhere on the same dense form page. EA/EIS keep the
-    whole-block scan (date_span is not passed for them) so their behavior is unchanged.
+    When ``date_span`` (the date match's char offsets within ``context``) is supplied, the
+    keyword/citation exclusions are scoped to a window around the date: CE ±60, EIS ±120
+    (dense FEIS pages — a citation elsewhere must not kill a real publication/ROD date). For
+    EIS the ``REJECT_CUES`` historical scan is also windowed. EA keeps the whole-block scan
+    (window dict excludes it) so EA behavior is unchanged.
     """
     # Future date check
     if parsed_date.date() > RUN_DATE:
@@ -550,11 +581,13 @@ def _should_reject_date(
         # Soft reject: allow only with strong evidence (handled in scoring/selection)
         return True, "pre_1970_eis_reject"
 
-    # Window the citation/keyword exclusions to the immediate neighborhood of the date
-    # (CE only). All other paths scan the whole block as before.
-    if process_type == "CE" and date_span is not None:
+    # Window the citation/keyword exclusions to the immediate neighborhood of the date.
+    # CE ±60 (existing), EIS ±120 (Phase 3). EA falls through to whole-block (unchanged).
+    _EXCL_WINDOW = {"CE": 60, "EIS": 120}
+    if date_span is not None and process_type in _EXCL_WINDOW:
         ds, de = date_span
-        excl_text = context[max(0, ds - 60):de + 60]
+        w = _EXCL_WINDOW[process_type]
+        excl_text = context[max(0, ds - w):de + w]
     else:
         excl_text = context
     excl_lower = excl_text.lower()
@@ -573,8 +606,10 @@ def _should_reject_date(
     if source_tier == "metadata":
         return False, ""
 
-    # Reject/historical cues
-    if REJECT_CUES.search(context):
+    # Reject/historical cues. Windowed for EIS (a historical sentence elsewhere on a dense
+    # FEIS page must not reject an unrelated publication/signature date); whole-block for CE/EA.
+    reject_scan = excl_text if (process_type == "EIS" and date_span is not None) else context
+    if REJECT_CUES.search(reject_scan):
         return True, "reject_cue"
 
     return False, ""
@@ -873,6 +908,42 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                                 if c not in ("decision_strong", "decision_med", "doc_type_decision")]
                     pos_cues = pos_cues + ["doe_initiator_signature"]
 
+                # CE application date = initiation. The dominant structure is
+                # "On <date>, <applicant> applied for ..." — the date is immediately FOLLOWED by
+                # "applied for". Anchor to the ~70 chars AFTER the date so it won't grab a prior
+                # "authorized to ... on <date>" grant. Cut the look-ahead at the first sentence
+                # boundary so "applied for" must be in the SAME clause as the date (drops cases like
+                # "...expiration, May 6, 2018. ... applied for" tagging the wrong date). CE only;
+                # never steals an existing decision role.
+                _af_win = re.split(r"\.\s|\bCOC-|\bOn\s+[A-Z0-9]", block[_me:_me + 70])[0]
+                if (process_type == "CE"
+                        and role not in ("clear_decision", "proxy_decision")
+                        and re.search(r"\bapplied\s+for\b", _af_win, re.IGNORECASE)):
+                    role = "clear_initiation"
+                    conf = 5.0
+                    pos_cues = [c for c in pos_cues
+                                if c not in ("decision_strong", "decision_med", "doc_type_decision")]
+                    pos_cues = pos_cues + ["applied_for_application"]
+
+                # EA/EIS scoping & NOI date = initiation. The scoping/NOI phrase can sit just before
+                # or just after the date ("Scoping was conducted from <date>", "<date>, … uploaded to
+                # ePlanning"), so check a tight window on both sides, cut at sentence boundaries.
+                # Never steals an existing decision role; chronology (init<decision) is enforced in 05.
+                if process_type in ("EA", "EIS") and role not in ("clear_decision", "proxy_decision"):
+                    _pre = re.split(r"\.\s", block[max(0, _ms - 80):_ms])[-1]
+                    _post = re.split(r"\.\s", block[_me:_me + 60])[0]
+                    _init_cue = None
+                    if SCOPING_NOI_INIT.search(_pre) or SCOPING_NOI_INIT.search(_post):
+                        _init_cue = "scoping_noi_init"
+                    elif APPLICATION_PREFILING_INIT.search(_pre) or APPLICATION_PREFILING_INIT.search(_post):
+                        _init_cue = "application_prefiling_init"
+                    if _init_cue:
+                        role = "clear_initiation"
+                        conf = 5.0
+                        pos_cues = [c for c in pos_cues
+                                    if c not in ("decision_strong", "decision_med", "doc_type_decision")]
+                        pos_cues = pos_cues + [_init_cue]
+
                 # Skip clear rejects
                 if role == "reject" and not heading:
                     continue
@@ -1102,6 +1173,85 @@ def emit_labeling_sample(df: pd.DataFrame, packets_df: pd.DataFrame | None = Non
           "initiation | decision | neither, then run 04_classify_candidates.py --train")
 
 
+# ---------------------------------------------------------------------------
+# Parallel path (pure performance; identical output to the serial per-packet loop)
+# ---------------------------------------------------------------------------
+# extract_candidates_from_packet is a pure per-packet function, so sharding the packets
+# and concatenating the rows changes no logic. Two correctness points:
+#   * ORDER / drop_duplicates: candidate_id = hash(project_id|document_id|page_start|
+#     date|block_norm), so collisions are WITHIN a project (e.g. the same page reached
+#     via tier_b and tier_d). drop_duplicates('candidate_id', keep='first') in the parent
+#     is therefore order-sensitive only within a project. We shard by PROJECT and read
+#     packets with pd.read_parquet (physical file order) + .isin, so every project's
+#     packets are processed in the same relative order as serial → the kept row matches.
+#   * GLOBAL steps stay in the parent, once after concat: add_repeated_mention_counts
+#     (per project_id+parsed_date) and emit_labeling_sample (hash-stratified). Never
+#     per-worker.
+
+
+def _extract_shard(task: tuple) -> list[dict]:
+    """Worker: extract candidates from one shard of projects' packets.
+
+    Payload is tiny — (packets_path, process_list, shard_project_ids). The worker reads
+    the packets parquet itself and runs the unmodified extract_candidates_from_packet.
+    """
+    packets_path, process_list, shard_project_ids = task
+    pdf = pd.read_parquet(packets_path)
+    pdf = pdf[pdf["process_type"].isin(process_list)]
+    pdf = pdf[pdf["project_id"].isin(set(shard_project_ids))]
+    rows: list[dict] = []
+    for rec in pdf.to_dict("records"):
+        rows.extend(extract_candidates_from_packet(rec))
+    return rows
+
+
+def _make_shards(weights: dict[str, float], n: int) -> list[list[str]]:
+    """Greedy longest-processing-time balancing by per-project packet text volume."""
+    shards: list[list[str]] = [[] for _ in range(n)]
+    loads = [0.0] * n
+    for pid, w in sorted(weights.items(), key=lambda kv: (-kv[1], kv[0])):
+        j = min(range(n), key=lambda k: loads[k])
+        shards[j].append(pid)
+        loads[j] += w
+    return [s for s in shards if s]
+
+
+def extract_candidates_parallel(
+    packets_df: pd.DataFrame,
+    packets_path: Path,
+    process_list: list[str],
+    workers: int,
+) -> list[dict]:
+    """Parallel equivalent of the per-packet extraction loop (workers > 1).
+
+    Shards by PROJECT (see note above) so the parent's drop_duplicates keeps the same
+    row as serial. Returns list[dict]; the parent builds the frame and runs the global
+    steps exactly as the serial path does.
+    """
+    projects = list(packets_df["project_id"].unique())
+    if not projects:
+        return []
+    if "context_chars" in packets_df.columns:
+        wser = packets_df.groupby("project_id")["context_chars"].sum()
+        weights = {pid: float(wser.get(pid) or 0.0) + 1.0 for pid in projects}
+    else:
+        wser = packets_df.groupby("project_id").size()
+        weights = {pid: float(wser.get(pid) or 0.0) for pid in projects}
+
+    n = max(1, min(workers, len(projects)))
+    shards = _make_shards(weights, n)
+    print(f"  Extracting across {len(shards)} workers "
+          f"({len(projects):,} projects, {len(packets_df):,} packets)...", flush=True)
+    tasks = [(str(packets_path), list(process_list), shard) for shard in shards]
+    ctx = mp.get_context("spawn")
+    rows: list[dict] = []
+    with ProcessPoolExecutor(max_workers=len(shards), mp_context=ctx) as ex:
+        for k, shard_rows in enumerate(ex.map(_extract_shard, tasks)):
+            rows.extend(shard_rows)
+            print(f"    shard {k + 1}/{len(shards)} -> {len(shard_rows):,} candidates", flush=True)
+    return rows
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Extract date candidates from context packets.")
     parser.add_argument(
@@ -1120,6 +1270,13 @@ def main() -> None:
         "--labeling-sample-n", type=int, default=None,
         help=f"Target total size for the labeling sample (default: {LABELING_SAMPLE_SIZE}). "
              "If the locked IDs file already has this many entries, nothing is added.",
+    )
+    parser.add_argument(
+        "--workers", type=int, default=min((os.cpu_count() or 4), 8),
+        help="Number of parallel worker processes. 1 = serial (debug/fallback, the "
+             "diff baseline); N>1 shards projects across N spawn processes. "
+             "Output is identical regardless of --workers. "
+             "Default: min(cpu_count, 8).",
     )
     args = parser.parse_args()
 
@@ -1185,13 +1342,18 @@ def main() -> None:
 
     TIMELINE_DIR.mkdir(parents=True, exist_ok=True)
 
-    all_candidates: list[dict] = []
-    packets_records = packets_df.to_dict("records")
-    for i, row in enumerate(packets_records):
-        if i % 5000 == 0 and i > 0:
-            print(f"  Processed {i:,}/{len(packets_records):,} packets, {len(all_candidates):,} candidates so far...")
-        cands = extract_candidates_from_packet(row)
-        all_candidates.extend(cands)
+    if args.workers and args.workers > 1:
+        all_candidates = extract_candidates_parallel(
+            packets_df, packets_path, args.process, args.workers
+        )
+    else:
+        all_candidates = []
+        packets_records = packets_df.to_dict("records")
+        for i, row in enumerate(packets_records):
+            if i % 5000 == 0 and i > 0:
+                print(f"  Processed {i:,}/{len(packets_records):,} packets, {len(all_candidates):,} candidates so far...")
+            cands = extract_candidates_from_packet(row)
+            all_candidates.extend(cands)
 
     if not all_candidates:
         print("No candidates extracted.")

@@ -4513,8 +4513,24 @@ vertical-align: -.125em;
  <span class="dropdown-text">Deliverable 1</span></a>
   </li>  
         <li>
+    <a class="dropdown-item" href="../../../phase2/reports/deliverable02.html" rel target>
+ <span class="dropdown-text">Deliverable 2</span></a>
+  </li>  
+        <li>
     <a class="dropdown-item" href="../../../phase2/reports/deliverable03.html" rel target>
  <span class="dropdown-text">Deliverable 3</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../phase2/reports/deliverable04.html" rel target>
+ <span class="dropdown-text">Deliverable 4</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../phase2/reports/deliverable05.html" rel target>
+ <span class="dropdown-text">Deliverable 5</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../phase2/reports/deliverable06.html" rel target>
+ <span class="dropdown-text">Deliverable 6</span></a>
   </li>  
     </ul>
   </li>
@@ -4659,20 +4675,21 @@ vertical-align: -.125em;
 <section id="rule-assign-the-primary-trigger-as-the-federal-nexus-most-directly-responsible-for-the-agencys-nepa-decision." class="level3">
 <h3 class="anchored" data-anchor-id="rule-assign-the-primary-trigger-as-the-federal-nexus-most-directly-responsible-for-the-agencys-nepa-decision.">Rule: assign the primary trigger as the federal nexus most directly responsible for the agency’s NEPA decision.</h3>
 </section>
-<section id="suggested-priority-order-for-primary-trigger-assignment" class="level3">
-<h3 class="anchored" data-anchor-id="suggested-priority-order-for-primary-trigger-assignment">Suggested priority order for primary trigger assignment</h3>
-<p>Use this only when the text is ambiguous.</p>
+<section id="priority-order-for-primary-trigger-assignment-as-implemented" class="level3">
+<h3 class="anchored" data-anchor-id="priority-order-for-primary-trigger-assignment-as-implemented">Priority order for primary trigger assignment (as implemented)</h3>
+<p>Use this only when the text is ambiguous. This is the order implemented in <code>TRIGGER_HIERARCHY</code> in <code>01_extract_nepa_trigger.py</code>:</p>
 <ol type="1">
+<li><code>federal_program</code></li>
 <li><code>federal_direct_action</code></li>
 <li><code>pma</code> <em>(Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA))</em></li>
 <li><code>federal_property_transaction</code></li>
 <li><code>federal_land</code></li>
 <li><code>federal_permit</code></li>
-<li><code>federal_program</code></li>
 <li><code>federal_funding</code></li>
 <li><code>unknown</code></li>
 </ol>
-<p><strong>Why this order:</strong> Gives priority to the federal role when the agency is the principal actor or decision-maker, rather than simply one source of support or one regulatory checkpoint. PMA/TVA projects are elevated above land and permit because the agency identity is the clearest nexus signal for those entities.</p>
+<p><strong>Why this order:</strong> A programmatic umbrella outranks everything because it changes the level of the NEPA review itself (see the example below). Below that, priority goes to the federal role when the agency is the principal actor or decision-maker, rather than simply one source of support or one regulatory checkpoint. PMA/TVA projects are elevated above land and permit because the agency identity is the clearest nexus signal for those entities.</p>
+<p><strong>Note (updated 2026-07):</strong> the ordering is no longer empirically inert for <code>federal_program</code> — 17 projects in the current published output carry <code>federal_program</code> together with another class in <code>nepa_trigger_multi</code> (7 + federal_funding, 4 + federal_land, 3 + federal_direct_action, 3 + federal_permit), and in all 17 cases the hierarchy determines the primary (federal_program wins).</p>
 <p>Examples: - If BLM is approving a right-of-way across federal land, <code>federal_land</code> is often more informative than <code>federal_permit</code> - If DOE is building or directly implementing the action, <code>federal_direct_action</code> should outrank <code>federal_funding</code> - If the document is a programmatic plan, <code>federal_program</code> should outrank narrower project features - If BPA, WAPA, SEPA, SWPA, or TVA is the lead agency, assign <code>pma</code> as primary even when the project also crosses federal land or requires a permit</p>
 <hr>
 </section>
@@ -4695,8 +4712,8 @@ vertical-align: -.125em;
 <p>Indicative terms: permit, license, authorization, approval, certification, permit application, jurisdictional waters, Section 404, incidental take permit, license amendment</p>
 <p>Agencies often associated: USACE, FERC, FAA, FCC, NOAA/NMFS, USFWS</p>
 </section>
-<section id="federal_action" class="level3">
-<h3 class="anchored" data-anchor-id="federal_action"><code>federal_action</code></h3>
+<section id="federal_direct_action" class="level3">
+<h3 class="anchored" data-anchor-id="federal_direct_action"><code>federal_direct_action</code></h3>
 <p>Indicative terms: agency proposes to, the Bureau proposes, the Department proposes, federal action consists of, construct, install, upgrade, operate, implement, federal facility, base operations</p>
 <p>Agencies often associated: DoD, VA, USFS, BLM, Bureau of Reclamation, DOE, USACE</p>
 </section>
@@ -4882,77 +4899,108 @@ transform: none;
 
     const menuItems = Array.from(phase2Menu.querySelectorAll("a.dropdown-item"));
     const overviewItem = menuItems.find((item) => item.textContent.trim() === "Overview");
-    const deliverableItem = menuItems.find((item) => item.textContent.trim() === "Deliverable 1");
-    if (!overviewItem || !deliverableItem) {
+    if (!overviewItem) {
       return;
     }
 
-    const siteRoot = deliverableItem.href
-      .replace(/phase2\/reports\/deliverable01\.html$/, "");
-
-    const submenuItems = [
-      ["Report", "phase2/reports/deliverable01.html"],
-      ["Trigger Classification", "phase2/notes/deliverable01/trigger_classification.html"],
-      ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"],
-      ["Funding Mechanism Schema", "phase2/notes/deliverable01/funding_mechanism.html"]
+    const submenuConfigs = [
+      ["Deliverable 1", [
+        ["Report", "phase2/reports/deliverable01.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable01/coverage_limitations.html"],
+        ["Trigger Classification", "phase2/notes/deliverable01/trigger_classification.html"],
+        ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"],
+        ["Funding Mechanism Schema", "phase2/notes/deliverable01/funding_mechanism.html"]
+      ]],
+      ["Deliverable 2", [
+        ["Report", "phase2/reports/deliverable02.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable02/coverage_limitations.html"]
+      ]],
+      ["Deliverable 3", [
+        ["Report", "phase2/reports/deliverable03.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable03/coverage_limitations.html"]
+      ]],
+      ["Deliverable 4", [
+        ["Report", "phase2/reports/deliverable04.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable04/coverage_limitations.html"],
+        ["Date Sourcing & Provenance", "phase2/notes/deliverable04/date_sourcing.html"],
+        ["Known Issues & Deferred Items", "phase2/notes/deliverable04/known_issues.html"]
+      ]],
+      ["Deliverable 5", [
+        ["Report", "phase2/reports/deliverable05.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable05/coverage_limitations.html"]
+      ]],
+      ["Deliverable 6", [
+        ["Report", "phase2/reports/deliverable06.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable06/coverage_limitations.html"]
+      ]]
     ];
 
-    const deliverableParent = deliverableItem.closest("li");
-    const submenu = window.document.createElement("ul");
-    submenu.className = "dropdown-menu";
-
-    submenuItems.forEach(function ([label, path]) {
-      const item = window.document.createElement("li");
-      const link = window.document.createElement("a");
-      const text = window.document.createElement("span");
-
-      link.className = "dropdown-item";
-      link.href = siteRoot + path;
-      text.className = "dropdown-text";
-      text.textContent = label;
-
-      link.appendChild(text);
-      item.appendChild(link);
-      submenu.appendChild(item);
-    });
-
-    deliverableItem.classList.add("dropdown-toggle");
-    deliverableItem.setAttribute("aria-expanded", "false");
-    deliverableItem.removeAttribute("data-bs-toggle");
-    deliverableItem.setAttribute("role", "menuitem");
-
-    deliverableParent.addEventListener("mouseenter", function () {
-      submenu.classList.add("show");
-      deliverableItem.setAttribute("aria-expanded", "true");
-    });
-
-    deliverableParent.addEventListener("mouseleave", function () {
-      submenu.classList.remove("show");
-      deliverableItem.setAttribute("aria-expanded", "false");
-    });
-
-    deliverableItem.addEventListener("click", function (event) {
-      if (window.matchMedia("(min-width: 992px)").matches) {
+    submenuConfigs.forEach(function ([menuText, submenuItems]) {
+      const deliverableItem = menuItems.find((item) => item.textContent.trim() === menuText);
+      if (!deliverableItem) {
         return;
       }
 
-      event.preventDefault();
-      submenu.classList.toggle("show");
-      deliverableItem.setAttribute(
-        "aria-expanded",
-        submenu.classList.contains("show") ? "true" : "false"
-      );
-    });
+      const siteRoot = deliverableItem.href
+        .replace(/phase2\/reports\/deliverable\d+\.html$/, "");
 
-    window.document.addEventListener("click", function (event) {
-      if (!deliverableParent.contains(event.target)) {
+      const deliverableParent = deliverableItem.closest("li");
+      const submenu = window.document.createElement("ul");
+      submenu.className = "dropdown-menu";
+
+      submenuItems.forEach(function ([label, path]) {
+        const item = window.document.createElement("li");
+        const link = window.document.createElement("a");
+        const text = window.document.createElement("span");
+
+        link.className = "dropdown-item";
+        link.href = siteRoot + path;
+        text.className = "dropdown-text";
+        text.textContent = label;
+
+        link.appendChild(text);
+        item.appendChild(link);
+        submenu.appendChild(item);
+      });
+
+      deliverableItem.classList.add("dropdown-toggle");
+      deliverableItem.setAttribute("aria-expanded", "false");
+      deliverableItem.removeAttribute("data-bs-toggle");
+      deliverableItem.setAttribute("role", "menuitem");
+
+      deliverableParent.addEventListener("mouseenter", function () {
+        submenu.classList.add("show");
+        deliverableItem.setAttribute("aria-expanded", "true");
+      });
+
+      deliverableParent.addEventListener("mouseleave", function () {
         submenu.classList.remove("show");
         deliverableItem.setAttribute("aria-expanded", "false");
-      }
-    });
+      });
 
-    deliverableParent.classList.add("dropdown-submenu");
-    deliverableParent.appendChild(submenu);
+      deliverableItem.addEventListener("click", function (event) {
+        if (window.matchMedia("(min-width: 992px)").matches) {
+          return;
+        }
+
+        event.preventDefault();
+        submenu.classList.toggle("show");
+        deliverableItem.setAttribute(
+          "aria-expanded",
+          submenu.classList.contains("show") ? "true" : "false"
+        );
+      });
+
+      window.document.addEventListener("click", function (event) {
+        if (!deliverableParent.contains(event.target)) {
+          submenu.classList.remove("show");
+          deliverableItem.setAttribute("aria-expanded", "false");
+        }
+      });
+
+      deliverableParent.classList.add("dropdown-submenu");
+      deliverableParent.appendChild(submenu);
+    });
   });
 </script>
 <script id="quarto-html-after-body" type="application/javascript">

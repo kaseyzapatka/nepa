@@ -24,7 +24,9 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 import argparse
 import hashlib
 import json
+import multiprocessing as mp
 import re
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -46,13 +48,25 @@ SOURCE_MAP = {"CE": "ce", "EA": "ea", "EIS": "eis"}
 # Per-process packet caps (plan §3)
 PACKET_CAPS = {"CE": 25, "EA": 75, "EIS": 150}
 
+EIS_PAGE_CONTEXT_CHARS = 12_000
+
+# FR NOI Tier-A initiation candidates are DISABLED. `noi_publication_date` comes from the Phase-1
+# Federal Register NOI API match (00_sample renames it `fr_noi_publication_date`), which is stale
+# and unreliable (only 93 "accepted" EIS matches, just 6 of which agree with a BLM/DOE register
+# date). The trustworthy authoritative initiations are the BLM/DOE register dates
+# (candidate_source_type="metadata"), which are produced by separate Tier-A paths and are unaffected
+# by this flag. Footprint of removal: only 12 selected EIS inits, 11 of which have a non-NOI backup
+# candidate (~1 net loss). Set True only if the FR NOI match is re-validated against the register.
+FR_NOI_TIER_A_ENABLED = False
+
 # Per-process tier_d page context cap. CE determination/signature dates sit at the bottom of
 # dense ~7-9k-char form pages, beyond the old global 2,000-char cut, so CE reads the full page
 # (30,000 matches the tier_b CE full-read cap). EA narrative decision dates also sit below the
 # 2,000-char cut on priority_3 pages, so EA reads to 8,000 (matches the EA full-read cap; EA pages
-# are shorter than CE forms, so 8k is effectively whole-page without flooding candidates).
-# EIS stays at 2,000 → byte-identical candidates.
-TIER_D_CONTEXT_CHARS = {"CE": 30_000, "EA": 8_000, "EIS": 2_000}
+# are shorter than CE forms, so 8k is effectively whole-page without flooding candidates). EIS
+# reads to 12,000 in both Tier B and Tier D; measured ROD/FEIS pages are almost entirely below
+# this limit, and keeping both tiers aligned prevents deduplication from retaining a shorter copy.
+TIER_D_CONTEXT_CHARS = {"CE": 30_000, "EA": 8_000, "EIS": EIS_PAGE_CONTEXT_CHARS}
 
 # CE section skip threshold: skip section retrieval for CE docs with <=20 total pages
 CE_SECTION_SKIP_PAGES = 20
@@ -248,8 +262,8 @@ def build_tier_a_packets(
     packets: list[dict] = []
     project_id = project_row["project_id"]
 
-    # NOI date as Tier A initiation candidate
-    if project_row.get("noi_tier_a_eligible"):
+    # NOI date as Tier A initiation candidate (DISABLED — stale FR NOI API pull; see flag note)
+    if FR_NOI_TIER_A_ENABLED and project_row.get("noi_tier_a_eligible"):
         noi_date = project_row.get("noi_publication_date")
         if pd.notna(noi_date):
             noi_str = pd.Timestamp(noi_date).strftime("%Y-%m-%d") if hasattr(noi_date, "strftime") else str(noi_date)
@@ -612,6 +626,12 @@ def build_tier_b_packets(
             page_num = str(page.get("page_number", ""))
             init_s, dec_s, neg_s = page.get("init_score", 0.0), page.get("dec_score", 0.0), page.get("neg_score", 0.0)
             retrieval_score = init_s + dec_s - 0.5 * neg_s
+            if reason in ("ce_small_doc_all_pages", "ce_expanded_all_pages"):
+                context_limit = 30_000
+            elif process_type == "EIS":
+                context_limit = EIS_PAGE_CONTEXT_CHARS
+            else:
+                context_limit = 2_000
             packets.append({
                 "context_packet_id": _packet_id(project_id, doc_id, "tier_b", page_num),
                 "project_id": project_id,
@@ -635,7 +655,7 @@ def build_tier_b_packets(
                 "negative_page_score": neg_s,
                 "heading_title": None,
                 "parent_heading_title": None,
-                "context_text": _truncate(text, 30_000 if reason in ("ce_small_doc_all_pages", "ce_expanded_all_pages") else 2000),
+                "context_text": _truncate(text, context_limit),
                 "context_chars": len(text),
                 "estimated_tokens": max(1, len(text) // 4),
                 "context_hash": _text_hash(text),
@@ -879,9 +899,101 @@ def build_tier_d_packets(
     return packets
 
 
+def build_eis_text_fallback_packets(
+    doc_rows: pd.DataFrame,
+    pages_df: pd.DataFrame,
+    project_id: str,
+    process_type: str,
+    run_at: str,
+) -> list[dict]:
+    """Emit first/last text pages when an EIS project otherwise produces no packet.
+
+    Keyword-gated retrieval currently drops some text-bearing EIS projects entirely. This
+    fallback preserves a minimal, explicitly labeled packet set for extraction without making
+    the pages authoritative or changing selection eligibility.
+    """
+    if process_type != "EIS" or doc_rows.empty or pages_df.empty:
+        return []
+
+    priority_rank = {"priority_1": 0, "priority_2": 1, "priority_3": 2, "defer": 3}
+    docs = doc_rows.copy()
+    docs["_priority_rank"] = docs["scan_priority"].map(priority_rank).fillna(4)
+    docs["_role_score"] = docs[["decision_doc_score", "initiation_doc_score"]].max(axis=1)
+    docs = docs.sort_values(
+        ["_priority_rank", "_role_score", "is_main_document"],
+        ascending=[True, False, False],
+    )
+
+    for _, doc in docs.iterrows():
+        doc_id = doc["document_id"]
+        doc_pages = pages_df[pages_df["document_id"] == doc_id].copy()
+        if doc_pages.empty:
+            continue
+        doc_pages["_text"] = doc_pages["page_text"].map(_clean_text)
+        doc_pages = doc_pages[doc_pages["_text"].str.len() > 0]
+        if doc_pages.empty:
+            continue
+        doc_pages["_page_num"] = pd.to_numeric(
+            doc_pages["page_number"], errors="coerce"
+        ).fillna(0)
+        doc_pages = doc_pages.sort_values(["_page_num", "page_number"])
+        selected = doc_pages.iloc[[0]] if len(doc_pages) == 1 else doc_pages.iloc[[0, -1]]
+
+        packets: list[dict] = []
+        for _, page in selected.iterrows():
+            text = page["_text"]
+            page_num = str(page.get("page_number", ""))
+            init_s, dec_s, neg_s = _score_page(text)
+            retrieval_score = init_s + dec_s - 0.5 * neg_s
+            packets.append({
+                "context_packet_id": _packet_id(
+                    project_id, doc_id, "eis_text_fallback", page_num
+                ),
+                "project_id": project_id,
+                "process_type": process_type,
+                "document_id": doc_id,
+                "document_title": doc.get("document_title"),
+                "document_type_clean": doc.get("document_type_clean"),
+                "document_type_category": doc.get("document_type_category"),
+                "main_document": doc.get("main_document"),
+                "section_id": None,
+                "page_start": page_num,
+                "page_end": page_num,
+                "page_numbers": json.dumps([page_num]),
+                "retrieval_mode": "recovery",
+                "retrieval_reason": "eis_text_fallback",
+                "source_tier": "page_slice",
+                "retrieval_tier": "eis_text_fallback",
+                "retrieval_score": retrieval_score,
+                "initiation_page_score": init_s,
+                "decision_page_score": dec_s,
+                "negative_page_score": neg_s,
+                "heading_title": None,
+                "parent_heading_title": None,
+                "context_text": _truncate(text, EIS_PAGE_CONTEXT_CHARS),
+                "context_chars": len(text),
+                "estimated_tokens": max(1, len(text) // 4),
+                "context_hash": _text_hash(text),
+                "api_eligible": retrieval_score >= 2.0,
+                "created_at": run_at,
+            })
+        return packets
+
+    return []
+
+
 def deduplicate_packets(packets: list[dict]) -> list[dict]:
     """Remove duplicate packets by context_hash, keeping the highest tier."""
-    tier_order = {"tier_a": 0, "ce_description": 0.5, "ea_decision_full_read": 0.8, "tier_b": 1, "tier_c": 2, "tier_d": 3, "tier_e": 4}
+    tier_order = {
+        "tier_a": 0,
+        "ce_description": 0.5,
+        "ea_decision_full_read": 0.8,
+        "tier_b": 1,
+        "tier_c": 2,
+        "tier_d": 3,
+        "eis_text_fallback": 4,
+        "tier_e": 4,
+    }
     seen: dict[str, dict] = {}
     for p in packets:
         h = p["context_hash"]
@@ -889,9 +1001,21 @@ def deduplicate_packets(packets: list[dict]) -> list[dict]:
             seen[h] = p
         else:
             # Keep the packet from the higher-priority tier
-            existing_order = tier_order.get(seen[h]["retrieval_tier"], 99)
+            existing = seen[h]
+            existing_order = tier_order.get(existing["retrieval_tier"], 99)
             new_order = tier_order.get(p["retrieval_tier"], 99)
-            if new_order < existing_order:
+            eis_document_text = (
+                p.get("process_type") == "EIS"
+                and existing.get("process_type") == "EIS"
+                and p.get("source_tier") != "metadata"
+                and existing.get("source_tier") != "metadata"
+            )
+            if eis_document_text and len(p.get("context_text") or "") > len(
+                existing.get("context_text") or ""
+            ):
+                # For the same EIS page, retain the most complete document-text packet.
+                seen[h] = p
+            elif new_order < existing_order:
                 seen[h] = p
     return list(seen.values())
 
@@ -950,13 +1074,30 @@ def process_project(
     # Tier D: page keyword scoring
     packets.extend(build_tier_d_packets(doc_rows, pages_df, project_id, process_type, run_at))
 
+    # EIS recovery: if every scored/structured path was empty, retain the first and last
+    # text page of the best available document so extraction has evidence to inspect.
+    if process_type == "EIS" and not packets:
+        packets.extend(
+            build_eis_text_fallback_packets(
+                doc_rows, pages_df, project_id, process_type, run_at
+            )
+        )
+
     # Deduplicate by content hash
     packets = deduplicate_packets(packets)
 
     # Apply per-project cap
     if len(packets) > cap:
         # Prioritize by tier then retrieval_score
-        tier_order = {"tier_a": 0, "ce_description": 0.5, "ea_decision_full_read": 0.8, "tier_b": 1, "tier_c": 2, "tier_d": 3}
+        tier_order = {
+            "tier_a": 0,
+            "ce_description": 0.5,
+            "ea_decision_full_read": 0.8,
+            "tier_b": 1,
+            "tier_c": 2,
+            "tier_d": 3,
+            "eis_text_fallback": 4,
+        }
         packets.sort(
             key=lambda p: (tier_order.get(p["retrieval_tier"], 9), -p["retrieval_score"])
         )
@@ -1079,6 +1220,215 @@ def retrieve_for_process(
     return pd.DataFrame(all_packets)
 
 
+# ---------------------------------------------------------------------------
+# Parallel path (pure performance; identical output to retrieve_for_process)
+# ---------------------------------------------------------------------------
+# Sharding is by PROJECT, and a project's documents belong only to that project, so
+# each worker reads a disjoint, self-contained slice. The unit of work
+# (process_project) has no cross-project state, so concatenating per-shard rows
+# yields the same SET of rows as the serial loop (row order is not significant —
+# the output parquet has no final sort and downstream joins are key-based).
+#
+# DETERMINISM (must reproduce the serial output exactly):
+#   * Several selections are sensitive to the ROW ORDER in which a document's pages are
+#     fed to process_project: tier_d / eis_text_fallback iterate pages in input order,
+#     and build_tier_b_packets mixes positional indices with the DataFrame's RangeIndex
+#     labels (a pre-existing quirk), so its selected page set also depends on the order
+#     pages were read. The serial path feeds pages in the parquet's PHYSICAL scan order
+#     (full read, groupby(sort=False)). The worker must reproduce that exact order.
+#   * Each worker opens its own DuckDB connection with PRAGMA threads=1 and reads ONLY
+#     its shard's pages, forcing PHYSICAL order with `read_parquet(..., file_row_number=true)
+#     ... ORDER BY file_row_number`. This matters: a bare `WHERE document_id IN (SELECT
+#     unnest(?))` is executed as a SEMI-JOIN that does NOT preserve physical order on the
+#     large (5.5 GB, many-row-group) EIS file — which would silently change tier_b/tier_d
+#     page selection. ORDER BY file_row_number pins physical order regardless of plan.
+#     (We deliberately do NOT use `ORDER BY page_number`: page_number is VARCHAR and ~16%
+#     of EA docs are not page-number-monotonic in file order, so a lexical sort would
+#     itself reorder pages relative to serial.)
+#   * The index is read with pd.read_parquet (same as serial) so per-project document
+#     row order is identical.
+#   * run_at is computed ONCE in the parent and passed to every worker, so created_at
+#     is identical across shards.
+
+
+def _retrieve_shard(task: tuple) -> list[dict]:
+    """Worker entrypoint: build packets for one shard of projects.
+
+    Payload is tiny — (process_type, shard_project_ids, run_at). Pages/sections are
+    read inside the worker, filtered to the shard, so the 5.5 GB EIS pages file is
+    never pickled across the spawn boundary.
+    """
+    process_type, shard_project_ids, run_at = task
+    src = SOURCE_MAP[process_type]
+    pages_path = PROCESSED_DIR / src / "pages.parquet"
+    if not pages_path.exists():
+        return []
+
+    shard_set = set(shard_project_ids)
+
+    # Index slice for this shard (pandas read → natural row order, identical to serial).
+    index_df = pd.read_parquet(INDEX_PATH)
+    proc_index = index_df[index_df["process_type"] == process_type]
+    proc_index = proc_index[proc_index["project_id"].isin(shard_set)]
+    del index_df
+    if proc_index.empty:
+        return []
+
+    projects = proc_index["project_id"].unique()
+    shard_doc_ids = proc_index["document_id"].dropna().unique().tolist()
+
+    con = duckdb.connect()
+    con.execute("PRAGMA threads=1")
+
+    # Read only this shard's pages, forcing PHYSICAL scan order (see DETERMINISM note).
+    if shard_doc_ids:
+        pages_all = con.execute(
+            "SELECT document_id, page_number, page_text "
+            "FROM read_parquet(?, file_row_number=true) "
+            "WHERE document_id IN (SELECT unnest(?)) ORDER BY file_row_number",
+            [str(pages_path), shard_doc_ids],
+        ).df()
+    else:
+        pages_all = pd.DataFrame(columns=["document_id", "page_number", "page_text"])
+    pages_by_doc: dict[str, pd.DataFrame] = {
+        doc_id: grp.reset_index(drop=True)
+        for doc_id, grp in pages_all.groupby("document_id", sort=False)
+    }
+    del pages_all
+
+    sections_by_proj: dict[str, pd.DataFrame] = {}
+    if SECTIONS_PATH.exists():
+        try:
+            section_cols = [
+                "project_id", "document_id", "heading_title", "parent_heading_title",
+                "document_title", "page_start", "page_end", "section_text",
+            ]
+            sections_proc = con.execute(
+                f"SELECT {', '.join(section_cols)} "
+                f"FROM read_parquet(?, file_row_number=true) "
+                f"WHERE process_type = ? AND project_id IN (SELECT unnest(?)) "
+                f"ORDER BY file_row_number",
+                [str(SECTIONS_PATH), process_type, list(shard_set)],
+            ).df()
+            sections_by_proj = {
+                pid: grp.reset_index(drop=True)
+                for pid, grp in sections_proc.groupby("project_id", sort=False)
+            }
+            del sections_proc
+        except Exception as e:
+            print(f"  [shard] WARNING: could not load sections: {e}", flush=True)
+
+    proc_index_by_proj: dict[str, pd.DataFrame] = {
+        pid: grp for pid, grp in proc_index.groupby("project_id", sort=False)
+    }
+
+    proj_tier_a_cols = [
+        "project_id", "process_type",
+        "noi_tier_a_eligible", "noi_publication_date", "noi_match_status", "noi_match_confidence",
+        "blm_decision_tier_a_eligible", "blm_decision_date", "blm_decision_date_type",
+        "blm_initiation_tier_a_eligible", "blm_initiation_date",
+        "doe_decision_tier_a_eligible", "doe_decision_date", "doe_decision_date_type",
+        "doe_initiation_tier_a_eligible", "doe_initiation_date", "doe_doc_number",
+        "doe_cx_tier_a_eligible", "doe_cx_decision_date", "cx_number",
+    ]
+    proj_tier_a_cols = [c for c in proj_tier_a_cols if c in proc_index.columns]
+    proj_meta = (
+        proc_index[proj_tier_a_cols]
+        .drop_duplicates("project_id")
+        .set_index("project_id")
+    )
+
+    ce_desc_map: dict[str, str] = {}
+    if process_type == "CE" and PROJECTS_PATH.exists():
+        desc_df = pd.read_parquet(PROJECTS_PATH, columns=["project_id", "project_description"])
+        desc_df = desc_df[desc_df["project_id"].isin(shard_set)]
+        ce_desc_map = dict(
+            zip(desc_df["project_id"], desc_df["project_description"].fillna(""))
+        )
+
+    all_packets: list[dict] = []
+    for project_id in projects:
+        doc_rows = proc_index_by_proj.get(project_id, pd.DataFrame())
+        doc_ids = doc_rows["document_id"].unique()
+
+        doc_dfs = [pages_by_doc[d] for d in doc_ids if d in pages_by_doc]
+        pages_df = pd.concat(doc_dfs, ignore_index=True) if doc_dfs else pd.DataFrame()
+        sections_df = sections_by_proj.get(project_id, pd.DataFrame())
+
+        project_row = proj_meta.loc[project_id].copy() if project_id in proj_meta.index else pd.Series()
+        project_row["project_id"] = project_id
+        if process_type == "CE":
+            project_row["project_description"] = ce_desc_map.get(project_id, "")
+
+        packets = process_project(project_row, doc_rows, pages_df, sections_df, run_at)
+        all_packets.extend(packets)
+
+    con.close()
+    return all_packets
+
+
+def _make_shards(weights: dict[str, float], n: int) -> list[list[str]]:
+    """Greedy longest-processing-time balancing: assign each project (heaviest first)
+    to the currently-lightest shard, so one EIS-heavy project doesn't straggle.
+    Ties broken by project_id for determinism (shard membership doesn't affect the
+    output set, but a stable partition keeps runs reproducible)."""
+    shards: list[list[str]] = [[] for _ in range(n)]
+    loads = [0.0] * n
+    for pid, w in sorted(weights.items(), key=lambda kv: (-kv[1], kv[0])):
+        j = min(range(n), key=lambda k: loads[k])
+        shards[j].append(pid)
+        loads[j] += w
+    return [s for s in shards if s]
+
+
+def retrieve_for_process_parallel(
+    process_type: str,
+    project_ids: list[str] | None,
+    index_df: pd.DataFrame,
+    run_at: str,
+    workers: int,
+) -> pd.DataFrame:
+    """Parallel equivalent of retrieve_for_process (workers > 1).
+
+    Shards projects across `workers` spawn processes; each worker reads only its own
+    pages/sections and returns list[dict] rows. The parent concatenates the rows and
+    builds the DataFrame exactly as the serial path does.
+    """
+    proc_index = index_df[index_df["process_type"] == process_type]
+    if project_ids:
+        proc_index = proc_index[proc_index["project_id"].isin(project_ids)]
+
+    projects = list(proc_index["project_id"].unique())
+    if not projects:
+        print(f"  No {process_type} projects.")
+        return pd.DataFrame()
+
+    # Balance shards by page volume (doc_page_count sum per project).
+    if "doc_page_count" in proc_index.columns:
+        wser = proc_index.groupby("project_id")["doc_page_count"].sum()
+        weights = {pid: float(wser.get(pid) or 0.0) + 1.0 for pid in projects}
+    else:
+        wser = proc_index.groupby("project_id").size()
+        weights = {pid: float(wser.get(pid) or 0.0) for pid in projects}
+
+    n = max(1, min(workers, len(projects)))
+    shards = _make_shards(weights, n)
+    print(f"  Processing {len(projects):,} {process_type} projects across "
+          f"{len(shards)} workers (threads=1 each)...", flush=True)
+
+    tasks = [(process_type, shard, run_at) for shard in shards]
+    ctx = mp.get_context("spawn")
+    rows: list[dict] = []
+    with ProcessPoolExecutor(max_workers=len(shards), mp_context=ctx) as ex:
+        for k, shard_rows in enumerate(ex.map(_retrieve_shard, tasks)):
+            rows.extend(shard_rows)
+            print(f"    shard {k + 1}/{len(shards)} -> {len(shard_rows):,} packets", flush=True)
+
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Retrieve timeline context packets.")
     parser.add_argument(
@@ -1088,6 +1438,13 @@ def main() -> None:
     parser.add_argument("--append", action="store_true", help="Append to existing output instead of overwriting.")
     parser.add_argument("--force", action="store_true", help="Overwrite existing output even if it already exists.")
     parser.add_argument("--run-dir", help="Override output directory (default: auto-derived from --sample-ids or the main timeline/ dir).")
+    parser.add_argument(
+        "--workers", type=int, default=min((os.cpu_count() or 4), 8),
+        help="Number of parallel worker processes. 1 = serial (debug/fallback, the "
+             "diff baseline); N>1 shards projects across N spawn processes. "
+             "Output is identical regardless of --workers. "
+             "Default: min(cpu_count, 8).",
+    )
     args = parser.parse_args()
 
     ALL_PROCESS_TYPES = {"CE", "EA", "EIS"}
@@ -1135,7 +1492,12 @@ def main() -> None:
     all_parts: list[pd.DataFrame] = []
     for process_type in args.process:
         print(f"\n=== {process_type} ===")
-        part = retrieve_for_process(process_type, project_ids, index_df, run_at)
+        if args.workers and args.workers > 1:
+            part = retrieve_for_process_parallel(
+                process_type, project_ids, index_df, run_at, args.workers
+            )
+        else:
+            part = retrieve_for_process(process_type, project_ids, index_df, run_at)
         if not part.empty:
             all_parts.append(part)
             print(f"  {len(part):,} packets for {process_type}")
