@@ -11,6 +11,7 @@ project:
     - "phase2/notes/deliverable05/coverage_limitations.md"
     - "phase2/notes/deliverable06/coverage_limitations.md"
     - "phase2/notes/deliverable06/ce_ecfr_verification.md"
+    - "technical_reports/*.qmd"
     - "presentations/*.qmd"
     - "index.qmd"
   post-render:
@@ -55,6 +56,12 @@ website:
             href: phase2/reports/deliverable05.html
           - text: "Deliverable 6"
             href: phase2/reports/deliverable06.html
+      - text: "Technical Report"
+        menu:
+          - text: "Phase 1"
+            href: technical_reports/phase1.qmd
+          - text: "Phase 2"
+            href: technical_reports/phase2.qmd
       - text: "Presentations"
         href: presentations/presentation1.qmd
 
