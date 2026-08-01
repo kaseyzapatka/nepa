@@ -138,12 +138,21 @@ dates_raw <- dates_raw |>
 message("  Energy type joined (", sum(!is.na(dates_raw$project_energy_type)), " matched)")
 
 message("Loading timeline_candidates.parquet (selected columns)...")
-candidates_raw <- read_parquet(
-  file.path(DATA, "timeline_candidates.parquet"),
-  col_select = c("project_id", "process_type", "retrieval_tier",
-                 "candidate_source_type", "selected_for_initiation", "selected_for_decision")
-)
-message("  ", nrow(candidates_raw), " candidate rows")
+# Optional (same pattern as the document-index load below): candidate-level data feeds
+# only d4_register_source_candidates.csv and Fig R1; when the parquet is absent those
+# outputs are skipped and the previously committed versions stand.
+candidates_raw <- tryCatch({
+  cand <- read_parquet(
+    file.path(DATA, "timeline_candidates.parquet"),
+    col_select = c("project_id", "process_type", "retrieval_tier",
+                   "candidate_source_type", "selected_for_initiation", "selected_for_decision")
+  )
+  message("  ", nrow(cand), " candidate rows")
+  cand
+}, error = function(e) {
+  message("  timeline_candidates.parquet not found; skipping candidate-level outputs")
+  NULL
+})
 
 burden <- tryCatch({
   idx <- read_parquet(file.path(DATA, "timeline_document_index.parquet"),
@@ -211,8 +220,22 @@ dates <- dates_raw |>
       NA_integer_
     ),
 
-    # Complete = both dates present at any granularity (used in coverage charts)
-    timeline_complete = !is.na(initiation_date) & !is.na(decision_date),
+    # Complete = a usable timeline, defined EXACTLY as the duration ("headline")
+    # frame below: complete status, both dates present at day/month precision
+    # (year-only excluded — a day cannot be responsibly imputed from a year),
+    # and a non-negative span after mid-month imputation. This keeps every
+    # coverage figure and d4_complete_share.csv in exact agreement with the
+    # duration n's the narrative cites (no both-dates-but-unusable wedge).
+    timeline_complete = timeline_status %in% c("complete_clear", "complete_with_proxy") &
+      !is.na(initiation_date) & !is.na(decision_date) &
+      initiation_date_granularity != "year" &
+      decision_date_granularity  != "year" &
+      as.integer(
+        if_else(decision_date_granularity == "month",
+                lubridate::floor_date(decision_date, "month") + 14, decision_date) -
+        if_else(initiation_date_granularity == "month",
+                lubridate::floor_date(initiation_date, "month") + 14, initiation_date)
+      ) >= 0,
 
     energy_type = factor(
       dplyr::recode(coalesce(project_energy_type, "Other"), "Clean" = "Decarb"),
@@ -460,6 +483,7 @@ SOURCE_COLORS <- c(
   "No Date"                        = "#DDDDDD"
 )
 
+if (!is.null(candidates_raw)) {
 candidates <- candidates_raw |>
   mutate(
     source_path = case_when(
@@ -523,6 +547,7 @@ sel_dec <- candidates |>
   slice_min(src_rank, n = 1, with_ties = FALSE) |>
   ungroup() |>
   select(project_id, process_type, dec_source = source_path, dec_is_register = is_register)
+}  # end if (!is.null(candidates_raw))
 
 # Project-level provenance, collapsed to 3 client-facing categories:
 #   Register API = BLM/DOE NEPA-register dates pulled via the agency metadata API (source_type
@@ -593,7 +618,7 @@ print(
     )
 )
 
-cat("\nFRA period comparison (post 2023-08-16 vs prior):\n")
+cat("\nFRA period comparison (post", format(FRA_CUT_DATE), "vs prior):\n")
 print(fra_comparison |> select(process_type, period, n, median_months, p25_days, p75_days))
 
 cat("\nAll output files written to:", OUTPUT, "\n")
@@ -612,13 +637,15 @@ cat("\nAll output files written to:", OUTPUT, "\n")
 coverage_fig <- dates |>
   mutate(
     coverage_group = case_when(
-      !is.na(decision_date) & !is.na(initiation_date) ~ "Both dates",
-      !is.na(decision_date)                            ~ "Decision only",
-      !is.na(initiation_date)                          ~ "Initiation only",
-      TRUE                                             ~ "No date"
+      timeline_complete                                 ~ "Complete timeline",
+      !is.na(decision_date) & !is.na(initiation_date)  ~ "Both dates (unusable)",
+      !is.na(decision_date)                             ~ "Decision only",
+      !is.na(initiation_date)                           ~ "Initiation only",
+      TRUE                                              ~ "No date"
     ),
     coverage_group = factor(coverage_group,
-      levels = c("Both dates", "Decision only", "Initiation only", "No date"))
+      levels = c("Complete timeline", "Both dates (unusable)",
+                 "Decision only", "Initiation only", "No date"))
   ) |>
   count(process_type, coverage_group) |>
   group_by(process_type) |>
@@ -643,15 +670,16 @@ p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverag
   ) +
   scale_y_continuous(labels = percent_format(accuracy = 1)) +
   scale_fill_manual(values = c(
-    "Both dates"      = catf_navy,
-    "Decision only"   = catf_dark_blue,
-    "Initiation only" = catf_light_blue,
-    "No date"         = "#CCCCCC"
+    "Complete timeline"     = catf_navy,
+    "Both dates (unusable)" = "#8C8C8C",
+    "Decision only"         = catf_dark_blue,
+    "Initiation only"       = catf_light_blue,
+    "No date"               = "#CCCCCC"
   )) +
   scale_color_identity() +
   labs(
     title    = "Timeline Coverage by Review Type",
-    subtitle = "Share of projects by timeline completeness category",
+    subtitle = "Share of projects by timeline completeness category; unusable = both dates found but out of order, year-only precision, or unresolved",
     x = NULL, y = "Share of projects", fill = NULL
   )
 
@@ -669,42 +697,45 @@ coverage_energy_fig <- dates |>
   filter(!is.na(process_group)) |>
   mutate(
     coverage_group = case_when(
-      !is.na(decision_date) & !is.na(initiation_date) ~ "Both dates",
-      !is.na(decision_date)                            ~ "Decision only",
-      !is.na(initiation_date)                          ~ "Initiation only",
-      TRUE                                             ~ "No date"
+      timeline_complete                                 ~ "Complete timeline",
+      !is.na(decision_date) & !is.na(initiation_date)  ~ "Both dates (unusable)",
+      !is.na(decision_date)                             ~ "Decision only",
+      !is.na(initiation_date)                           ~ "Initiation only",
+      TRUE                                              ~ "No date"
     ),
     coverage_group = factor(coverage_group,
-      levels = c("Both dates", "Decision only", "Initiation only", "No date"))
+      levels = c("Complete timeline", "Both dates (unusable)",
+                 "Decision only", "Initiation only", "No date"))
   ) |>
   count(process_group, energy_type, coverage_group) |>
   group_by(process_group, energy_type) |>
   mutate(pct = n / sum(n), n_proc_energy = sum(n)) |>
   ungroup()
 
-# "Both dates" share label per process x energy (the headline number to compare to Phase 1)
+# Complete-timeline share label per process x energy (the headline number to compare to Phase 1)
 both_lab <- coverage_energy_fig |>
-  filter(coverage_group == "Both dates") |>
+  filter(coverage_group == "Complete timeline") |>
   mutate(lab = sprintf("%.0f%%", 100 * pct))
 
 p_coverage_energy <- ggplot(coverage_energy_fig,
                             aes(x = energy_type, y = pct, fill = coverage_group)) +
-  # reverse = TRUE -> "Both dates" at the bottom, "No date" at the top
+  # reverse = TRUE -> "Complete timeline" at the bottom, "No date" at the top
   geom_col(width = 0.7, position = position_stack(reverse = TRUE)) +
-  # centre the "% with both dates" label in the navy bottom segment, white text
+  # centre the "% complete" label in the navy bottom segment, white text
   geom_text(data = both_lab, aes(x = energy_type, y = pct / 2, label = lab),
             inherit.aes = FALSE, size = 2.8, color = "white", fontface = "bold") +
   facet_wrap(~process_group, nrow = 1) +
   scale_y_continuous(labels = percent_format(accuracy = 1)) +
   scale_fill_manual(values = c(
-    "Both dates"      = catf_navy,
-    "Decision only"   = catf_dark_blue,
-    "Initiation only" = catf_light_blue,
-    "No date"         = "#CCCCCC"
+    "Complete timeline"     = catf_navy,
+    "Both dates (unusable)" = "#8C8C8C",
+    "Decision only"         = catf_dark_blue,
+    "Initiation only"       = catf_light_blue,
+    "No date"               = "#CCCCCC"
   )) +
   labs(
     title    = "Timeline Coverage by Review Type and Energy Type",
-    subtitle = "% on bars = share with BOTH dates (the Phase-1-comparable number; Decarb = clean energy)",
+    subtitle = "% on bars = share with a complete, usable timeline (the Phase-1-comparable number; Decarb = clean energy)",
     x = NULL, y = "Share of projects", fill = NULL
   )
 
@@ -752,7 +783,7 @@ message("Wrote fig_d4_duration_histogram.png")
 
 fra_fig <- fra_comparison |>
   mutate(period = factor(period, levels = c("pre_FRA", "post_FRA"),
-                         labels = c("Pre-FRA\n(before Aug 2023)", "Post-FRA\n(Aug 2023+)")))
+                         labels = c("Pre-FRA\n(before June 2023)", "Post-FRA\n(June 2023+)")))
 
 p_fra <- ggplot(fra_fig, aes(x = period, y = median_months, fill = process_type)) +
   geom_col(aes(alpha = period), width = 0.5) +
@@ -761,13 +792,13 @@ p_fra <- ggplot(fra_fig, aes(x = period, y = median_months, fill = process_type)
   facet_wrap(~process_type, ncol = 3) +
   scale_fill_manual(values = PROCESS_COLORS, guide = "none") +
   scale_alpha_manual(
-    values = c("Pre-FRA\n(before Aug 2023)" = 0.35, "Post-FRA\n(Aug 2023+)" = 1.0),
+    values = c("Pre-FRA\n(before June 2023)" = 0.35, "Post-FRA\n(June 2023+)" = 1.0),
     guide = "none"
   ) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
   labs(
-    title    = "D4 Median Review Duration: Pre vs Post FRA (June 3, 2023)",
-    subtitle = "Lighter bar = Pre-FRA (before Aug 2023)  |  Solid bar = Post-FRA (Aug 2023+)",
+    title    = "Median Review Duration: Pre vs Post FRA (June 3, 2023)",
+    subtitle = "Lighter bar = Pre-FRA (before June 2023)  |  Solid bar = Post-FRA (June 2023+)",
     x = NULL, y = "Median duration (months)"
   )
 
@@ -832,9 +863,10 @@ process_summary_complete <- tibble(process_group = factor(PROCESS_LEVELS, levels
     )
   )
 
-# Persist the exact per-process complete-timeline shares this figure prints (complete = BOTH dates
-# present) so the report narrative can cite the SAME numbers (see d4_complete_share.csv). This keeps
-# the "% complete" text aligned with fig-complete-share and fig-coverage by construction.
+# Persist the exact per-process complete-timeline shares this figure prints (complete = the usable
+# duration frame: complete status, day/month precision, valid order — see the timeline_complete
+# definition above) so the report narrative can cite the SAME numbers (see d4_complete_share.csv).
+# By construction these n's equal the duration-analysis n's in d4_duration_summary.csv.
 write_csv(
   process_summary_complete |>
     transmute(process_type = as.character(process_group), n_complete, n_projects, share_complete),
@@ -864,7 +896,7 @@ fig_complete_share <- ggplot(process_summary_complete,
   scale_fill_manual(values = PROCESS_COLORS, drop = FALSE) +
   labs(
     title    = "Share of Reviews with Complete Timelines",
-    subtitle = "Dot = share with a complete timeline (initiation + decision); box = 0-100% frame",
+    subtitle = "Dot = share with a complete, usable timeline (initiation + decision; valid order; day- or month-precision); box = 0-100% frame",
     x = "Review Process",
     y = "Completion Share"
   ) +
@@ -1057,12 +1089,20 @@ message("Wrote fig_d4_projects_by_decision_year.png")
 # Phase 1 ref: 03_projects_by_year_doe.png
 # ---------------------------------------------------------------------------
 
-doe_agency <- read_parquet(file.path(DATA, "timeline_document_index.parquet"),
-                           col_select = c("project_id", "lead_agency_harmonized")) |>
-  group_by(project_id) |>
-  summarise(agency = first(na.omit(lead_agency_harmonized)), .groups = "drop") |>
-  filter(str_detect(coalesce(agency, ""), regex("Energy", ignore_case = TRUE)))
+# Optional (same pattern as the burden/candidates loads): the DOE breakout needs
+# timeline_document_index.parquet for lead agency; skip the figure when absent.
+doe_agency <- tryCatch({
+  read_parquet(file.path(DATA, "timeline_document_index.parquet"),
+               col_select = c("project_id", "lead_agency_harmonized")) |>
+    group_by(project_id) |>
+    summarise(agency = first(na.omit(lead_agency_harmonized)), .groups = "drop") |>
+    filter(str_detect(coalesce(agency, ""), regex("Energy", ignore_case = TRUE)))
+}, error = function(e) {
+  message("  timeline_document_index.parquet not found; skipping DOE decision-year figure")
+  NULL
+})
 
+if (!is.null(doe_agency)) {
 year_counts_doe <- dates |>
   semi_join(doe_agency, by = "project_id") |>
   filter(!is.na(process_group), !is.na(decision_year),
@@ -1092,6 +1132,7 @@ ggsave(file.path(FIGS, "fig_d4_projects_by_decision_year_doe.png"),
        fig_by_year_doe, width = 11, height = 9, dpi = 300)
 saveRDS(fig_by_year_doe, file.path(FIGS, "fig_d4_projects_by_decision_year_doe.rds"))
 message("Wrote fig_d4_projects_by_decision_year_doe.png")
+}  # end if (!is.null(doe_agency))
 
 # ===========================================================================
 # ENERGY-TYPE BREAKOUT FIGURES
@@ -1203,7 +1244,7 @@ fig_intervals_energy <- ggplot(interval_energy, aes(y = energy_type, color = ene
   ) +
   labs(
     title    = "Timeline Duration by Process and Energy Type",
-    subtitle = "Thin bar = p10–p90  |  Thick bar = IQR  |  Point = median (complete_clear only)",
+    subtitle = "Thin bar = p10–p90  |  Thick bar = IQR  |  Point = median (complete timelines: clear + proxy)",
     x = "Duration (months)",
     y = NULL,
     color = "Energy type"
@@ -1214,6 +1255,12 @@ ggsave(file.path(FIGS, "fig_d4_duration_summary_intervals_by_energy.png"),
        fig_intervals_energy, width = 11, height = 9, dpi = 300)
 saveRDS(fig_intervals_energy, file.path(FIGS, "fig_d4_duration_summary_intervals_by_energy.rds"))
 message("Wrote fig_d4_duration_summary_intervals_by_energy.png")
+
+# Export the exact frame behind the by-energy figure so prose (FS1) can quote the
+# same numbers the figure displays instead of recomputing on a different frame.
+write_csv(interval_energy |> select(-median_label),
+          file.path(DIAG, "d4_duration_by_energy.csv"))
+message("Wrote d4_duration_by_energy.csv")
 
 # ---------------------------------------------------------------------------
 # Fig E2b: Fossil-EA review length — register-anchored (current) vs document-anchored
@@ -1353,6 +1400,7 @@ message("\nAll figures written to: ", FIGS)
 # Shows, of the candidates that were ultimately chosen as the initiation or
 # decision date, what retrieval path produced them.
 
+if (!is.null(candidates_raw)) {
 cand_sel_plot <- reg_cand |>
   filter(n_selected > 0) |>
   group_by(process_type, endpoint) |>
@@ -1388,6 +1436,7 @@ ggsave(file.path(FIGS, "fig_d4_register_source_candidates.png"),
        p_cand_source, width = 10, height = 6, dpi = 300)
 saveRDS(p_cand_source, file.path(FIGS, "fig_d4_register_source_candidates.rds"))
 message("Wrote fig_d4_register_source_candidates.png")
+}  # end if (!is.null(candidates_raw))
 
 # ---------------------------------------------------------------------------
 # Fig R2: Register vs doc-text — project level (all projects, incl. no date)

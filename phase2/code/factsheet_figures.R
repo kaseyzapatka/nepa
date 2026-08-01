@@ -95,6 +95,8 @@ passthrough <- c(
   file.path(D04_FIG, "fig_d4_projects_by_decision_year.png"),
   file.path(D04_FIG, "fig_d4_projects_by_decision_year_doe.png"),
   file.path(D04_FIG, "fig_d4_fra_comparison.png"),
+  file.path(D04_FIG, "fig_d4_duration_by_ceq_regime.png"),
+  file.path(D04_FIG, "fig_d4_duration_trend_ceq_regime.png"),
   file.path(D04_FIG, "fig_d4_pages_over_time.png"),
   file.path(D04_FIG, "fig_d4_pages_pre_post_fra.png"),
   file.path(D04_FIG, "fig_d4_pages_compliance.png"),
@@ -139,12 +141,24 @@ message("  Copied ", sum(file.exists(passthrough)), " figures to ", fig_dir)
 # ===========================================================================
 message("\n--- FS1: duration by process (retitled from D4 .rds) ---")
 
-fs1_dur <- readRDS(file.path(D04_FIG, "fig_d4_duration_summary_intervals.rds")) +
-  labs(title = "NEPA Review Duration Climbs From Days (CE) to Months (EA) to Years (EIS)")
+# Retitle helper: .rds sidecars are gitignored (regenerable via the deliverables'
+# NN_create_figures.R). If one is absent on this machine, keep the committed PNG
+# and say so instead of aborting the whole run.
+retitle <- function(rds_path, out_name, new_title, width, height) {
+  tryCatch({
+    p <- readRDS(rds_path) + labs(title = new_title)
+    ggsave(file.path(fig_dir, out_name), p, width = width, height = height, dpi = 300)
+    message("  Saved: ", out_name)
+  }, error = function(e) {
+    message("  SKIPPED ", out_name, " (missing ", basename(rds_path),
+            " — re-run the deliverable's figure script to regenerate; committed PNG kept)")
+  })
+}
 
-ggsave(file.path(fig_dir, "fs1_duration_by_process.png"), fs1_dur,
-       width = 10, height = 5.5, dpi = 300)
-message("  Saved: fs1_duration_by_process.png")
+retitle(file.path(D04_FIG, "fig_d4_duration_summary_intervals.rds"),
+        "fs1_duration_by_process.png",
+        "NEPA Review Duration Climbs From Days (CE) to Months (EA) to Years (EIS)",
+        width = 10, height = 5.5)
 
 # ===========================================================================
 # FS1 Fig — Review duration by technology  [FROM SCRATCH — STOPGAP]
@@ -158,12 +172,32 @@ message("  Saved: fs1_duration_by_process.png")
 # ===========================================================================
 message("\n--- FS1: duration by technology (from-scratch stopgap) ---")
 
+# Headline duration frame — mirrors phase2/code/deliverable04/08_create_figures.R
+# exactly: complete statuses; year-only dates excluded; month-only dates imputed
+# to mid-month; non-negative spans. Durations are recomputed here because the
+# parquet's precomputed duration_days column is populated ONLY for day/day-
+# precision pairs — filtering on it silently drops every month-dated complete
+# timeline (undercounting EA/EIS technology cells by 15-75%).
 tl <- read_parquet(
   here("phase2", "data", "analysis", "timeline", "timeline_project_dates.parquet"),
-  col_select = c("project_id", "process_type", "timeline_status", "duration_days")
+  col_select = c("project_id", "process_type", "timeline_status",
+                 "initiation_date", "decision_date",
+                 "initiation_date_granularity", "decision_date_granularity")
 ) |>
   filter(timeline_status %in% c("complete_clear", "complete_with_proxy"),
-         !is.na(duration_days), duration_days >= 0)
+         !is.na(initiation_date), !is.na(decision_date),
+         initiation_date_granularity != "year", decision_date_granularity != "year") |>
+  mutate(
+    initiation_date = as.Date(initiation_date),
+    decision_date   = as.Date(decision_date),
+    .init_mid = if_else(initiation_date_granularity == "month",
+                        lubridate::floor_date(initiation_date, "month") + 14, initiation_date),
+    .dec_mid  = if_else(decision_date_granularity == "month",
+                        lubridate::floor_date(decision_date, "month") + 14, decision_date),
+    duration_days = as.integer(.dec_mid - .init_mid)
+  ) |>
+  filter(!is.na(duration_days), duration_days >= 0) |>
+  select(project_id, process_type, timeline_status, duration_days)
 
 tech <- read_parquet(
   here("phase2", "data", "analysis", "deliverable03", "projects_nepa_reviews.parquet"),
@@ -176,7 +210,7 @@ tl_tech <- tl |>
   mutate(duration_months = duration_days / 30.44,
          process_group = factor(process_type, levels = process_levels))
 
-tech_summary <- tl_tech |>
+tech_summary_all <- tl_tech |>
   group_by(energy_group, tech_group, process_group) |>
   summarise(
     n      = n(),
@@ -186,8 +220,13 @@ tech_summary <- tl_tech |>
     p75    = quantile(duration_months, 0.75),
     p90    = quantile(duration_months, 0.90),
     .groups = "drop"
-  ) |>
-  filter(n >= 15)   # suppress unstable cells
+  )
+
+# Display rule: NO suppression — every technology cell is shown so the panels
+# account for every complete energy timeline. Each bar carries an n label, and
+# the factsheet caption warns that very small cells are unstable; percentile
+# bars for tiny n collapse toward the observed values.
+tech_summary <- tech_summary_all
 
 write_csv(tech_summary, file.path(tbl_dir, "fs1_duration_by_technology.csv"))
 
@@ -211,7 +250,7 @@ fs1_tech <- tech_summary |>
                      expand = expansion(mult = c(0.02, 0.18))) +
   labs(
     title = "Within Each Review Process, Decarbonization and Fossil Technologies\nFace Broadly Similar Review Times",
-    subtitle = "Thin bar = 10th–90th percentile; thick bar = interquartile range; point = median. Complete timelines; cells with n < 15 suppressed.",
+    subtitle = "Thin bar = 10th–90th percentile; thick bar = interquartile range; point = median. All complete timelines; every technology cell shown — n labels flag small cells.",
     x = "Duration (months)", y = NULL, color = NULL
   ) +
   theme_catf() +
@@ -281,15 +320,25 @@ write_csv(trig_counts, file.path(tbl_dir, "fs2_trigger_counts.csv"))
 # <X>% for the headline title comes from the summary table just written.
 funding_share <- trig_counts$share[trig_counts$trigger == "Funding"]
 
-# [RETITLED] readRDS D1's fig1_trigger_counts.rds and override the title.
-fs2_counts <- readRDS(file.path(D01_OUT, "fig1_trigger_counts.rds")) +
-  labs(title = sprintf(
-    "Federal Funding Triggers %s of All Decarbonization NEPA Reviews —\nMore Than Any Other Federal Nexus",
-    percent(funding_share, accuracy = 1)))
-
-ggsave(file.path(fig_dir, "fs2_trigger_counts.png"), fs2_counts,
-       width = 10, height = 5.5, dpi = 300)
-message("  Saved: fs2_trigger_counts.png")
+# [RETITLED + RELABELED] readRDS D1's fig1_trigger_counts.rds, override the
+# title, and swap the count-only bar labels for count + share of total — the
+# factsheet narrative describes triggers as percents of the portfolio, so the
+# figure shows both.
+tryCatch({
+  p <- readRDS(file.path(D01_OUT, "fig1_trigger_counts.rds"))
+  p$layers <- Filter(function(l) !inherits(l$geom, "GeomText"), p$layers)
+  p <- p +
+    geom_text(aes(label = sprintf("%s  (%s)", comma(n), percent(n / sum(n), accuracy = 0.1))),
+              hjust = -0.12, size = 3.5, color = "gray20") +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.28)), labels = comma) +
+    labs(title = sprintf("Federal Funding Triggers %s of All Decarbonization NEPA Reviews —\nMore Than Any Other Federal Nexus",
+                         percent(funding_share, accuracy = 1)))
+  ggsave(file.path(fig_dir, "fs2_trigger_counts.png"), p, width = 10, height = 5.5, dpi = 300)
+  message("  Saved: fs2_trigger_counts.png")
+}, error = function(e) {
+  message("  SKIPPED fs2_trigger_counts.png (missing fig1_trigger_counts.rds",
+          " — re-run the deliverable's figure script to regenerate; committed PNG kept)")
+})
 
 # ===========================================================================
 # FS2 Fig — Review process within each trigger class, headline title
@@ -312,14 +361,31 @@ funding_ce_share <- proc_by_trig |>
   pull(share)
 
 # [RETITLED] readRDS D1's fig3_process_by_trigger.rds and override the title.
-fs2_proc <- readRDS(file.path(D01_OUT, "fig3_process_by_trigger.rds")) +
-  labs(title = sprintf(
-    "Funding-Triggered Reviews Are Almost Entirely Categorically Excluded (%s)",
-    percent(funding_ce_share, accuracy = 1)))
+retitle(file.path(D01_OUT, "fig3_process_by_trigger.rds"),
+        "fs2_process_by_trigger.png",
+        sprintf("Funding-Triggered Reviews Are Almost Entirely Categorically Excluded (%s)",
+                percent(funding_ce_share, accuracy = 1)),
+        width = 10, height = 5.5)
 
-ggsave(file.path(fig_dir, "fs2_process_by_trigger.png"), fs2_proc,
-       width = 10, height = 5.5, dpi = 300)
-message("  Saved: fs2_process_by_trigger.png")
+# ===========================================================================
+# FS2 Tbl — Trigger shares by technology
+# Read from D1's fig5 .rds sidecar (the same frame the copied
+# fig5_trigger_by_technology.png plots) so factsheet prose and figure always agree.
+# ===========================================================================
+message("\n--- FS2: trigger shares by technology (table from D1's fig5 .rds) ---")
+
+tryCatch({
+  fig5 <- readRDS(file.path(D01_OUT, "fig5_trigger_by_technology.rds"))
+  fig5$data |>
+    transmute(technology = as.character(project_technology),
+              trigger    = as.character(trigger_label),
+              n, share = pct, total) |>
+    write_csv(file.path(tbl_dir, "fs2_trigger_by_technology.csv"))
+  message("  Saved table: fs2_trigger_by_technology.csv")
+}, error = function(e) {
+  message("  SKIPPED fs2_trigger_by_technology.csv (missing fig5_trigger_by_technology.rds",
+          " — re-run the deliverable's figure script to regenerate; committed CSV kept)")
+})
 
 # ===========================================================================
 # FS5: Determinations of Significance Across Resource Areas (D2)
@@ -357,22 +423,22 @@ message("  Copied ", sum(file.exists(fs5_passthrough)), " FS5 passthrough figure
 
 # --- RETITLED headline figures (readRDS the D2 .rds sidecar + labs()) ---
 # Fig 7 — mitigated share
-fs5_mit <- readRDS(file.path(D02_ANALYSIS, "fig_mitigated_share.rds")) +
-  labs(title = "Most Decarbonization FONSIs Reach \"No Significant Impact\"\nOnly With Committed Mitigation")
-ggsave(file.path(fig_dir, "fs5_mitigated_share.png"), fs5_mit, width = 8, height = 4.8, dpi = 300)
-message("  Saved: fs5_mitigated_share.png")
+retitle(file.path(D02_ANALYSIS, "fig_mitigated_share.rds"),
+        "fs5_mitigated_share.png",
+        "Most Decarbonization FONSIs Reach \"No Significant Impact\"\nOnly With Committed Mitigation",
+        width = 8, height = 4.8)
 
 # Fig 17 — which resources cross the line
-fs5_above <- readRDS(file.path(D02_ANALYSIS, "fig_eis_above_line.rds")) +
-  labs(title = "Visual Impacts Cross the Significance Line\nMore Than Any Other Resource")
-ggsave(file.path(fig_dir, "fs5_eis_above_line.png"), fs5_above, width = 9.5, height = 6.5, dpi = 300)
-message("  Saved: fs5_eis_above_line.png")
+retitle(file.path(D02_ANALYSIS, "fig_eis_above_line.rds"),
+        "fs5_eis_above_line.png",
+        "Visual Impacts Cross the Significance Line\nMore Than Any Other Resource",
+        width = 9.5, height = 6.5)
 
 # Fig 20 — two ways a resource can be a problem
-fs5_vs <- readRDS(file.path(D02_ANALYSIS, "fig_fonsi_vs_eis.rds")) +
-  labs(title = "Some Resources Get Mitigated Below the Line;\nOthers Cross It")
-ggsave(file.path(fig_dir, "fs5_fonsi_vs_eis.png"), fs5_vs, width = 9, height = 6.5, dpi = 300)
-message("  Saved: fs5_fonsi_vs_eis.png")
+retitle(file.path(D02_ANALYSIS, "fig_fonsi_vs_eis.rds"),
+        "fs5_fonsi_vs_eis.png",
+        "Some Resources Get Mitigated Below the Line;\nOthers Cross It",
+        width = 9, height = 6.5)
 
 # --- Staged summary CSVs for inline numbers + example tables ---
 fs5_tables <- c(
