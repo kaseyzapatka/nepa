@@ -4251,7 +4251,7 @@ figcaption, .figure-caption, .quarto-figure figcaption { text-align: left !impor
 <li><strong>Review duration climbs from days to months to years.</strong> Median review duration is 20 days for CE, 117 days (~4 months) for EA, and 1,021 days (~2.8 years) for EIS — the expected complexity ladder, now quantified across the full database (complete timelines; <a href="#fig-duration-intervals" class="quarto-xref">Figure 5</a>).</li>
 <li><strong>Timeline completeness varies by process, and the gaps are structural.</strong> Complete timelines (both an initiation and a decision date, in valid order at day- or month-precision) reach 50% for CE, 56% for EA, and 32% for EIS (<a href="#fig-coverage" class="quarto-xref">Figure 3</a>). CE and EA are initiation-limited (no Notice-of-Intent requirement, often no recorded start); EIS is decision-limited — Records of Decision are usually separate documents outside the corpus, so EIS decision coverage is just 42.3%. LLM adjudication of the ambiguous cases meaningfully lifted complete coverage for all three processes.</li>
 <li><strong>Post-FRA, EIS documents got shorter while EAs held steady.</strong> Across all 3,683 EA/EIS projects (all energy types, regulatory pages from the full text), mean EIS length fell from 318 to 269 pages after the Fiscal Responsibility Act, while EA length stayed near 33–39 pages — though the post-FRA window is still small (<a href="#sec-pages" class="quarto-xref">Section 3</a>).</li>
-<li><strong>The longest reviews are prime case-study candidates.</strong> Genuinely protracted reviews — SunZia Southwest Transmission (14.6 yr), Energia Sierra Juarez, Grain Belt Express — are surfaced for CATF investigation and separated from extraction errors (an “initiation” anchored to a historical citation), which are excluded (<a href="#sec-outliers" class="quarto-xref">Section 2.4</a>).</li>
+<li><strong>The longest reviews are prime case-study candidates.</strong> Genuinely protracted, evidence-verified reviews — SunZia Southwest Transmission (14.6 yr) and Cushman Hydroelectric (18.1 yr, hand-verified) — are surfaced for CATF investigation and separated from extraction errors (an “initiation” anchored to a historical citation), which are excluded; two other long candidates (Energia Sierra Juarez, Grain Belt Express) remain pending date verification (<a href="#sec-outliers" class="quarto-xref">Section 2.4</a>).</li>
 <li><strong>Process change, not office-by-office learning, drove the CE speed-up.</strong> CE reviews got much faster across the 2010s, but the decline hit every field office at once regardless of caseload: within any year an office’s accumulated experience is uncorrelated with its speed, and low-volume offices converged to high-volume speed without doing comparable reps. A process change reaching all offices at once — batch processing, procedural streamlining — not office-by-office learning, is the likely driver; a wholly separate DOE register-office corpus reproduces the null independently (<a href="#sec-field-office" class="quarto-xref">Section 5</a>).</li>
 <li><strong>CEQ rule changes don’t produce clean before/after breaks.</strong> Segmenting reviews by the CEQ rule in effect at decision (1978 rules / 2020 rewrite / 2022 Phase 1 / the provisional post-2024 window) mostly re-slices the same secular trends visible year by year; the post-2024 samples are thin, coverage-confounded, and read as provisional (<a href="#sec-ceq-regime" class="quarto-xref">Section 4</a>).</li>
 <li><strong>Geothermal NEPA is two different worlds, and office-level comparison is not feasible.</strong> The <code>Geothermal</code> tag pools BLM western resource reviews (NV/CA/UT) with a much larger body of DOE grant-era research and heat-pump CEs filed nationwide; only a handful of reviews sit in any one BLM field office, so the geothermal analysis is a descriptive office inventory plus a state-cohort map, not an office ranking (<a href="#sec-geothermal" class="quarto-xref">Section 6</a>).</li>
@@ -4410,7 +4410,7 @@ Figure 5: Timeline duration by review process. Thin bar = 10th–90th percentil
 </div>
 <section id="duration-by-review-type" class="level3">
 <h3 class="anchored" data-anchor-id="duration-by-review-type">Duration by review type</h3>
-<p>Splitting duration by energy category (<a href="#fig-dur-energy" class="quarto-xref">Figure 6</a>) exposes an artifact: fossil EAs run far shorter than decarbonization or “other” EAs, a median of ~40 days, vs ~310 days for Decarb and ~209 days for Other. This is not because fossil EAs are genuinely faster: 84% of them take their start date from the BLM register rather than the document. This is a broad convention across routine BLM oil-and-gas EAs — drilling permits, lease sales, and well-abandonments alike (well-abandonment is 53% of complete fossil EAs, not the whole story) — where the recorded “project start” is a late administrative entry made within days of the decision. Because fossil is the largest EA group (754 of the ~1,730 complete EAs), those artificially short spans pull the overall EA median down. Restricting fossil EAs to the document-anchored starts lifts their median to ~5 months — much closer to the Other and Decarb EAs and the more defensible review-length estimate — but that view survives for only a fraction of them.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>Splitting duration by energy category (<a href="#fig-dur-energy" class="quarto-xref">Figure 6</a>) exposes an artifact: fossil EAs run far shorter than decarbonization or “other” EAs, a median of ~40 days, vs ~310 days for Decarb and ~209 days for Other. This is not because fossil EAs are genuinely faster: 84% of them take their start date from the BLM register rather than the document. This is a broad convention across routine BLM oil-and-gas EAs — drilling permits, lease sales, and well-abandonments alike (well-abandonment is 53% of complete fossil EAs, not the whole story) — where the recorded “project start” is a late administrative entry made within days of the decision. Because fossil is the largest EA group (758 of the 1,736 complete EAs), those artificially short spans pull the overall EA median down. Restricting fossil EAs to the document-anchored starts lifts their median to ~5 months — much closer to the Other and Decarb EAs and the more defensible review-length estimate — but that view survives for only a fraction of them.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-dur-energy" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -4552,7 +4552,7 @@ Figure 13: DOE projects by decision year, faceted by review process (Department
 <li>CE outliers are mostly errors — CEs are fast determinations (median 20 days), so a multi-year CE almost always reflects a mis-extracted initiation. CE outliers are therefore excluded from the client list.</li>
 <li>Initiation dates before ~1990 are a strong error signal. Of the four EIS outliers with 1980s-or-earlier initiations, three are confirmed errors (the “initiation” is a park founding, a prior lock’s construction-completion date, or a RCRA compliance milestone).</li>
 </ul>
-<p>The decarb EA/EIS candidates below are the highest-value case studies. SunZia (ROW application Sep 2008 to Record of Decision Apr 2023) is the clearest long-permitting case; Energia Sierra Juarez and Grain Belt Express are similar. Confirmed errors are excluded, for example the Palisades Nuclear Restart “19-year” span, which glues a 2005 license-renewal application to a 2024 restart Record of Decision (two different NEPA actions).</p>
+<p>The decarb EA/EIS candidates below are the highest-value case studies. SunZia (ROW application Sep 2008 to Record of Decision Apr 2023) is the clearest long-permitting case — its dates, along with Cushman Hydroelectric’s 18.1-year FERC relicensing span, were verified by hand against the documents’ own procedural text. Energia Sierra Juarez and Grain Belt Express look similar but remain pending verification: the extracted Energia span bridges the original EIS and its 2023 supplement, and Grain Belt’s endpoints are a state CPCN filing and an FEIS publication date rather than federal NEPA milestones. Confirmed errors are excluded, for example the Palisades Nuclear Restart “19-year” span, which glues a 2005 license-renewal application to a 2024 restart Record of Decision (two different NEPA actions).</p>
 <div class="cell">
 <div id="tbl-outliers" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
@@ -4561,20 +4561,20 @@ Table 1: Genuinely long EA/EIS reviews — case-study candidates. Full list wit
 </figcaption>
 <div aria-describedby="tbl-outliers-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
-<div id="sgjmahwxri" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#sgjmahwxri table {
+<div id="ukoasntpfa" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#ukoasntpfa table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#sgjmahwxri thead, #sgjmahwxri tbody, #sgjmahwxri tfoot, #sgjmahwxri tr, #sgjmahwxri td, #sgjmahwxri th {
+#ukoasntpfa thead, #ukoasntpfa tbody, #ukoasntpfa tfoot, #ukoasntpfa tr, #ukoasntpfa td, #ukoasntpfa th {
 border-style: none;
 }
-#sgjmahwxri p {
+#ukoasntpfa p {
 margin: 0;
 padding: 0;
 }
-#sgjmahwxri .gt_table {
+#ukoasntpfa .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -4599,11 +4599,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#sgjmahwxri .gt_caption {
+#ukoasntpfa .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#sgjmahwxri .gt_title {
+#ukoasntpfa .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -4614,7 +4614,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#sgjmahwxri .gt_subtitle {
+#ukoasntpfa .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -4625,7 +4625,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#sgjmahwxri .gt_heading {
+#ukoasntpfa .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -4636,12 +4636,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#sgjmahwxri .gt_bottom_border {
+#ukoasntpfa .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#sgjmahwxri .gt_col_headings {
+#ukoasntpfa .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -4655,7 +4655,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#sgjmahwxri .gt_col_heading {
+#ukoasntpfa .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4674,7 +4674,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#sgjmahwxri .gt_column_spanner_outer {
+#ukoasntpfa .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4685,13 +4685,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#sgjmahwxri .gt_column_spanner_outer:first-child {
+#ukoasntpfa .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#sgjmahwxri .gt_column_spanner_outer:last-child {
+#ukoasntpfa .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#sgjmahwxri .gt_column_spanner {
+#ukoasntpfa .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -4702,10 +4702,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#sgjmahwxri .gt_spanner_row {
+#ukoasntpfa .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#sgjmahwxri .gt_group_heading {
+#ukoasntpfa .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4730,7 +4730,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#sgjmahwxri .gt_empty_group_heading {
+#ukoasntpfa .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -4744,13 +4744,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#sgjmahwxri .gt_from_md > :first-child {
+#ukoasntpfa .gt_from_md > :first-child {
 margin-top: 0;
 }
-#sgjmahwxri .gt_from_md > :last-child {
+#ukoasntpfa .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#sgjmahwxri .gt_row {
+#ukoasntpfa .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4768,7 +4768,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#sgjmahwxri .gt_stub {
+#ukoasntpfa .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4780,7 +4780,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#sgjmahwxri .gt_stub_row_group {
+#ukoasntpfa .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4793,13 +4793,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#sgjmahwxri .gt_row_group_first td {
+#ukoasntpfa .gt_row_group_first td {
 border-top-width: 2px;
 }
-#sgjmahwxri .gt_row_group_first th {
+#ukoasntpfa .gt_row_group_first th {
 border-top-width: 2px;
 }
-#sgjmahwxri .gt_summary_row {
+#ukoasntpfa .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -4808,14 +4808,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#sgjmahwxri .gt_first_summary_row {
+#ukoasntpfa .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#sgjmahwxri .gt_first_summary_row.thick {
+#ukoasntpfa .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#sgjmahwxri .gt_last_summary_row {
+#ukoasntpfa .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4824,7 +4824,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#sgjmahwxri .gt_grand_summary_row {
+#ukoasntpfa .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -4833,7 +4833,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#sgjmahwxri .gt_first_grand_summary_row {
+#ukoasntpfa .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4842,7 +4842,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#sgjmahwxri .gt_last_grand_summary_row_top {
+#ukoasntpfa .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4851,10 +4851,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#sgjmahwxri .gt_striped {
+#ukoasntpfa .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#sgjmahwxri .gt_table_body {
+#ukoasntpfa .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -4862,7 +4862,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#sgjmahwxri .gt_footnotes {
+#ukoasntpfa .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -4875,7 +4875,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#sgjmahwxri .gt_footnote {
+#ukoasntpfa .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-top: 4px;
@@ -4883,7 +4883,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#sgjmahwxri .gt_sourcenotes {
+#ukoasntpfa .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -4896,64 +4896,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#sgjmahwxri .gt_sourcenote {
+#ukoasntpfa .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#sgjmahwxri .gt_left {
+#ukoasntpfa .gt_left {
 text-align: left;
 }
-#sgjmahwxri .gt_center {
+#ukoasntpfa .gt_center {
 text-align: center;
 }
-#sgjmahwxri .gt_right {
+#ukoasntpfa .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#sgjmahwxri .gt_font_normal {
+#ukoasntpfa .gt_font_normal {
 font-weight: normal;
 }
-#sgjmahwxri .gt_font_bold {
+#ukoasntpfa .gt_font_bold {
 font-weight: bold;
 }
-#sgjmahwxri .gt_font_italic {
+#ukoasntpfa .gt_font_italic {
 font-style: italic;
 }
-#sgjmahwxri .gt_super {
+#ukoasntpfa .gt_super {
 font-size: 65%;
 }
-#sgjmahwxri .gt_footnote_marks {
+#ukoasntpfa .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#sgjmahwxri .gt_asterisk {
+#ukoasntpfa .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#sgjmahwxri .gt_indent_1 {
+#ukoasntpfa .gt_indent_1 {
 text-indent: 5px;
 }
-#sgjmahwxri .gt_indent_2 {
+#ukoasntpfa .gt_indent_2 {
 text-indent: 10px;
 }
-#sgjmahwxri .gt_indent_3 {
+#ukoasntpfa .gt_indent_3 {
 text-indent: 15px;
 }
-#sgjmahwxri .gt_indent_4 {
+#ukoasntpfa .gt_indent_4 {
 text-indent: 20px;
 }
-#sgjmahwxri .gt_indent_5 {
+#ukoasntpfa .gt_indent_5 {
 text-indent: 25px;
 }
-#sgjmahwxri .katex-display {
+#ukoasntpfa .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#sgjmahwxri div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#ukoasntpfa div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -5206,7 +5206,7 @@ Figure 14: Regulatory page counts for individual EA/EIS projects (all energy ty
 </section>
 <section id="pre-vs-post-fra" class="level2">
 <h2 class="anchored" data-anchor-id="pre-vs-post-fra">Pre vs post-FRA</h2>
-<p>Across all EA/EIS, EIS regulatory length fell after FRA (mean 318 → 269 pages; median 261 → 212), while EA length was essentially flat (mean 33 → 39). The post-FRA window is short, so these are provisional (n = 218 EA, 97 EIS). The direction matches the decarb-only Phase 1 result closely (<a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-pre-post">Phase 1 D5 — Pre vs Post FRA</a> and its <a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-distribution">distribution view</a>): Phase 1’s EISs fell from a mean of 368 → 270 regulatory pages, and the all-energy corpus here falls 317 → 269 — landing at essentially the same ~270-page post-FRA EIS mean despite a very different sample. EA stayed flat in both (Phase 1 62 → 57; here 33 → 39), reflecting that EAs were already well under the 75-page limit and had little to compress.</p>
+<p>Across all EA/EIS, EIS regulatory length fell after FRA (mean 318 → 269 pages; median 261 → 212), while EA length was essentially flat (mean 33 → 39). The post-FRA window is short, so these are provisional (n = 218 EA, 97 EIS). The direction matches the decarb-only Phase 1 result closely (<a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-pre-post">Phase 1 D5 — Pre vs Post FRA</a> and its <a href="https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-distribution">distribution view</a>): Phase 1’s EISs fell from a mean of 368 → 270 regulatory pages, and the all-energy corpus here falls 318 → 269 — landing at essentially the same ~270-page post-FRA EIS mean despite a very different sample. EA stayed flat in both (Phase 1 62 → 57; here 33 → 39), reflecting that EAs were already well under the 75-page limit and had little to compress.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-pages-bar" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -5305,20 +5305,20 @@ Table 2: Descriptive statistics for regulatory page counts by process type and 
 </figcaption>
 <div aria-describedby="tbl-pages-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
-<div id="trsufuazrp" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#trsufuazrp table {
+<div id="mbjbdrwgey" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#mbjbdrwgey table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#trsufuazrp thead, #trsufuazrp tbody, #trsufuazrp tfoot, #trsufuazrp tr, #trsufuazrp td, #trsufuazrp th {
+#mbjbdrwgey thead, #mbjbdrwgey tbody, #mbjbdrwgey tfoot, #mbjbdrwgey tr, #mbjbdrwgey td, #mbjbdrwgey th {
 border-style: none;
 }
-#trsufuazrp p {
+#mbjbdrwgey p {
 margin: 0;
 padding: 0;
 }
-#trsufuazrp .gt_table {
+#mbjbdrwgey .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -5343,11 +5343,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#trsufuazrp .gt_caption {
+#mbjbdrwgey .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#trsufuazrp .gt_title {
+#mbjbdrwgey .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -5358,7 +5358,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#trsufuazrp .gt_subtitle {
+#mbjbdrwgey .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5369,7 +5369,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#trsufuazrp .gt_heading {
+#mbjbdrwgey .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -5380,12 +5380,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#trsufuazrp .gt_bottom_border {
+#mbjbdrwgey .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#trsufuazrp .gt_col_headings {
+#mbjbdrwgey .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5399,7 +5399,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#trsufuazrp .gt_col_heading {
+#mbjbdrwgey .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5418,7 +5418,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#trsufuazrp .gt_column_spanner_outer {
+#mbjbdrwgey .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5429,13 +5429,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#trsufuazrp .gt_column_spanner_outer:first-child {
+#mbjbdrwgey .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#trsufuazrp .gt_column_spanner_outer:last-child {
+#mbjbdrwgey .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#trsufuazrp .gt_column_spanner {
+#mbjbdrwgey .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -5446,10 +5446,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#trsufuazrp .gt_spanner_row {
+#mbjbdrwgey .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#trsufuazrp .gt_group_heading {
+#mbjbdrwgey .gt_group_heading {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -5474,7 +5474,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#trsufuazrp .gt_empty_group_heading {
+#mbjbdrwgey .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5488,13 +5488,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#trsufuazrp .gt_from_md > :first-child {
+#mbjbdrwgey .gt_from_md > :first-child {
 margin-top: 0;
 }
-#trsufuazrp .gt_from_md > :last-child {
+#mbjbdrwgey .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#trsufuazrp .gt_row {
+#mbjbdrwgey .gt_row {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -5512,7 +5512,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#trsufuazrp .gt_stub {
+#mbjbdrwgey .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5524,7 +5524,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#trsufuazrp .gt_stub_row_group {
+#mbjbdrwgey .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5537,13 +5537,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#trsufuazrp .gt_row_group_first td {
+#mbjbdrwgey .gt_row_group_first td {
 border-top-width: 2px;
 }
-#trsufuazrp .gt_row_group_first th {
+#mbjbdrwgey .gt_row_group_first th {
 border-top-width: 2px;
 }
-#trsufuazrp .gt_summary_row {
+#mbjbdrwgey .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5552,14 +5552,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#trsufuazrp .gt_first_summary_row {
+#mbjbdrwgey .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#trsufuazrp .gt_first_summary_row.thick {
+#mbjbdrwgey .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#trsufuazrp .gt_last_summary_row {
+#mbjbdrwgey .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5568,7 +5568,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#trsufuazrp .gt_grand_summary_row {
+#mbjbdrwgey .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5577,7 +5577,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#trsufuazrp .gt_first_grand_summary_row {
+#mbjbdrwgey .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5586,7 +5586,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#trsufuazrp .gt_last_grand_summary_row_top {
+#mbjbdrwgey .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5595,10 +5595,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#trsufuazrp .gt_striped {
+#mbjbdrwgey .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#trsufuazrp .gt_table_body {
+#mbjbdrwgey .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5606,7 +5606,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#trsufuazrp .gt_footnotes {
+#mbjbdrwgey .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5619,7 +5619,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#trsufuazrp .gt_footnote {
+#mbjbdrwgey .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-top: 4px;
@@ -5627,7 +5627,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#trsufuazrp .gt_sourcenotes {
+#mbjbdrwgey .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5640,64 +5640,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#trsufuazrp .gt_sourcenote {
+#mbjbdrwgey .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#trsufuazrp .gt_left {
+#mbjbdrwgey .gt_left {
 text-align: left;
 }
-#trsufuazrp .gt_center {
+#mbjbdrwgey .gt_center {
 text-align: center;
 }
-#trsufuazrp .gt_right {
+#mbjbdrwgey .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#trsufuazrp .gt_font_normal {
+#mbjbdrwgey .gt_font_normal {
 font-weight: normal;
 }
-#trsufuazrp .gt_font_bold {
+#mbjbdrwgey .gt_font_bold {
 font-weight: bold;
 }
-#trsufuazrp .gt_font_italic {
+#mbjbdrwgey .gt_font_italic {
 font-style: italic;
 }
-#trsufuazrp .gt_super {
+#mbjbdrwgey .gt_super {
 font-size: 65%;
 }
-#trsufuazrp .gt_footnote_marks {
+#mbjbdrwgey .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#trsufuazrp .gt_asterisk {
+#mbjbdrwgey .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#trsufuazrp .gt_indent_1 {
+#mbjbdrwgey .gt_indent_1 {
 text-indent: 5px;
 }
-#trsufuazrp .gt_indent_2 {
+#mbjbdrwgey .gt_indent_2 {
 text-indent: 10px;
 }
-#trsufuazrp .gt_indent_3 {
+#mbjbdrwgey .gt_indent_3 {
 text-indent: 15px;
 }
-#trsufuazrp .gt_indent_4 {
+#mbjbdrwgey .gt_indent_4 {
 text-indent: 20px;
 }
-#trsufuazrp .gt_indent_5 {
+#mbjbdrwgey .gt_indent_5 {
 text-indent: 25px;
 }
-#trsufuazrp .katex-display {
+#mbjbdrwgey .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#trsufuazrp div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#mbjbdrwgey div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -5816,20 +5816,20 @@ Figure 21: FRA page-limit compliance among post-FRA projects (regulatory pages)
 <p>NEPA’s procedural rules were rewritten three times in four years. The natural regulatory regimes — keyed to each rule’s effective date — are summarized below. (The FRA, June 3, 2023, is a statutory amendment to NEPA, not a CEQ rule; it is already the pre/post-FRA breakpoint used in the duration and page-length analyses.)</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="riyfacyekd" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#riyfacyekd table {
+<div id="atooukmmaq" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#atooukmmaq table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#riyfacyekd thead, #riyfacyekd tbody, #riyfacyekd tfoot, #riyfacyekd tr, #riyfacyekd td, #riyfacyekd th {
+#atooukmmaq thead, #atooukmmaq tbody, #atooukmmaq tfoot, #atooukmmaq tr, #atooukmmaq td, #atooukmmaq th {
 border-style: none;
 }
-#riyfacyekd p {
+#atooukmmaq p {
 margin: 0;
 padding: 0;
 }
-#riyfacyekd .gt_table {
+#atooukmmaq .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -5854,11 +5854,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#riyfacyekd .gt_caption {
+#atooukmmaq .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#riyfacyekd .gt_title {
+#atooukmmaq .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -5869,7 +5869,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#riyfacyekd .gt_subtitle {
+#atooukmmaq .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5880,7 +5880,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#riyfacyekd .gt_heading {
+#atooukmmaq .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -5891,12 +5891,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#riyfacyekd .gt_bottom_border {
+#atooukmmaq .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#riyfacyekd .gt_col_headings {
+#atooukmmaq .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5910,7 +5910,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#riyfacyekd .gt_col_heading {
+#atooukmmaq .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5929,7 +5929,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#riyfacyekd .gt_column_spanner_outer {
+#atooukmmaq .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5940,13 +5940,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#riyfacyekd .gt_column_spanner_outer:first-child {
+#atooukmmaq .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#riyfacyekd .gt_column_spanner_outer:last-child {
+#atooukmmaq .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#riyfacyekd .gt_column_spanner {
+#atooukmmaq .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -5957,10 +5957,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#riyfacyekd .gt_spanner_row {
+#atooukmmaq .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#riyfacyekd .gt_group_heading {
+#atooukmmaq .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5985,7 +5985,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#riyfacyekd .gt_empty_group_heading {
+#atooukmmaq .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5999,13 +5999,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#riyfacyekd .gt_from_md > :first-child {
+#atooukmmaq .gt_from_md > :first-child {
 margin-top: 0;
 }
-#riyfacyekd .gt_from_md > :last-child {
+#atooukmmaq .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#riyfacyekd .gt_row {
+#atooukmmaq .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6023,7 +6023,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#riyfacyekd .gt_stub {
+#atooukmmaq .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6035,7 +6035,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#riyfacyekd .gt_stub_row_group {
+#atooukmmaq .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6048,13 +6048,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#riyfacyekd .gt_row_group_first td {
+#atooukmmaq .gt_row_group_first td {
 border-top-width: 2px;
 }
-#riyfacyekd .gt_row_group_first th {
+#atooukmmaq .gt_row_group_first th {
 border-top-width: 2px;
 }
-#riyfacyekd .gt_summary_row {
+#atooukmmaq .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6063,14 +6063,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#riyfacyekd .gt_first_summary_row {
+#atooukmmaq .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#riyfacyekd .gt_first_summary_row.thick {
+#atooukmmaq .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#riyfacyekd .gt_last_summary_row {
+#atooukmmaq .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6079,7 +6079,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#riyfacyekd .gt_grand_summary_row {
+#atooukmmaq .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6088,7 +6088,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#riyfacyekd .gt_first_grand_summary_row {
+#atooukmmaq .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6097,7 +6097,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#riyfacyekd .gt_last_grand_summary_row_top {
+#atooukmmaq .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6106,10 +6106,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#riyfacyekd .gt_striped {
+#atooukmmaq .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#riyfacyekd .gt_table_body {
+#atooukmmaq .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6117,7 +6117,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#riyfacyekd .gt_footnotes {
+#atooukmmaq .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6130,7 +6130,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#riyfacyekd .gt_footnote {
+#atooukmmaq .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-top: 4px;
@@ -6138,7 +6138,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#riyfacyekd .gt_sourcenotes {
+#atooukmmaq .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6151,64 +6151,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#riyfacyekd .gt_sourcenote {
+#atooukmmaq .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#riyfacyekd .gt_left {
+#atooukmmaq .gt_left {
 text-align: left;
 }
-#riyfacyekd .gt_center {
+#atooukmmaq .gt_center {
 text-align: center;
 }
-#riyfacyekd .gt_right {
+#atooukmmaq .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#riyfacyekd .gt_font_normal {
+#atooukmmaq .gt_font_normal {
 font-weight: normal;
 }
-#riyfacyekd .gt_font_bold {
+#atooukmmaq .gt_font_bold {
 font-weight: bold;
 }
-#riyfacyekd .gt_font_italic {
+#atooukmmaq .gt_font_italic {
 font-style: italic;
 }
-#riyfacyekd .gt_super {
+#atooukmmaq .gt_super {
 font-size: 65%;
 }
-#riyfacyekd .gt_footnote_marks {
+#atooukmmaq .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#riyfacyekd .gt_asterisk {
+#atooukmmaq .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#riyfacyekd .gt_indent_1 {
+#atooukmmaq .gt_indent_1 {
 text-indent: 5px;
 }
-#riyfacyekd .gt_indent_2 {
+#atooukmmaq .gt_indent_2 {
 text-indent: 10px;
 }
-#riyfacyekd .gt_indent_3 {
+#atooukmmaq .gt_indent_3 {
 text-indent: 15px;
 }
-#riyfacyekd .gt_indent_4 {
+#atooukmmaq .gt_indent_4 {
 text-indent: 20px;
 }
-#riyfacyekd .gt_indent_5 {
+#atooukmmaq .gt_indent_5 {
 text-indent: 25px;
 }
-#riyfacyekd .katex-display {
+#atooukmmaq .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#riyfacyekd div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#atooukmmaq div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -6363,20 +6363,20 @@ Table 3: Effect of office experience on CE review duration, with and without a 
 </figcaption>
 <div aria-describedby="tbl-fo-model-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
-<div id="gdztkvjsog" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#gdztkvjsog table {
+<div id="lerzhjidvt" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#lerzhjidvt table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#gdztkvjsog thead, #gdztkvjsog tbody, #gdztkvjsog tfoot, #gdztkvjsog tr, #gdztkvjsog td, #gdztkvjsog th {
+#lerzhjidvt thead, #lerzhjidvt tbody, #lerzhjidvt tfoot, #lerzhjidvt tr, #lerzhjidvt td, #lerzhjidvt th {
 border-style: none;
 }
-#gdztkvjsog p {
+#lerzhjidvt p {
 margin: 0;
 padding: 0;
 }
-#gdztkvjsog .gt_table {
+#lerzhjidvt .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -6401,11 +6401,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#gdztkvjsog .gt_caption {
+#lerzhjidvt .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#gdztkvjsog .gt_title {
+#lerzhjidvt .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -6416,7 +6416,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#gdztkvjsog .gt_subtitle {
+#lerzhjidvt .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -6427,7 +6427,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#gdztkvjsog .gt_heading {
+#lerzhjidvt .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -6438,12 +6438,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#gdztkvjsog .gt_bottom_border {
+#lerzhjidvt .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#gdztkvjsog .gt_col_headings {
+#lerzhjidvt .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6457,7 +6457,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#gdztkvjsog .gt_col_heading {
+#lerzhjidvt .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6476,7 +6476,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#gdztkvjsog .gt_column_spanner_outer {
+#lerzhjidvt .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6487,13 +6487,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#gdztkvjsog .gt_column_spanner_outer:first-child {
+#lerzhjidvt .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#gdztkvjsog .gt_column_spanner_outer:last-child {
+#lerzhjidvt .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#gdztkvjsog .gt_column_spanner {
+#lerzhjidvt .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -6504,10 +6504,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#gdztkvjsog .gt_spanner_row {
+#lerzhjidvt .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#gdztkvjsog .gt_group_heading {
+#lerzhjidvt .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6532,7 +6532,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#gdztkvjsog .gt_empty_group_heading {
+#lerzhjidvt .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -6546,13 +6546,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#gdztkvjsog .gt_from_md > :first-child {
+#lerzhjidvt .gt_from_md > :first-child {
 margin-top: 0;
 }
-#gdztkvjsog .gt_from_md > :last-child {
+#lerzhjidvt .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#gdztkvjsog .gt_row {
+#lerzhjidvt .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6570,7 +6570,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#gdztkvjsog .gt_stub {
+#lerzhjidvt .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6582,7 +6582,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#gdztkvjsog .gt_stub_row_group {
+#lerzhjidvt .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6595,13 +6595,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#gdztkvjsog .gt_row_group_first td {
+#lerzhjidvt .gt_row_group_first td {
 border-top-width: 2px;
 }
-#gdztkvjsog .gt_row_group_first th {
+#lerzhjidvt .gt_row_group_first th {
 border-top-width: 2px;
 }
-#gdztkvjsog .gt_summary_row {
+#lerzhjidvt .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6610,14 +6610,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#gdztkvjsog .gt_first_summary_row {
+#lerzhjidvt .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#gdztkvjsog .gt_first_summary_row.thick {
+#lerzhjidvt .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#gdztkvjsog .gt_last_summary_row {
+#lerzhjidvt .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6626,7 +6626,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#gdztkvjsog .gt_grand_summary_row {
+#lerzhjidvt .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6635,7 +6635,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#gdztkvjsog .gt_first_grand_summary_row {
+#lerzhjidvt .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6644,7 +6644,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#gdztkvjsog .gt_last_grand_summary_row_top {
+#lerzhjidvt .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6653,10 +6653,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#gdztkvjsog .gt_striped {
+#lerzhjidvt .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#gdztkvjsog .gt_table_body {
+#lerzhjidvt .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6664,7 +6664,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#gdztkvjsog .gt_footnotes {
+#lerzhjidvt .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6677,7 +6677,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#gdztkvjsog .gt_footnote {
+#lerzhjidvt .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-top: 4px;
@@ -6685,7 +6685,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#gdztkvjsog .gt_sourcenotes {
+#lerzhjidvt .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6698,64 +6698,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#gdztkvjsog .gt_sourcenote {
+#lerzhjidvt .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#gdztkvjsog .gt_left {
+#lerzhjidvt .gt_left {
 text-align: left;
 }
-#gdztkvjsog .gt_center {
+#lerzhjidvt .gt_center {
 text-align: center;
 }
-#gdztkvjsog .gt_right {
+#lerzhjidvt .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#gdztkvjsog .gt_font_normal {
+#lerzhjidvt .gt_font_normal {
 font-weight: normal;
 }
-#gdztkvjsog .gt_font_bold {
+#lerzhjidvt .gt_font_bold {
 font-weight: bold;
 }
-#gdztkvjsog .gt_font_italic {
+#lerzhjidvt .gt_font_italic {
 font-style: italic;
 }
-#gdztkvjsog .gt_super {
+#lerzhjidvt .gt_super {
 font-size: 65%;
 }
-#gdztkvjsog .gt_footnote_marks {
+#lerzhjidvt .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#gdztkvjsog .gt_asterisk {
+#lerzhjidvt .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#gdztkvjsog .gt_indent_1 {
+#lerzhjidvt .gt_indent_1 {
 text-indent: 5px;
 }
-#gdztkvjsog .gt_indent_2 {
+#lerzhjidvt .gt_indent_2 {
 text-indent: 10px;
 }
-#gdztkvjsog .gt_indent_3 {
+#lerzhjidvt .gt_indent_3 {
 text-indent: 15px;
 }
-#gdztkvjsog .gt_indent_4 {
+#lerzhjidvt .gt_indent_4 {
 text-indent: 20px;
 }
-#gdztkvjsog .gt_indent_5 {
+#lerzhjidvt .gt_indent_5 {
 text-indent: 25px;
 }
-#gdztkvjsog .katex-display {
+#lerzhjidvt .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#gdztkvjsog div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#lerzhjidvt div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -6901,7 +6901,7 @@ Figure 28: Median geothermal CE review duration by state and cohort (BLM navy, 
 <div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p>The EA panel’s magenta Fossil (doc-anchored) row recomputes the fossil-EA duration using only document-stated initiation dates (<code>initiation_source_type ≠ register</code>), setting aside the BLM register’s administrative “project start” entries that compress the register-anchored median to ~40 days. Its ~5-month median is the more defensible estimate of true review length, but it survives for only 119 of the 754 complete fossil EAs — the register is the sole start-date signal for the other 635. Both rows are shown so the coverage-versus-plausibility trade-off is explicit; CE and EIS are unaffected by this issue and keep their three standard energy rows.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>The EA panel’s magenta Fossil (doc-anchored) row recomputes the fossil-EA duration using only document-stated initiation dates (<code>initiation_source_type ≠ register</code>), setting aside the BLM register’s administrative “project start” entries that compress the register-anchored median to ~40 days. Its ~5-month median is the more defensible estimate of true review length, but it survives for only 124 of the 758 complete fossil EAs — the register is the sole start-date signal for the other 634. Both rows are shown so the coverage-versus-plausibility trade-off is explicit; CE and EIS are unaffected by this issue and keep their three standard energy rows.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn2"><p>We use <em>regulatory</em> pages rather than raw PDF page counts because raw counts substantially overstate the length the statute limits — they include embedded appendices and sparse pages (covers, maps, dividers). Mean raw pages run roughly 2× regulatory pages for EAs and higher for EISs, so a raw count cannot be compared to the 75/150-page limits.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main> <!-- /main -->

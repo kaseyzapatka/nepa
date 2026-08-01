@@ -108,11 +108,11 @@ From the `r fmt_n(n_fonsi)` decarbonization FONSIs, a language model labeled eac
 
 The strongest single opportunity in the screen involves `r n_tx_up` in-corridor transmission upgrade FONSIs — reconductoring, rebuilding, and uprating existing lines within existing rights-of-way — across `r tx_states` states, mostly in the West, run by BLM, DOE, and the power marketing administrations as full EAs. TVA already categorically excludes exactly this work under two exclusions: CE #17 (modify in place — reconductoring, equipment swaps; no length limit) and CE #19 (rebuild within the existing right-of-way — capped at 25 miles).
 
-The catch is the cap. The in-corridor rebuilds in our data run a ~28-mile median — some far longer — against CE #19's 25-mile limit (@fig-sizes). So the move is not simply to adopt TVA's CE as-is, but to expand its mileage bound (or write the adopted version with a higher cap) so it covers the work agencies are demonstrably approving as insignificant anyway.
+The catch is the cap. The in-corridor rebuilds in our data run a ~28-mile median — some far longer — against CE #19's 25-mile limit. So the move is not simply to adopt TVA's CE as-is, but to expand its mileage bound (or write the adopted version with a higher cap) so it covers the work agencies are demonstrably approving as insignificant anyway. @fig-sizes puts the mileage problem in context: across all bounded low-impact FONSIs that state a size, line miles is the one dimension that systematically runs past existing CE limits, while acreage and voltage mostly fall within them.
 
 ```{r}
 #| label: fig-sizes
-#| fig-cap: "Note: Bounded transmission FONSIs vs. all stated CE size limits (log scale). Line length (miles) is the dimension where FONSIs systematically run past stated CE limits; acreage and voltage mostly fall within or near them (voltage is bounded by only two CEs, so that row is indicative)."
+#| fig-cap: "Note: Bounded low-impact FONSIs (all technologies) vs. all stated CE size limits (log scale). Line length (miles) is the dimension where FONSIs systematically run past stated CE limits; acreage and voltage mostly fall within or near them (voltage is bounded by only two CEs, so that row is indicative). The ~28-mile rebuild median in the text is computed from the transmission-upgrade FONSIs alone."
 #| out-width: "90%"
 include_fig("fig_d6_sizes.png")
 ```

@@ -371,7 +371,7 @@ p_gap <- ggplot(adopt, aes(reorder(lab, n_profile_fonsi), n_profile_fonsi)) +
   geom_text(aes(label = tag), hjust = -0.03, size = 3.2, color = catf_navy) +
   coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.45))) +
   labs(title = "The adoption gap, by evidence weight",
-       subtitle = "Bar = bounded FONSIs run as full EAs; label = the existing CE (and holder) they could adopt instead",
+       subtitle = str_wrap("Bar = bounded FONSIs run as full EAs; label = the existing CE (and holder) they could adopt instead", 88),
        x = NULL, y = "Bounded, low-impact FONSIs run as full EA→FONSI",
        caption = "Each action already has a categorical exclusion at another agency; adopting it avoids the full EA.") +
   theme_catf()

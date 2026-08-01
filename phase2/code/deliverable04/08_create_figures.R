@@ -220,8 +220,22 @@ dates <- dates_raw |>
       NA_integer_
     ),
 
-    # Complete = both dates present at any granularity (used in coverage charts)
-    timeline_complete = !is.na(initiation_date) & !is.na(decision_date),
+    # Complete = a usable timeline, defined EXACTLY as the duration ("headline")
+    # frame below: complete status, both dates present at day/month precision
+    # (year-only excluded — a day cannot be responsibly imputed from a year),
+    # and a non-negative span after mid-month imputation. This keeps every
+    # coverage figure and d4_complete_share.csv in exact agreement with the
+    # duration n's the narrative cites (no both-dates-but-unusable wedge).
+    timeline_complete = timeline_status %in% c("complete_clear", "complete_with_proxy") &
+      !is.na(initiation_date) & !is.na(decision_date) &
+      initiation_date_granularity != "year" &
+      decision_date_granularity  != "year" &
+      as.integer(
+        if_else(decision_date_granularity == "month",
+                lubridate::floor_date(decision_date, "month") + 14, decision_date) -
+        if_else(initiation_date_granularity == "month",
+                lubridate::floor_date(initiation_date, "month") + 14, initiation_date)
+      ) >= 0,
 
     energy_type = factor(
       dplyr::recode(coalesce(project_energy_type, "Other"), "Clean" = "Decarb"),
@@ -623,13 +637,15 @@ cat("\nAll output files written to:", OUTPUT, "\n")
 coverage_fig <- dates |>
   mutate(
     coverage_group = case_when(
-      !is.na(decision_date) & !is.na(initiation_date) ~ "Both dates",
-      !is.na(decision_date)                            ~ "Decision only",
-      !is.na(initiation_date)                          ~ "Initiation only",
-      TRUE                                             ~ "No date"
+      timeline_complete                                 ~ "Complete timeline",
+      !is.na(decision_date) & !is.na(initiation_date)  ~ "Both dates (unusable)",
+      !is.na(decision_date)                             ~ "Decision only",
+      !is.na(initiation_date)                           ~ "Initiation only",
+      TRUE                                              ~ "No date"
     ),
     coverage_group = factor(coverage_group,
-      levels = c("Both dates", "Decision only", "Initiation only", "No date"))
+      levels = c("Complete timeline", "Both dates (unusable)",
+                 "Decision only", "Initiation only", "No date"))
   ) |>
   count(process_type, coverage_group) |>
   group_by(process_type) |>
@@ -654,15 +670,16 @@ p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverag
   ) +
   scale_y_continuous(labels = percent_format(accuracy = 1)) +
   scale_fill_manual(values = c(
-    "Both dates"      = catf_navy,
-    "Decision only"   = catf_dark_blue,
-    "Initiation only" = catf_light_blue,
-    "No date"         = "#CCCCCC"
+    "Complete timeline"     = catf_navy,
+    "Both dates (unusable)" = "#8C8C8C",
+    "Decision only"         = catf_dark_blue,
+    "Initiation only"       = catf_light_blue,
+    "No date"               = "#CCCCCC"
   )) +
   scale_color_identity() +
   labs(
     title    = "Timeline Coverage by Review Type",
-    subtitle = "Share of projects by timeline completeness category",
+    subtitle = "Share of projects by timeline completeness category; unusable = both dates found but out of order, year-only precision, or unresolved",
     x = NULL, y = "Share of projects", fill = NULL
   )
 
@@ -680,42 +697,45 @@ coverage_energy_fig <- dates |>
   filter(!is.na(process_group)) |>
   mutate(
     coverage_group = case_when(
-      !is.na(decision_date) & !is.na(initiation_date) ~ "Both dates",
-      !is.na(decision_date)                            ~ "Decision only",
-      !is.na(initiation_date)                          ~ "Initiation only",
-      TRUE                                             ~ "No date"
+      timeline_complete                                 ~ "Complete timeline",
+      !is.na(decision_date) & !is.na(initiation_date)  ~ "Both dates (unusable)",
+      !is.na(decision_date)                             ~ "Decision only",
+      !is.na(initiation_date)                           ~ "Initiation only",
+      TRUE                                              ~ "No date"
     ),
     coverage_group = factor(coverage_group,
-      levels = c("Both dates", "Decision only", "Initiation only", "No date"))
+      levels = c("Complete timeline", "Both dates (unusable)",
+                 "Decision only", "Initiation only", "No date"))
   ) |>
   count(process_group, energy_type, coverage_group) |>
   group_by(process_group, energy_type) |>
   mutate(pct = n / sum(n), n_proc_energy = sum(n)) |>
   ungroup()
 
-# "Both dates" share label per process x energy (the headline number to compare to Phase 1)
+# Complete-timeline share label per process x energy (the headline number to compare to Phase 1)
 both_lab <- coverage_energy_fig |>
-  filter(coverage_group == "Both dates") |>
+  filter(coverage_group == "Complete timeline") |>
   mutate(lab = sprintf("%.0f%%", 100 * pct))
 
 p_coverage_energy <- ggplot(coverage_energy_fig,
                             aes(x = energy_type, y = pct, fill = coverage_group)) +
-  # reverse = TRUE -> "Both dates" at the bottom, "No date" at the top
+  # reverse = TRUE -> "Complete timeline" at the bottom, "No date" at the top
   geom_col(width = 0.7, position = position_stack(reverse = TRUE)) +
-  # centre the "% with both dates" label in the navy bottom segment, white text
+  # centre the "% complete" label in the navy bottom segment, white text
   geom_text(data = both_lab, aes(x = energy_type, y = pct / 2, label = lab),
             inherit.aes = FALSE, size = 2.8, color = "white", fontface = "bold") +
   facet_wrap(~process_group, nrow = 1) +
   scale_y_continuous(labels = percent_format(accuracy = 1)) +
   scale_fill_manual(values = c(
-    "Both dates"      = catf_navy,
-    "Decision only"   = catf_dark_blue,
-    "Initiation only" = catf_light_blue,
-    "No date"         = "#CCCCCC"
+    "Complete timeline"     = catf_navy,
+    "Both dates (unusable)" = "#8C8C8C",
+    "Decision only"         = catf_dark_blue,
+    "Initiation only"       = catf_light_blue,
+    "No date"               = "#CCCCCC"
   )) +
   labs(
     title    = "Timeline Coverage by Review Type and Energy Type",
-    subtitle = "% on bars = share with BOTH dates (the Phase-1-comparable number; Decarb = clean energy)",
+    subtitle = "% on bars = share with a complete, usable timeline (the Phase-1-comparable number; Decarb = clean energy)",
     x = NULL, y = "Share of projects", fill = NULL
   )
 
@@ -843,9 +863,10 @@ process_summary_complete <- tibble(process_group = factor(PROCESS_LEVELS, levels
     )
   )
 
-# Persist the exact per-process complete-timeline shares this figure prints (complete = BOTH dates
-# present) so the report narrative can cite the SAME numbers (see d4_complete_share.csv). This keeps
-# the "% complete" text aligned with fig-complete-share and fig-coverage by construction.
+# Persist the exact per-process complete-timeline shares this figure prints (complete = the usable
+# duration frame: complete status, day/month precision, valid order — see the timeline_complete
+# definition above) so the report narrative can cite the SAME numbers (see d4_complete_share.csv).
+# By construction these n's equal the duration-analysis n's in d4_duration_summary.csv.
 write_csv(
   process_summary_complete |>
     transmute(process_type = as.character(process_group), n_complete, n_projects, share_complete),
@@ -875,7 +896,7 @@ fig_complete_share <- ggplot(process_summary_complete,
   scale_fill_manual(values = PROCESS_COLORS, drop = FALSE) +
   labs(
     title    = "Share of Reviews with Complete Timelines",
-    subtitle = "Dot = share with a complete timeline (initiation + decision); box = 0-100% frame",
+    subtitle = "Dot = share with a complete, usable timeline (initiation + decision; valid order; day- or month-precision); box = 0-100% frame",
     x = "Review Process",
     y = "Completion Share"
   ) +

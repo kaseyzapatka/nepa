@@ -309,10 +309,10 @@ outliers |>
   kable(align = "l",
         col.names = c("**Project**", "**Energy**", "**Years**",
                       "**Initiation**", "**Decision**"),
-        caption = "The best-evidenced long NEPA reviews in the energy portfolios — case-study candidates. All rows are EISs (multi-year EA/CE spans are almost always extraction errors) whose initiation and decision dates were individually verified against the documents' own procedural text; other long-running outliers are excluded as confirmed or suspected extraction issues.")
+        caption = "The best-evidenced long NEPA reviews in the energy portfolios — case-study candidates. All rows are EISs (multi-year EA/CE spans are almost always extraction errors) whose initiation and decision dates were individually verified against the documents' own procedural text; other long-running outliers are excluded as confirmed or suspected extraction issues. SunZia appears twice in NEPATEC 2.0 — the original EIS round (notice of intent May 2009 → decision December 2014) and the amended-route EIS; the row here is the amended-route record (project id 45d2e6f0c1355538141299ae292d7816), whose documents date the review from the original September 2008 right-of-way application through the April 2023 Record of Decision.")
 ```
 
-The table shows the best-evidenced examples: the energy-portfolio reviews whose start and end dates we verified against the documents' own procedural text. SunZia Southwest Transmission — a right-of-way application in September 2008 to a Record of Decision in April 2023 — is exactly the kind of protracted, multi-administration review that dominates the permitting-reform debate, and the Placer County and Las Vegas reviews show the same pattern at plan scale. *\[Short case studies on 1–2 of these to be added by CATF if timing allows; otherwise a follow-up research product.\]*
+The table shows the best-evidenced examples: the energy-portfolio reviews whose start and end dates we verified against the documents' own procedural text. SunZia Southwest Transmission — a right-of-way application in September 2008 to a Record of Decision in April 2023 — is exactly the kind of protracted, multi-administration review that dominates the permitting-reform debate, and the Placer County and Las Vegas reviews show the same pattern at plan scale.
 
 # Conclusion and Policy Implications
 
