@@ -87,6 +87,8 @@ Historically, establishing a regulatory CE has been slow: an agency must assembl
 
 That creates a data problem that is now solvable. Which classes of actions are agencies repeatedly reviewing through full EAs that reliably end in "no significant impact"? Which of those already have a matching CE at another agency? NEPATEC 2.0 and machine learning make it possible to answer these questions systematically for the first time: every decarbonization FONSI can be read, classified by technology and action, matched against the complete federal CE catalog, and sorted into three opportunity types — expand an existing CE whose size bound is too tight, adopt a CE another agency already holds, or develop a new CE where none exists.
 
+@fig-coverage-grid shows the result of that screen: every decarbonization FONSI placed on the technology × action grid, with each cell colored by the verdict it resolves to. The rest of this fact sheet walks through the three verdicts in turn.
+
 ```{r}
 #| label: fig-coverage-grid
 #| fig-cap: "Note: The clean-energy CE coverage map — every decarbonization FONSI placed by technology × action. Color = verdict (adopt / expand / develop / develop-excluded / already covered); number = CE-shaped FONSIs in the cell."
@@ -106,7 +108,7 @@ From the `r fmt_n(n_fonsi)` decarbonization FONSIs, a language model labeled eac
 
 The strongest single opportunity in the screen involves `r n_tx_up` in-corridor transmission upgrade FONSIs — reconductoring, rebuilding, and uprating existing lines within existing rights-of-way — across `r tx_states` states, mostly in the West, run by BLM, DOE, and the power marketing administrations as full EAs. TVA already categorically excludes exactly this work under two exclusions: CE #17 (modify in place — reconductoring, equipment swaps; no length limit) and CE #19 (rebuild within the existing right-of-way — capped at 25 miles).
 
-The catch is the cap. The in-corridor rebuilds in our data run a ~28-mile median — some far longer — against CE #19's 25-mile limit. So the move is not simply to adopt TVA's CE as-is, but to expand its mileage bound (or write the adopted version with a higher cap) so it covers the work agencies are demonstrably approving as insignificant anyway.
+The catch is the cap. The in-corridor rebuilds in our data run a ~28-mile median — some far longer — against CE #19's 25-mile limit (@fig-sizes). So the move is not simply to adopt TVA's CE as-is, but to expand its mileage bound (or write the adopted version with a higher cap) so it covers the work agencies are demonstrably approving as insignificant anyway.
 
 ```{r}
 #| label: fig-sizes
@@ -115,7 +117,7 @@ The catch is the cap. The in-corridor rebuilds in our data run a ~28-mile median
 include_fig("fig_d6_sizes.png")
 ```
 
-This is also nearly the only numeric expand case possible: of the `r fmt_n(n_ce)` existing federal CEs, just `r n_bounds` state any explicit numeric limit at all. The rest bound their scope with words ("routine," "minor," "within existing facilities") — so most expansion questions are qualitative-coverage questions that require reading the CE text, not arithmetic.
+This is also nearly the only numeric expand case possible. Of the `r fmt_n(n_ce)` CEs in the federal catalog, only `r n_bounds` write their scope limit as a number — an acreage, mileage, voltage, megawatt, or well-count cap like CE #19's 25 miles. The other ~`r fmt_n(n_ce - n_bounds)` bound their scope with words ("routine," "minor," "within existing facilities"), so for them the expansion question is qualitative — whether the CE's text covers the action — not a number that can be raised.
 
 # Adopting Other Agencies' CEs
 
@@ -125,7 +127,7 @@ The same grid resolves a cell to adopt when a close matching CE exists — but a
 
 ## Adoption is already how the CE landscape works
 
-The existing catalog — `r fmt_n(n_ce)` CEs across `r n_units` federal agency units — is heavily redundant in exactly the way the FRA's adoption authority anticipates. Laid out by text similarity, the CEs form recognizable cross-agency families: real property and rights-of-way, geophysical surveys and data collection, routine maintenance, procurement, hazardous-materials handling.
+The existing catalog — `r fmt_n(n_ce)` CEs across `r n_units` federal agency units — is heavily redundant in exactly the way the FRA's adoption authority anticipates. Laid out by text similarity, the CEs form recognizable cross-agency families (@fig-ce-scatter): real property and rights-of-way, geophysical surveys and data collection, routine maintenance, procurement, hazardous-materials handling.
 
 ```{r}
 #| label: fig-ce-scatter
@@ -134,9 +136,9 @@ The existing catalog — `r fmt_n(n_ce)` CEs across `r n_units` federal agency u
 include_fig("fig_d6_ce_scatter.png")
 ```
 
-`r fmt_n(n_xdup)` CEs have a near-twin at a different agency, forming `r n_xclust` shared action families. When an action is genuinely low-impact, agencies converge on nearly identical exclusions — adoption formalizes what the landscape already does informally.
+The same comparison can be read at a much finer grain than the figure's broad families: setting a strict similarity bar — one agency's CE written in close-to-identical language to another's — `r fmt_n(n_xdup)` of the `r fmt_n(n_ce)` CEs have such a near-twin at a different agency, and linking the twins together yields `r fmt_n(n_xclust)` action families already shared by two or more agencies. The biggest of these are reassuringly mundane: routine procurement of goods and services (excluded in near-identical terms by `r max(clusters$n_agencies)` agency units), ordinary personnel and administrative activities, building demolition and disposal, post-fire rehabilitation on public lands. That is the precedent that matters here: when an action is genuinely low-impact, agencies have repeatedly ended up writing nearly identical exclusions into their own NEPA procedures — the FRA's adoption authority formalizes, and shortcuts, what the landscape already does informally.
 
-The CE authorities that decarbonization and fossil projects actually cite are similarly concentrated: a small set of workhorse exclusions (DOE's financial-assistance CEs, BLM's oil-and-gas pathways) carries most of the volume.
+The CE authorities that decarbonization and fossil projects actually cite are similarly concentrated (@fig-top-ce): a small set of workhorse exclusions (DOE's financial-assistance CEs, BLM's oil-and-gas pathways) carries most of the volume.
 
 ```{r}
 #| label: fig-top-ce
@@ -145,24 +147,13 @@ The CE authorities that decarbonization and fossil projects actually cite are si
 include_fig("fig4_top_ce_codes.png")
 ```
 
-For the decarbonization FONSI grid, `r n_adopt` cells resolve to adopt — though most rest on thin evidence (only `r n_adopt_sub` have two or more CE-shaped FONSIs). Treat the table below as a menu of matches to verify, not a set of robust findings:
+For the decarbonization FONSI grid, `r n_adopt` cells resolve to adopt — though most rest on thin evidence (only `r n_adopt_sub` have two or more CE-shaped FONSIs). @fig-adoption-gap shows those better-evidenced candidates: each bar is a recurring action that agencies ran as full EAs, labeled with the existing CE (and the agency that holds it) they could adopt instead. Treat it as a menu of matches to verify, not a set of robust findings; the full candidate detail, including which agencies could adopt each CE, is in the [Deliverable 6 report](https://www.kaseyzapatka.com/nepa/phase2/reports/deliverable06.html).
 
 ```{r}
-#| label: tbl-adopt
-#| tbl-cap: "Candidate adopt opportunities: recurring decarbonization actions with a close CE match at one agency but run as full EAs at others. Matches pending eCFR verification."
-verdicts |>
-  filter(verdict == "adopt", n_profile_fonsi >= 2) |>
-  arrange(desc(rank_score)) |>
-  transmute(
-    `Technology × action` = str_replace_all(candidate_label, "_", " "),
-    `Low-impact FONSIs` = n_profile_fonsi,
-    # Backticks keep the multi-hyphen CE ids verbatim — otherwise pandoc smart
-    # typography turns "---" into an em dash in the rendered docx.
-    `Existing CE (held by)` = paste0("`", best_ce_structured_id, "`", " — ", best_ce_agency),
-    `Agencies that could adopt` = str_trunc(adopt_targets, 60),
-    States = n_states
-  ) |>
-  kable(align = "l")
+#| label: fig-adoption-gap
+#| fig-cap: "Note: Candidate adopt opportunities — recurring decarbonization actions run as full EAs despite a close CE match at another agency (adopt cells with at least two CE-shaped, low-impact FONSIs). Matches pending eCFR verification."
+#| out-width: "95%"
+include_fig("fig_d6_adoption_gap.png")
 ```
 
 One timing caveat: nearly all of these FONSIs predate the FRA's June 2023 adoption authority — agencies ran full EAs because the shortcut did not yet exist. The findings identify where adoption review is likely worthwhile; confirming that agencies still process these actions as EAs post-FRA is the required next check.
@@ -181,7 +172,7 @@ We deliberately stop short of recommending specific new CEs. The FONSI counts be
 
 # Mitigated FONSIs
 
-A large majority of decarbonization FONSIs — `r fmt_n(n_mit)` of `r fmt_n(n_fonsi)` (`r percent(mit_share, accuracy = 1)`) — are mitigated FONSIs: the "no significant impact" finding depends on committed mitigation rather than the action being inherently benign, and in `r fmt_n(n_case_dep)` of those the commitment is case-specific.
+A large majority of decarbonization FONSIs — `r fmt_n(n_mit)` of `r fmt_n(n_fonsi)` (`r percent(mit_share, accuracy = 1)`) — are mitigated FONSIs (@fig-mitigated): the "no significant impact" finding depends on committed mitigation rather than the action being inherently benign, and in `r fmt_n(n_case_dep)` of those the commitment is case-specific.
 
 ```{r}
 #| label: fig-mitigated
@@ -198,9 +189,9 @@ The design implication is that a CE built from this evidence base cannot rely on
 
 **The federal government should invest in expanding NEPATEC — and consider responsible use of AI to identify CE candidates.** This analysis demonstrates a repeatable pattern: machine reading of the FONSI record can surface where agencies repeatedly conclude "no significant impact" for the same class of action, match those classes against the full federal CE catalog, and rank expand/adopt/develop opportunities — work that would take a policy team months per agency to do by hand. Three implications follow:
 
-1. Act on the transmission case. The in-corridor transmission upgrade finding is well-evidenced, maps to a specific existing CE, and has a specific fix (raise the mileage cap). It is the natural first candidate for expert verification.
-2. Use the FRA's adoption authority systematically, not opportunistically. The catalog's `r n_xclust` shared action families show adoption is normal practice; the candidate list here gives agencies a place to start looking.
-3. Keep humans in the loop. Every machine-identified candidate is a screening result. The appropriate model is AI-assisted triage feeding subject-matter-expert review and ordinary rulemaking process — the analysis narrows the field of candidates, and experts confirm which ones hold up.
+1. **Act on the transmission case.** The in-corridor transmission upgrade finding is well-evidenced, maps to a specific existing CE, and has a specific fix (raise the mileage cap). It is the natural first candidate for expert verification.
+2. **Use the FRA's adoption authority systematically, not opportunistically.** The catalog's `r n_xclust` shared action families show adoption is normal practice; the candidate list here gives agencies a place to start looking.
+3. **Keep humans in the loop.** Every machine-identified candidate is a screening result. The appropriate model is AI-assisted triage feeding subject-matter-expert review and ordinary rulemaking process — the analysis narrows the field of candidates, and experts confirm which ones hold up.
 
 More data makes all of this better. A NEPATEC that continuously ingests agency records — with the structured metadata contemplated by CEQ's NEPA and Permitting Data and Technology Standard — would turn CE identification from a one-time research exercise into standing capability.
 

@@ -152,7 +152,7 @@ We analyze two document tracks separately, because they record opposite outcomes
 
 The workflow pairs the scale of automation with the reliability of human judgment. Software locates the specific passages where significance findings live; a language model (Claude) codes each one — outcome, resource area, threshold, mitigation. In parallel, two AI coders independently label a stratified 400-passage sample per track and a human adjudicator settles every disagreement, producing an answer key. The extraction is scored against that held-out key before any result counts. Every reported number traces back to a source passage.
 
-The two tracks together span a larger EIS corpus and a smaller FONSI corpus, and both touch every major resource area:
+The two tracks together span a larger EIS corpus and a smaller FONSI corpus, and both touch every major resource area (@fig-corpus-overview):
 
 ```{r}
 #| label: fig-corpus-overview
@@ -171,7 +171,7 @@ Accuracy is measured against the AI-human answer key on a held-out test. The ext
 
 ## How agencies stay below the line
 
-Within FONSIs the determinations sit, almost without exception, below the significance line: the agency either finds no significant impact outright or an impact that is less than significant, sometimes only with committed mitigation. The dominant outcome is no significant impact, as expected. But the resources agencies analyze most — biological, water, cultural/historic — are also where the close calls concentrate: the committed-mitigation band is widest for biological, soils/geology, and water.
+Within FONSIs the determinations sit, almost without exception, below the significance line (@fig-outcomes): the agency either finds no significant impact outright or an impact that is less than significant, sometimes only with committed mitigation. The dominant outcome is no significant impact, as expected. But the resources agencies analyze most — biological, water, cultural/historic — are also where the close calls concentrate: the committed-mitigation band is widest for biological, soils/geology, and water.
 
 ```{r}
 #| label: fig-outcomes
@@ -182,7 +182,7 @@ include_fig("fig_outcomes_by_resource.png")
 
 ## Mitigated FONSIs — the line itself
 
-The most revealing determinations are the mitigated ones: impacts the agency says would be significant, brought below the line only by required measures. They show exactly where the line sits and what it costs to stay under it, and they are the majority of FONSIs. About `r percent(mit_share, accuracy = 1)` of the analyzed FONSI documents are mitigated, with at least one resource whose not-significant conclusion depends explicitly on committed mitigation.
+The most revealing determinations are the mitigated ones: impacts the agency says would be significant, brought below the line only by required measures. They show exactly where the line sits and what it costs to stay under it, and they are the majority of FONSIs. About `r percent(mit_share, accuracy = 1)` of the analyzed FONSI documents are mitigated (@fig-mitigated-share), with at least one resource whose not-significant conclusion depends explicitly on committed mitigation.
 
 ```{r}
 #| label: fig-mitigated-share
@@ -191,7 +191,7 @@ The most revealing determinations are the mitigated ones: impacts the agency say
 include_fig("fs5_mitigated_share.png")
 ```
 
-The mitigation burden is concentrated in a few resources — `r top_mit_str` — the areas where decarbonization projects most frequently sit at the line and are pulled under it by mitigation. Reading volume and mitigation-intensity together sharpens the picture: biological resources dominate both axes (analyzed often and mitigated often), while soils/geology are mitigated intensively despite lower volume.
+The mitigation burden is concentrated in a few resources (@fig-mit-by-resource) — `r top_mit_str` — the areas where decarbonization projects most frequently sit at the line and are pulled under it by mitigation. Reading volume and mitigation-intensity together sharpens the picture (@fig-mit-landscape): biological resources dominate both axes (analyzed often and mitigated often), while soils/geology are mitigated intensively despite lower volume.
 
 ```{r}
 #| label: fig-mit-by-resource
@@ -209,7 +209,7 @@ include_fig("fig_mitigation_landscape.png")
 
 A second, independent line of evidence confirms the pattern. For each flagged effect we can look at the committed mitigation conditions nearby and ask whether any addresses the same resource area — a direct join between an impact and a commitment. On that basis, `r percent(match_share, accuracy = 1)` of flagged FONSI determinations are matched to at least one same-resource mitigation condition, concentrated in the same areas as the class signal. (The match rule is deliberately inclusive, so read this as an aggregate map of which resources recurringly attract same-resource mitigation, not a per-project ruling.)
 
-What do these mitigations actually look like? A representative measure per resource, ordered from the most mitigation-heavy resources down:
+What do these mitigations actually look like? @tbl-mitigation-examples gives a representative measure per resource, ordered from the most mitigation-heavy resources down:
 
 ```{r}
 #| label: tbl-mitigation-examples
@@ -227,7 +227,7 @@ if (nrow(mit_ex) > 0) {
 
 ### Mitigation drivers differ by agency and technology
 
-BLM and the DOE family run different kinds of projects, so the resources that push them to mitigate differ too. Biological, cultural/historic, air quality, and visual resources drive mitigation harder for BLM (land-facing impacts on habitat, historic sites, and viewsheds), while noise and water lean toward the DOE family (facility- and construction-driven effects).
+BLM and the DOE family run different kinds of projects, so the resources that push them to mitigate differ too (@fig-dept). Biological, cultural/historic, air quality, and visual resources drive mitigation harder for BLM (land-facing impacts on habitat, historic sites, and viewsheds), while noise and water lean toward the DOE family (facility- and construction-driven effects).
 
 ```{r}
 #| label: fig-dept
@@ -236,7 +236,7 @@ BLM and the DOE family run different kinds of projects, so the resources that pu
 include_fig("fig_dept_by_resource.png")
 ```
 
-The project type matters as much as the agency. Transmission and wind lean hardest on mitigation: linear corridors and turbine sites touch habitat, viewsheds, and cultural resources that repeatedly need committed measures to reach a not-significant finding. Solar and storage sit lower, closer to the corpus average.
+The project type matters as much as the agency (@fig-fonsi-tech). Transmission and wind lean hardest on mitigation: linear corridors and turbine sites touch habitat, viewsheds, and cultural resources that repeatedly need committed measures to reach a not-significant finding. Solar and storage sit lower, closer to the corpus average.
 
 ```{r}
 #| label: fig-fonsi-tech
@@ -247,7 +247,7 @@ include_fig("fig_fonsi_technology.png")
 
 ### Enforceability of committed mitigation
 
-"Mitigated" only means something if the measures are actually required. The extraction flags whether each mitigated conclusion is tied to an enforceable permit condition or committed only in the document's text. The pattern tracks regulatory leverage: biological and air-quality conclusions — backed by the Endangered Species Act and the Clean Air Act — most often carry an enforceable condition (about half and 43%). Visual and water sit mid-range (36% and 35%; the visual cell is small, n = 14 mitigated conclusions), while cultural, soils/geology, and public-health measures are rarely tied to one (26%, 9%, and 8%).
+"Mitigated" only means something if the measures are actually required. The extraction flags whether each mitigated conclusion is tied to an enforceable permit condition or committed only in the document's text. The pattern tracks regulatory leverage (@fig-enforce): biological and air-quality conclusions — backed by the Endangered Species Act and the Clean Air Act — most often carry an enforceable condition (about half and 43%). Visual and water sit mid-range (36% and 35%; the visual cell is small, n = 14 mitigated conclusions), while cultural, soils/geology, and public-health measures are rarely tied to one (26%, 9%, and 8%).
 
 ```{r}
 #| label: fig-enforce
@@ -268,7 +268,7 @@ The EIS scores run lower than the FONSI track across the board: the pipeline fin
 
 ## Which resources cross the line
 
-Ranking each resource by how often its EIS conclusions are judged significant, `r eis_top$lab[1]` stands alone at the top, the clearest case of an impact that, once significant, tends to stay that way. `r eis_top$lab[2]`, `r eis_top$lab[3]`, and `r eis_top$lab[4]` follow.
+Ranking each resource by how often its EIS conclusions are judged significant (@fig-above-line), `r eis_top$lab[1]` stands alone at the top, the clearest case of an impact that, once significant, tends to stay that way. `r eis_top$lab[2]`, `r eis_top$lab[3]`, and `r eis_top$lab[4]` follow.
 
 ```{r}
 #| label: fig-above-line
@@ -277,7 +277,7 @@ Ranking each resource by how often its EIS conclusions are judged significant, `
 include_fig("fs5_eis_above_line.png")
 ```
 
-The starkest determinations are the significant and unavoidable ones, where the agency concludes the impact is real, material, and cannot be mitigated below the line. These are the true limits on a decarbonization project. Visual impacts dominate this category: a wind farm on a ridgeline or a transmission corridor across open country changes a landscape in ways no mitigation fully undoes. Biological, cultural, and air-quality impacts follow.
+The starkest determinations are the significant and unavoidable ones, where the agency concludes the impact is real, material, and cannot be mitigated below the line. These are the true limits on a decarbonization project. Visual impacts dominate this category (@fig-unavoidable): a wind farm on a ridgeline or a transmission corridor across open country changes a landscape in ways no mitigation fully undoes. Biological, cultural, and air-quality impacts follow; @tbl-unavoidable-ex gives a representative finding per resource in the agencies' own words.
 
 ```{r}
 #| label: fig-unavoidable
@@ -300,7 +300,7 @@ if (nrow(eis_unav_ex) > 0) {
 
 ## How broadly an EIS crosses the line
 
-At the document level a different question comes into view: when an EIS does cross the line, does it do so on one resource or many? Crossing is usually a focused event — over a third of EISs that cross do so on a single resource, and the median is two. But a meaningful minority cross on three or more resources, and a few span nearly the entire environmental slate.
+At the document level a different question comes into view: when an EIS does cross the line, does it do so on one resource or many? Crossing is usually a focused event (@fig-breadth) — over a third of EISs that cross do so on a single resource, and the median is two. But a meaningful minority cross on three or more resources, and a few span nearly the entire environmental slate.
 
 ```{r}
 #| label: fig-breadth
@@ -311,7 +311,7 @@ include_fig("fig_eis_breadth.png")
 
 ## Two ways a resource can be a problem
 
-Analyzing the two tracks separately pays off in one picture, which plots each resource by how often it is mitigated below the line (FONSIs) against how often it crosses the line (EISs). Both tracks are restricted to BLM + DOE here, so the two are measured on the same footing. This split, mitigated below the line in FONSIs versus crossing above it in EISs, is one of the clearest structural patterns in the analysis:
+Analyzing the two tracks separately pays off in one picture (@fig-fonsi-vs-eis), which plots each resource by how often it is mitigated below the line (FONSIs) against how often it crosses the line (EISs). Both tracks are restricted to BLM + DOE here, so the two are measured on the same footing. This split, mitigated below the line in FONSIs versus crossing above it in EISs, is one of the clearest structural patterns in the analysis:
 
 ```{r}
 #| label: fig-fonsi-vs-eis
@@ -324,7 +324,7 @@ Three shapes emerge. Visual, land use, and air quality break above the line more
 
 ## Why an impact is significant
 
-For every above-the-line determination the extraction also records why it is significant. The leading reasons are `r pf(eis_fac_top[1])`, `r pf(eis_fac_top[2])`, and `r pf(eis_fac_top[3])` — and they are not interchangeable: a protected resource drives significance mainly for cultural and biological resources (endangered species, historic properties), a regulatory threshold for air quality and noise (numeric standards), and cumulative effects for biological, visual, and water. That last one is notable for decarbonization siting — roughly one in four significant findings rests on impacts that build up across a landscape or airshed rather than on one project's direct footprint.
+For every above-the-line determination the extraction also records why it is significant. The leading reasons are `r pf(eis_fac_top[1])`, `r pf(eis_fac_top[2])`, and `r pf(eis_fac_top[3])` (@fig-factors; verbatim examples of each factor in @tbl-factor-ex) — and they are not interchangeable: a protected resource drives significance mainly for cultural and biological resources (endangered species, historic properties), a regulatory threshold for air quality and noise (numeric standards), and cumulative effects for biological, visual, and water. That last one is notable for decarbonization siting — roughly one in four significant findings rests on impacts that build up across a landscape or airshed rather than on one project's direct footprint.
 
 ```{r}
 #| label: fig-factors
@@ -347,7 +347,7 @@ if (nrow(eis_fac_ex) > 0) {
 
 ## Significance rates differ by lead agency
 
-Because the EIS track spans every lead agency, we can ask whether some cross the line more than others. They do — and the pattern tracks the kind of project each agency runs. The spread runs from `r ea_top$Agency[1]` (`r percent(ea_top$share[1], accuracy = 1)`) at the top down to `r ea_bot$Agency[1]` (`r percent(ea_bot$share[1], accuracy = 1)`). Land- and water-facing agencies — the Army Corps and BLM — cross into significance most often, fitting their portfolios (dredge-and-fill permits, public-land rights-of-way). Utility-service programs cross least, consistent with routine infrastructure on already-developed corridors.
+Because the EIS track spans every lead agency, we can ask whether some cross the line more than others. They do (@fig-by-agency) — and the pattern tracks the kind of project each agency runs. The spread runs from `r ea_top$Agency[1]` (`r percent(ea_top$share[1], accuracy = 1)`) at the top down to `r ea_bot$Agency[1]` (`r percent(ea_bot$share[1], accuracy = 1)`). Land- and water-facing agencies — the Army Corps and BLM — cross into significance most often, fitting their portfolios (dredge-and-fill permits, public-land rights-of-way). Utility-service programs cross least, consistent with routine infrastructure on already-developed corridors.
 
 ```{r}
 #| label: fig-by-agency
@@ -358,7 +358,7 @@ include_fig("fig_eis_by_agency.png")
 
 ## Significance by clean-energy technology
 
-The most decision-relevant cut for a decarbonization portfolio is the technology. `r et_top$tech` crosses the line most (`r percent(et_top$share, accuracy = 1)`), as dams carry aquatic and water impacts that are hard to avoid, followed by transmission and solar. Nuclear crosses least among the large technologies (`r percent(nuc$share[1], accuracy = 1)`), consistent with siting on already-industrial land under highly prescribed review. But the rate is only half the story; the resources each technology hits are distinct, and largely predictable: wind's fight is about wildlife (avian and bat collision) and noise; solar's is visual, cultural, and air quality; transmission spreads across biological, visual, and cultural along its corridor.
+The most decision-relevant cut for a decarbonization portfolio is the technology (@fig-eis-tech). `r et_top$tech` crosses the line most (`r percent(et_top$share, accuracy = 1)`), as dams carry aquatic and water impacts that are hard to avoid, followed by transmission and solar. Nuclear crosses least among the large technologies (`r percent(nuc$share[1], accuracy = 1)`), consistent with siting on already-industrial land under highly prescribed review. But the rate is only half the story; the resources each technology hits are distinct, and largely predictable: wind's fight is about wildlife (avian and bat collision) and noise; solar's is visual, cultural, and air quality; transmission spreads across biological, visual, and cultural along its corridor.
 
 ```{r}
 #| label: fig-eis-tech
@@ -369,7 +369,7 @@ include_fig("fig_eis_technology.png")
 
 ## Significant, but reducible
 
-Not every above-the-line finding is a hard stop. One significance factor the extraction records is mitigable — the impact crosses the line, but the agency notes that measures can still lessen it. This is the EIS analog of a mitigated FONSI. Visual leads this list too: even the resource most likely to cross the line sometimes admits partial mitigation (screening, siting adjustments), just not enough to drop below it.
+Not every above-the-line finding is a hard stop. One significance factor the extraction records is mitigable — the impact crosses the line, but the agency notes that measures can still lessen it. This is the EIS analog of a mitigated FONSI. Visual leads this list too (@fig-mitigable): even the resource most likely to cross the line sometimes admits partial mitigation (screening, siting adjustments), just not enough to drop below it.
 
 ```{r}
 #| label: fig-mitigable

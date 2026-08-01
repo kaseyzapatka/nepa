@@ -35,7 +35,7 @@ include_fig <- function(name) knitr::include_graphics(file.path(fs_figures, name
 fmt_n   <- function(x) comma(x, accuracy = 1)
 fmt_pct <- function(x, accuracy = 0.1) percent(x, accuracy = accuracy)
 
-# --- Completeness (both dates present) ---
+# --- Completeness (usable timelines: both dates, day/month precision, valid order) ---
 cov_complete <- read_csv(file.path(d4_diag, "d4_complete_share.csv"), show_col_types = FALSE)
 cpct <- function(pt) cov_complete$share_complete[cov_complete$process_type == pt]
 
@@ -46,16 +46,31 @@ dpct <- function(pt, col) diag[[col]][diag$process_type == pt] / 100
 dur  <- read_csv(file.path(d4_diag, "d4_duration_summary.csv"), show_col_types = FALSE)
 dmed <- function(pt) dur$median_days[dur$process_type == pt]
 dn   <- function(pt) dur$n[dur$process_type == pt]
+dv   <- function(pt, col) dur[[col]][dur$process_type == pt]
 
 # --- Duration by energy category (same frame as the by-energy figure — written by
 #     phase2/code/deliverable04/08_create_figures.R, so prose and figure always agree) ---
 denergy <- read_csv(file.path(d4_diag, "d4_duration_by_energy.csv"), show_col_types = FALSE)
 emed <- function(etype, pt) denergy$median_months[denergy$energy_type == etype &
                                                   denergy$process_group == pt]
+eN   <- function(etype, pt) denergy$n[denergy$energy_type == etype &
+                                      denergy$process_group == pt]
+# Register-anchored share of fossil EA starts = 1 - doc-anchored/all fossil EAs
+# (the doc-anchored row keeps only initiation_source_type != register).
+fossil_ea_reg_share <- 1 - eN("Fossil (doc-anchored)", "EA") / eN("Fossil", "EA")
+
+# --- Duration by technology (same frame as the technology figure — written by
+#     phase2/code/factsheet_figures.R, so prose and figure always agree) ---
+techdur <- read_csv(file.path(fs_tables, "fs1_duration_by_technology.csv"), show_col_types = FALSE)
+tmed <- function(tech, pt) techdur$median[techdur$tech_group == tech & techdur$process_group == pt]
+tp90  <- function(tech, pt) techdur$p90[techdur$tech_group == tech & techdur$process_group == pt]
+tnn   <- function(tech, pt) techdur$n[techdur$tech_group == tech & techdur$process_group == pt]
+
 
 # --- Pre/post FRA durations ---
 fra <- read_csv(file.path(d4_diag, "d4_fra_comparison.csv"), show_col_types = FALSE)
 fmed <- function(pt, per) fra$median_days[fra$process_type == pt & fra$period == per]
+fmedm <- function(pt, per) fra$median_months[fra$process_type == pt & fra$period == per]
 fn   <- function(pt, per) fra$n[fra$process_type == pt & fra$period == per]
 
 # --- Pages / FRA page limits ---
@@ -85,23 +100,42 @@ p1med <- function(pt, rt) p1_dur$median_days[p1_dur$process_type == pt & p1_dur$
 # Filters mirror the D4 report's error guidance: multi-year EA/CE outliers and
 # pre-1990 "initiations" are mostly extraction errors; the Palisades restart id
 # glues two different NEPA actions together. Duplicated project rows deduped.
+# Restricted to the three energy-portfolio rows whose initiation AND decision
+# dates were verified against the documents' own evidence text (2026-07-31
+# audit of d4_duration_outliers.csv): SunZia, Placer County, Las Vegas Disposal
+# Boundary. Energia Sierra Juarez (span bridges the original EIS and its
+# supplement), Grain Belt Express (initiation is a state CPCN filing; decision
+# is an FEIS date), the 11-state energy-corridor designation (1995 start not
+# supported by its evidence text), and Roan Plateau (decision date may belong
+# to a referenced Sage-Grouse ROD) are excluded pending verification.
+verified_outliers <- c("SunZia Southwest Transmission Project",
+                       "Placer County Conservation Program",
+                       "Las Vegas Disposal Boundary")
 outliers <- read_csv(file.path(d4_diag, "d4_duration_outliers_client.csv"), show_col_types = FALSE) |>
-  filter(project_id != "da6bbc7a3ca3aeca7bc1c06eaafa8d44",
-         process_type == "EIS",
-         as.Date(initiation_date) >= as.Date("1990-01-01")) |>
+  filter(process_type == "EIS",
+         project_energy_type %in% c("Clean", "Fossil"),
+         project_title %in% verified_outliers) |>
   arrange(desc(duration_years)) |>
   distinct(project_title, .keep_all = TRUE)
-```
 
-## Key Findings
+# --- Durations by CEQ regulatory regime (decision-anchored) ---
+ceq_all <- read_csv(file.path(d4_diag, "d4_duration_by_ceq_regime.csv"), show_col_types = FALSE)
+ceq  <- ceq_all |> filter(regime_level == "collapsed", anchor == "decision")
+ceqv <- function(pt, rg, col) ceq[[col]][ceq$process_type == pt & ceq$ceq_regime == rg]
+# 1978-rule sensitivity slice: 2015–2020 decisions only (recent-window comparator)
+ceqsv <- function(pt, col) {
+  x <- ceq_all |> filter(regime_level == "sensitivity", anchor == "decision", process_type == pt)
+  x[[col]][1]
+}
+```
 
 ::: {.callout-note}
 ## Key Findings
 
 - **NEPA review duration climbs from days to months to years as review intensity increases.** The median Categorical Exclusion (CE) is resolved in `r dmed("CE")` days, the median Environmental Assessment (EA) in `r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months), and the median Environmental Impact Statement (EIS) in `r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25, 1)` years).
-- **Decarbonization and fossil energy projects take broadly similar time within each review process.** The apparent fossil-EA speed advantage is a data artifact (administrative start dates recorded near the decision), not a real difference in review length.
+- **Decarbonization and fossil energy projects take broadly similar time within each review process.** The apparent fossil-EA speed advantage is a data artifact (administrative start dates recorded closer to the decision), not a real difference in review length.
 - **Post-FRA, EIS documents got shorter, but reviews have not yet gotten measurably faster.** Mean EIS length fell from `r pgv("EIS","Pre-FRA","mean_pages")` to `r pgv("EIS","Post-FRA","mean_pages")` regulatory pages after the Fiscal Responsibility Act of 2023, while median durations are essentially unchanged — though the post-FRA sample is still small.
-- **The longest reviews are real, and they are concentrated in EISs.** Genuinely protracted reviews — SunZia Southwest Transmission (14.6 years), Grain Belt Express, Energia Sierra Juarez, Cushman Hydroelectric — are candidates for case-study investigation; multi-year *CE* "durations," by contrast, are almost always extraction errors.
+- **The longest reviews are real, and they are concentrated in EISs.** Genuinely protracted, evidence-verified reviews — the Placer County Conservation Program (15.2 years), SunZia Southwest Transmission (14.6 years), and the Las Vegas Disposal Boundary (14.6 years) — are candidates for case-study investigation; multi-year *CE* "durations," by contrast, are almost always extraction errors.
 - **Better federal timeline data would improve every finding in this fact sheet.** No federal data source systematically records when NEPA reviews start and end; every date here was recovered from document text or agency registers. Agency adoption of the CEQ NEPA and Permitting Data and Technology Standard would make timeline analysis substantially more complete.
 :::
 
@@ -109,11 +143,7 @@ outliers <- read_csv(file.path(d4_diag, "d4_duration_outliers_client.csv"), show
 
 # Introduction
 
-Few questions in permitting policy attract more attention than how long NEPA reviews take. The Fiscal Responsibility Act of 2023 (FRA) wrote timeline targets directly into statute — one year for an EA, two years for an EIS — along with presumptive page limits. The regulatory ground has also shifted repeatedly: the Council on Environmental Quality (CEQ) rewrote its NEPA implementing regulations in 2020 and revised them again in 2022 and 2024, then rescinded them entirely in 2025 following *Marin Audubon Society v. FAA* and Executive Order 14154, returning procedural detail to individual agencies. Most recently, the Supreme Court's decision in *Seven County Infrastructure Coalition v. Eagle County* (2025) narrowed the scope of judicial review of NEPA analyses, with implications for how much analysis agencies feel compelled to produce.
-
-Against that backdrop, empirical evidence on NEPA timelines remains thin. Prior studies have documented multi-year EIS timelines \[cite the Phase 1 report's timelines literature — RFF et al.\], but most rely on the small EIS population or hand-collected samples. Because roughly 95% of NEPA actions are resolved through CEs and EAs — for which no central timeline data exist — the full distribution of NEPA review durations has been largely unmeasured. Policymakers assessing the FRA's reforms, CE expansion proposals, and further statutory changes need that baseline.
-
-This fact sheet reports review timelines extracted from NEPATEC 2.0, the largest assembled corpus of NEPA documents, covering 61,881 projects across CEs, EAs, and EISs — with a focus on decarbonization technologies (solar, wind, transmission, geothermal, storage, nuclear, and related infrastructure) and comparisons to fossil energy projects.
+\[\[TO BE WRITTEN BY CATF\]\]
 
 # Methodology
 
@@ -123,11 +153,11 @@ The timeline analysis covers the full NEPATEC 2.0 database. Energy-technology co
 
 ## How dates were extracted
 
-No federal data source systematically records NEPA start and end dates, so we recovered them from the documents themselves. For every project we identify two milestones: the initiation (application received, Notice of Intent, or scoping start) and the decision (signature, Record of Decision, or Finding of No Significant Impact). A machine-learning pipeline extracts every candidate date from every document, classifies its role, ranks candidates, anchors on authoritative BLM/DOE register dates where available (~40,000 official dates), and sends only the hardest cases to a large language model for adjudication. A project's timeline is complete when both dates are found.
+No federal data source systematically records NEPA start and end dates, so we recovered them from the documents themselves. For every project we identify two milestones: the initiation (application received, Notice of Intent, or scoping start) and the decision (signature, Record of Decision, or Finding of No Significant Impact). A machine-learning pipeline extracts every candidate date from every document, classifies its role, ranks candidates, anchors on authoritative BLM/DOE register dates where available (~37,000 project-matched official dates), and sends only the hardest cases to a large language model for adjudication. A project's timeline is complete when both dates are found at usable precision (day or month) and in the right order (initiation before decision); date pairs that are out of order or dated only to a year cannot support a duration and are not counted as complete. A step-by-step description of the extraction pipeline is in the [Deliverable 4 report's methods section](https://www.kaseyzapatka.com/nepa/phase2/reports/deliverable04.html#how-timeline-dates-are-extracted).
 
 ## Data completeness
 
-Completeness varies sharply by review process, and the gaps are structural rather than fixable by better parsing:
+Completeness varies sharply by review process (@fig-coverage), and the gaps are structural rather than fixable by better parsing:
 
 - **CE — `r fmt_pct(cpct("CE"), 1)` complete.** Most CEs are single-signature determinations with no recorded start date.
 - **EA — `r fmt_pct(cpct("EA"), 1)` complete.** The strongest of the three, but EAs have no Notice-of-Intent requirement, so start dates are often never documented.
@@ -135,7 +165,7 @@ Completeness varies sharply by review process, and the gaps are structural rathe
 
 ```{r}
 #| label: fig-coverage
-#| fig-cap: "Note: Timeline coverage by review process — share of projects with both dates, decision only, initiation only, or neither."
+#| fig-cap: "Note: Timeline coverage by review process — share of projects with a complete timeline (both dates, valid order, day- or month-precision), both dates but unusable (out of order, year-only, or unresolved), decision only, initiation only, or neither."
 #| out-width: "100%"
 include_fig("fig_d4_coverage_by_process.png")
 ```
@@ -146,7 +176,7 @@ All duration findings below use complete timelines only. Because incompleteness 
 
 ## Review duration by process
 
-Durations track the expected complexity ladder. The median CE is resolved in `r dmed("CE")` days; the median EA in `r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months); the median EIS in `r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25, 1)` years) (n = `r fmt_n(dn("CE"))` / `r fmt_n(dn("EA"))` / `r fmt_n(dn("EIS"))` complete timelines).
+Durations track the expected complexity ladder (@fig-duration-process). The median CE is resolved in `r dmed("CE")` days; the median EA in `r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months); the median EIS in `r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25, 1)` years) (n = `r fmt_n(dn("CE"))` / `r fmt_n(dn("EA"))` / `r fmt_n(dn("EIS"))` complete timelines).
 
 ```{r}
 #| label: fig-duration-process
@@ -155,7 +185,7 @@ Durations track the expected complexity ladder. The median CE is resolved in `r 
 include_fig("fs1_duration_by_process.png")
 ```
 
-The full distributions show the same ladder as a *shape*, not just a median: CE durations pile up near zero, EAs spread out to a year or two, and the EIS distribution is broad and heavy-tailed — a meaningful share of EISs run 3–10+ years.
+The full distributions (@fig-duration-hist) show the same ladder as a *shape*, not just a median: CE durations pile up near zero; most EAs (`r percent(dv("EA","pct_lt_1y"), accuracy = 1)`) conclude within a year, with a tail stretching past two years; and the EIS distribution is broad and heavy-tailed — `r percent(dv("EIS","pct_gt_5y"), accuracy = 1)` of EISs run longer than five years, and one in ten runs `r round(dv("EIS","p90_days")/365.25)` years or more.
 
 ```{r}
 #| label: fig-duration-hist
@@ -166,9 +196,9 @@ include_fig("fig_d4_duration_histogram.png")
 
 ## Fossil and decarbonization projects take broadly similar time within each process
 
-Within each review process, decarbonization and fossil projects take broadly similar time. Decarbonization and fossil EISs have similar median durations (~`r round(emed("Decarb","EIS"))` vs. ~`r round(emed("Fossil","EIS"))` months), and CE determinations are fast for everyone.
+Within each review process, decarbonization and fossil projects take broadly similar time (@fig-duration-energy). Decarbonization and fossil EISs have similar median durations (~`r round(emed("Decarb","EIS"))` vs. ~`r round(emed("Fossil","EIS"))` months), and CE determinations are fast for everyone.
 
-The one visible gap — fossil EAs appearing far faster (~`r round(emed("Fossil","EA"))` month median vs. ~`r round(emed("Decarb","EA"))` months for decarbonization) — is a data artifact rather than a real speed difference: 84% of fossil EAs take their start date from the BLM register, where the recorded "project start" is frequently a late administrative entry made within days of the decision. Restricting fossil EAs to document-stated start dates lifts their median to ~`r round(emed("Fossil (doc-anchored)","EA"))` months, much closer to the decarbonization figure.
+The one visible gap — fossil EAs appearing far faster (a ~`r round(emed("Fossil","EA"))`-month median vs. ~`r round(emed("Decarb","EA"))` months for decarbonization) — is a data artifact rather than a real speed difference: `r fmt_pct(fossil_ea_reg_share, 1)` of fossil EAs take their start date from the BLM register, where the recorded "project start" is frequently a late administrative entry made within days of the decision. Restricting fossil EAs to document-stated start dates lifts their median to ~`r round(emed("Fossil (doc-anchored)","EA"))` months, much closer to the decarbonization figure.
 
 ```{r}
 #| label: fig-duration-energy
@@ -179,21 +209,21 @@ include_fig("fig_d4_duration_summary_intervals_by_energy.png")
 
 ## Duration by technology
 
-Breaking durations down by technology (EA and EIS panels below; CE medians are under a month for every technology) shows the same conclusion at finer grain: no decarbonization technology faces systematically longer reviews than its fossil counterparts within the same process. Wind EISs sit at the high end with a long upper tail, coal EISs at a similar level; solar EISs conclude faster than the decarbonization average.
+Breaking durations down by technology (@fig-duration-tech; EA and EIS panels — CE medians run from days to about two months across technologies) shows the same conclusion at finer grain: no decarbonization technology faces systematically longer reviews than its fossil counterparts within the same process. Among technologies with meaningful samples, transmission EISs sit at the high end (~`r round(tmed("Transmission","EIS"))`-month median) with coal right alongside (~`r round(tmed("Coal","EIS"))` months); hydropower's median is higher still, but rests on only `r tnn("Hydropower","EIS")` complete timelines (the handful of cells above it rest on just one or two). Wind EISs sit mid-pack on median but carry the longest upper tail — one in ten runs past `r round(tp90("Wind","EIS")/12)` years — and solar EISs conclude faster than the decarbonization average.
 
 ```{r}
 #| label: fig-duration-tech
-#| fig-cap: "Note: Review duration by technology and energy category, EA and EIS panels. Thin bar = 10th–90th percentile; thick bar = interquartile range; point = median; cells with fewer than 15 complete timelines suppressed. Fossil EA durations are compressed by the register start-date artifact described above."
+#| fig-cap: "Note: Review duration by technology and energy category, EA and EIS panels. Every technology cell is shown, so the panels account for every complete energy-sector timeline. Thin bar = 10th–90th percentile; thick bar = interquartile range; point = median; the n label on each row gives the cell size. Medians for very small cells — several rest on only 1–8 reviews — are statistically unstable and should be read with caution. Fossil EA durations are compressed by the register start-date artifact described above."
 #| out-width: "100%"
 include_fig("fs1_duration_by_technology.png")
 ```
 
-## What Phase 1 found: programmatic reviews and solar
+## What Phase 1 found on programmatic reviews and Phase 2 solar timelines updates
 
 Two Phase 1 findings on decarbonization timelines carry forward:
 
 - **Programmatic and tiered reviews remain rare but promising.** Tiered EISs — site-specific reviews that build on an umbrella programmatic review — were faster on median (`r p1med("EIS","Tiered")` days) than standard (`r fmt_n(p1med("EIS","Standard"))` days) or programmatic (`r p1med("EIS","Programmatic")` days) EISs, though samples are small (n = 7 tiered EISs). Tiered EAs took *longer* than standard EAs (`r p1med("EA","Tiered")` vs. `r p1med("EA","Standard")` days), suggesting the real efficiency gain from tiering comes when it lets an agency avoid a full EIS altogether.
-- **Solar reviews conclude faster than decarbonization reviews generally.** On the rebuilt Phase 2 timeline, solar EISs conclude about a year faster than the all-decarbonization EIS median (~`r round(solv("solar","EIS","median_months"))` vs. ~`r round(solv("decarb_reference","EIS","median_months"))` months), replicating the Phase 1 finding on a larger sample; solar EAs run on par with decarbonization EAs (~`r round(solv("solar","EA","median_months"))` months).
+- **Solar reviews conclude faster than decarbonization reviews generally.** On the rebuilt Phase 2 timeline (@fig-solar), solar EISs conclude about a year faster than the all-decarbonization EIS median (~`r round(solv("solar","EIS","median_months"))` vs. ~`r round(solv("decarb_reference","EIS","median_months"))` months), replicating the Phase 1 finding on a larger sample; solar EAs run on par with decarbonization EAs (~`r round(solv("solar","EA","median_months"))` months).
 
 ```{r}
 #| label: fig-solar
@@ -204,7 +234,7 @@ include_fig("fig_d4_solar_duration.png")
 
 ## Reviews by decision year
 
-Review volume tracks federal funding cycles. CE volumes ramp up from the late 2000s (ARRA-era funding) with a second rise into the 2020s (BIL/IRA); EIS decisions lag CEs and EAs by several years, reflecting longer review cycles. The pattern is even sharper at the Department of Energy — the single largest agency in the dataset — where the ARRA and BIL/IRA grant-and-loan cycles dominate.
+Review volume tracks federal funding cycles. CE volumes ramp up from the late 2000s (ARRA-era funding) with a second rise into the 2020s (BIL/IRA); EIS decisions lag CEs and EAs by several years, reflecting longer review cycles. The pattern is even sharper at the Department of Energy (@fig-by-year-doe) — the single largest agency in the dataset — where the ARRA and BIL/IRA grant-and-loan cycles dominate.
 
 ```{r}
 #| label: fig-by-year-doe
@@ -217,7 +247,7 @@ include_fig("fig_d4_projects_by_decision_year_doe.png")
 
 The FRA (enacted June 3, 2023) set statutory timeline targets and page limits. Two early findings, both provisional given the short post-FRA window:
 
-**Durations have not yet measurably fallen.** Median EIS duration is essentially unchanged pre- vs. post-FRA (`r fmt_n(fmed("EIS","pre_FRA"))` → `r fmt_n(fmed("EIS","post_FRA"))` days; n = `r fmt_n(fn("EIS","post_FRA"))` post-FRA), and EA and CE medians are somewhat *higher* post-FRA (CE `r fmed("CE","pre_FRA")` → `r fmed("CE","post_FRA")` days; EA `r round(fmed("EA","pre_FRA"))` → `r round(fmed("EA","post_FRA"))` days, from low bases) — though reviews decided shortly after enactment mostly ran under pre-FRA rules, and the post-FRA sample is confounded with data-coverage timing, so this should not yet be read as evidence the FRA failed.
+**Durations have not yet measurably fallen.** Median EIS duration is essentially unchanged pre- vs. post-FRA (@fig-fra-duration; `r round(fmedm("EIS","pre_FRA"),1)` → `r round(fmedm("EIS","post_FRA"),1)` months; n = `r fmt_n(fn("EIS","post_FRA"))` post-FRA), and EA and CE medians are somewhat *higher* post-FRA (CE `r round(fmedm("CE","pre_FRA"),1)` → `r round(fmedm("CE","post_FRA"),1)` months; EA `r round(fmedm("EA","pre_FRA"),1)` → `r round(fmedm("EA","post_FRA"),1)` months, from low bases) — though reviews decided shortly after enactment mostly ran under pre-FRA rules, and the post-FRA sample is confounded with data-coverage timing, so this should not yet be read as evidence the FRA failed.
 
 ```{r}
 #| label: fig-fra-duration
@@ -226,7 +256,7 @@ The FRA (enacted June 3, 2023) set statutory timeline targets and page limits. T
 include_fig("fig_d4_fra_comparison.png")
 ```
 
-**Documents did get shorter — at least EISs.** Mean EIS length fell from `r pgv("EIS","Pre-FRA","mean_pages")` to `r pgv("EIS","Post-FRA","mean_pages")` regulatory pages (median `r pgv("EIS","Pre-FRA","median_pages")` → `r pgv("EIS","Post-FRA","median_pages")`), while EA length was roughly flat — if anything, slightly up (`r pgv("EA","Pre-FRA","mean_pages")` → `r pgv("EA","Post-FRA","mean_pages")` pages) — and EAs were already well under the 75-page limit. Against the FRA's presumptive limits, `r ea_ok_pct`% of post-FRA EAs comply with the 75-page limit; `r eis_ok_pct`% of post-FRA EISs fall within the baseline 150-page limit, and `r eis_w300_pct`% fall within the 300-page extraordinary-complexity ceiling.
+**Documents did get shorter — at least EISs.** Mean EIS length fell from `r pgv("EIS","Pre-FRA","mean_pages")` to `r pgv("EIS","Post-FRA","mean_pages")` regulatory pages (@fig-fra-pages; median `r pgv("EIS","Pre-FRA","median_pages")` → `r pgv("EIS","Post-FRA","median_pages")`), while EA length was roughly flat — if anything, slightly up (`r pgv("EA","Pre-FRA","mean_pages")` → `r pgv("EA","Post-FRA","mean_pages")` pages) — and EAs were already well under the 75-page limit. Against the FRA's presumptive limits, `r ea_ok_pct`% of post-FRA EAs comply with the 75-page limit; `r eis_ok_pct`% of post-FRA EISs fall within the baseline 150-page limit, and `r eis_w300_pct`% fall within the 300-page extraordinary-complexity ceiling.
 
 ```{r}
 #| label: fig-fra-pages
@@ -235,38 +265,60 @@ include_fig("fig_d4_fra_comparison.png")
 include_fig("fig_d4_pages_pre_post_fra.png")
 ```
 
-*A parallel segmentation of durations by CEQ regulatory regime (1978 rules / 2020 rule / 2022–24 revisions / 2025 rescission) is in progress and will be added when complete.*
+## Review timelines by CEQ regulatory regime
+
+The FRA is not the only recent rule change: CEQ rewrote NEPA's implementing regulations three times in four years (the 2020 rewrite, the 2022–24 revisions, and the 2025 rescission), after four decades under the 1978 rules. Assigning each review to the rule in effect at its decision date shows no clean before/after breaks (@fig-ceq-regime). Median durations under the three pre-2024 regimes sit close together within each process — EIS medians of ~`r round(ceqv("EIS","1978","median_months"))` months (1978 rules), ~`r round(ceqv("EIS","2020_trump","median_months"))` (2020 rule), and ~`r round(ceqv("EIS","2022_phase1","median_months"))` (2022 revisions); EA medians in a `r round(ceqv("EA","2020_trump","median_months"),1)`–`r round(ceqv("EA","1978","median_months"),1)`-month band; CE medians under a month throughout — and the post-2024 window is too thin and coverage-confounded to read (n = `r fmt_n(ceqv("EIS","2024_phase2_plus","n"))` EISs; its multi-year CE median is an artifact of which recent CEs happen to carry complete timelines, not a regime effect).
+
+```{r}
+#| label: fig-ceq-regime
+#| fig-cap: "Note: Review duration by CEQ regulatory regime (rule in effect at the decision date), faceted by process. Thin bar = 10th–90th percentile; thick bar = interquartile range; point = median. The dashed tick on each 1978 row marks the 1978-rule median for 2015–2020 decisions only — a like-for-like recent comparator."
+#| out-width: "100%"
+include_fig("fig_d4_duration_by_ceq_regime.png")
+```
+
+One comparison trap is worth flagging: the pooled 1978 bar spans roughly four decades of secular drift, so it understates recent durations. Restricting the 1978 rules to their final stretch (2015–2020 decisions) lifts the EIS median to ~`r round(ceqsv("EIS","median_months"))` months — above every successor regime — so the pooled bar is the wrong baseline for a before/after read. The year-by-year trend (@fig-ceq-trend) is the honest view, and no CEQ rule date coincides with a visible break in it.
+
+```{r}
+#| label: fig-ceq-trend
+#| fig-cap: "Note: Median review duration by decision year, with CEQ rule effective dates and the FRA enactment marked. Durations drift secularly; no rule change lines up with a break in the trend."
+#| out-width: "100%"
+include_fig("fig_d4_duration_trend_ceq_regime.png")
+```
 
 ## Timeline outliers: the longest reviews
 
-The right tail matters for policy: the highest-profile NEPA controversies involve reviews measured in decades. We flagged every review longer than ~13.7 years and read the evidence behind each. The distinction that matters is between genuinely long reviews and extraction errors:
+The right tail matters for policy: the highest-profile NEPA controversies involve reviews measured in decades. We flagged the longest-running reviews in the database and read the evidence behind each; the distinction that matters is between genuinely long reviews and extraction errors:
 
-- EIS outliers are mostly real. EIS median duration is already ~3 years; a 14–17-year EIS sits in the legitimate tail. Transmission, restoration, and resource-management EISs genuinely run that long.
+- EIS outliers are mostly real. EIS median duration is already ~3 years; a 14–15-year EIS sits in the legitimate tail. Transmission, restoration, and resource-management EISs genuinely run that long.
 - CE outliers are mostly errors. CEs are fast determinations, so a multi-year CE almost always reflects a mis-extracted start date (typically a decades-old citation — an original land grant, a covering programmatic review — selected as the initiation). These are flagged and excluded.
 
 ```{r}
-#| label: tbl-outliers
-#| tbl-cap: "Genuinely long EIS reviews — case-study candidates. Confirmed extraction errors, multi-year EA/CE spans, and pre-1990 initiations (a strong error signal) excluded."
+#| tbl-colwidths: [50, 10, 8, 16, 16]
+# Caption goes through kable() (pandoc-native) rather than label/tbl-cap:
+# quarto's crossref table processing stamps a second <w:jc center> into every
+# docx cell, overriding kable's left alignment. The pandoc-native path keeps
+# cells left-aligned and still honors tbl-colwidths. (No @tbl- crossrefs here.)
 outliers |>
   transmute(
-    Project = str_trunc(project_title, 60),
-    Process = process_type,
-    Energy  = project_energy_type,
+    Project = project_title,
+    Energy  = if_else(project_energy_type == "Clean", "Decarb", project_energy_type),
     Years   = round(duration_years, 1),
     Initiation = as.character(initiation_date),
     Decision   = as.character(decision_date)
   ) |>
-  head(10) |>
-  kable(align = "l")
+  kable(align = "l",
+        col.names = c("**Project**", "**Energy**", "**Years**",
+                      "**Initiation**", "**Decision**"),
+        caption = "The best-evidenced long NEPA reviews in the energy portfolios — case-study candidates. All rows are EISs (multi-year EA/CE spans are almost always extraction errors) whose initiation and decision dates were individually verified against the documents' own procedural text; other long-running outliers are excluded as confirmed or suspected extraction issues.")
 ```
 
-The table itself is dominated by land-management planning EISs (resource management plans, travel plans, conservation plans) rather than individual energy projects. Among energy projects, the strongest case-study candidates (not all of which appear in the ten-row table above) are SunZia Southwest Transmission (right-of-way application September 2008 → Record of Decision April 2023), Energia Sierra Juarez, Grain Belt Express, and Cushman Hydroelectric — exactly the protracted, multi-administration reviews that dominate the permitting-reform debate. Cushman's 18.1-year span (a 1992 notice of intent through a 2010 record of decision for the same FERC relicensing action) was flagged by our automated date-triage and subsequently verified by hand against the final EIS's own procedural history. *\[Short case studies on 1–2 of these to be added by CATF if timing allows; otherwise a follow-up research product.\]*
+The table shows the best-evidenced examples: the energy-portfolio reviews whose start and end dates we verified against the documents' own procedural text. SunZia Southwest Transmission — a right-of-way application in September 2008 to a Record of Decision in April 2023 — is exactly the kind of protracted, multi-administration review that dominates the permitting-reform debate, and the Placer County and Las Vegas reviews show the same pattern at plan scale. *\[Short case studies on 1–2 of these to be added by CATF if timing allows; otherwise a follow-up research product.\]*
 
 # Conclusion and Policy Implications
 
-**Review duration scales as expected across CE, EA, and EIS — and decarbonization projects are not being singled out for slower treatment.** The median CE takes weeks, the median EA months, and the median EIS about three years; within each process, fossil and decarbonization projects take broadly similar time. For decarbonization deployment, this reinforces a Phase 1 conclusion: because the overwhelming majority of decarbonization actions are resolved through fast CEs, reforms targeting EIS speed alone touch a small slice of the portfolio.
+**Review duration scales as expected across CE, EA, and EIS — and decarbonization projects are not being singled out for slower treatment.** The median CE takes weeks, the median EA about four months, and the median EIS about three years; within each process, fossil and decarbonization projects take broadly similar time. For decarbonization deployment, this reinforces a Phase 1 conclusion: because the overwhelming majority of decarbonization actions are resolved through fast CEs, reforms targeting EIS speed alone touch a small slice of the portfolio.
 
-**It is too early to see the FRA's timeline reforms in the duration data — but document length is already responding.** EIS page counts dropped meaningfully post-FRA while durations held steady. Whether shorter documents eventually translate into shorter reviews is a question the data can answer in another year or two of decisions. *\[Findings from the CEQ-regulatory-regime segmentation to be added once that analysis is complete.\]*
+**It is too early to see the FRA's timeline reforms in the duration data — but document length is already responding.** EIS page counts dropped meaningfully post-FRA while durations held steady. Whether shorter documents eventually translate into shorter reviews is a question the data can answer in another year or two of decisions. The CEQ regulatory-regime segmentation points the same way: median durations moved little across the 1978, 2020, and 2022–24 rule regimes, and no rule change lines up with a break in the year-by-year trend — so far, procedural rewrites have mattered less for review speed than the underlying secular drift.
 
 **The single highest-value reform for understanding NEPA timelines is better data.** Every date in this analysis had to be recovered from document text or agency registers because no federal system records when reviews begin and end — and structural gaps (missing Records of Decision, unrecorded CE/EA start dates) cap what any extraction method can achieve. Agency adoption of the CEQ NEPA and Permitting Data and Technology Standard — recording initiation, milestones, and decision dates as structured metadata — would make complete, real-time timeline accountability possible not just for researchers but for the agencies themselves.
 
