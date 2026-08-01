@@ -216,7 +216,7 @@ BLM and the DOE family run different kinds of projects, so the resources that pu
 include_fig("fig_dept_by_resource.png")
 ```
 
-The project type matters as much as the agency (@fig-fonsi-tech): transmission and wind lean hardest on mitigation — linear corridors and turbine sites touch habitat, viewsheds, and cultural resources — while solar and storage sit closer to the corpus average.
+The project type matters as much as the agency (@fig-fonsi-tech): transmission and wind lean hardest on mitigation — linear corridors and turbine sites touch habitat, viewsheds, and cultural resources — while solar and storage sit at or below the corpus average.
 
 ```{r}
 #| label: fig-fonsi-tech
@@ -279,7 +279,7 @@ if (nrow(eis_unav_ex) > 0) {
 
 ## How broadly an EIS crosses the line
 
-When an EIS does cross the line, it usually does so narrowly (@fig-breadth): over a third of crossing EISs do so on a single resource and the median is two, though a few span nearly the entire environmental slate.
+When an EIS does cross the line, it usually does so narrowly (@fig-breadth): over a third of crossing EISs do so on a single resource and the median is two, though a long tail — 284 documents — crosses on three or more.
 
 ```{r}
 #| label: fig-breadth

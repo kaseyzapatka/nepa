@@ -43,3 +43,4 @@ where_I_left_off.md
 
 # ggplot .rds sidecars (regenerable by NN_create_figures.R scripts; large)
 *.rds
+docs/site_libs/

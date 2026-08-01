@@ -815,7 +815,7 @@ if (file.exists(eis_det_path)) tryCatch({
           geom_col(fill = catf_magenta) + geom_text(aes(label = n), hjust = -0.2, size = 3.4, color = "gray30") +
           coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.10))) +
           labs(title = "Why an impact is significant",
-               subtitle = "Dominant factor behind each significant determination",
+               subtitle = "The factor cited behind each significant determination (one determination can cite several)",
                x = NULL, y = "Significant determinations") + theme_catf(),
       "fig_eis_factors.png", 8, 4.8)
     # FIG B — WHERE each factor bites. Colour is ROW-NORMALIZED (share within each factor) so the
