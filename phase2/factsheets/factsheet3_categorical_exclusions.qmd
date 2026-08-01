@@ -89,7 +89,7 @@ That creates a data problem that is now solvable. Which classes of actions are a
 
 ```{r}
 #| label: fig-coverage-grid
-#| fig-cap: "Note: The clean-energy CE coverage map — every decarbonization FONSI placed by technology × action. Color = verdict (adopt / expand / develop / already covered); number = CE-shaped FONSIs in the cell."
+#| fig-cap: "Note: The clean-energy CE coverage map — every decarbonization FONSI placed by technology × action. Color = verdict (adopt / expand / develop / develop-excluded / already covered); number = CE-shaped FONSIs in the cell."
 #| out-width: "100%"
 include_fig("fig_d6_coverage_grid.png")
 ```
@@ -104,13 +104,13 @@ From the `r fmt_n(n_fonsi)` decarbonization FONSIs, a language model labeled eac
 
 ## Raising the mileage cap on the transmission CE is the strongest expand case
 
-The strongest single opportunity in the screen involves `r n_tx_up` in-corridor transmission upgrade FONSIs — reconductoring, rebuilding, and uprating existing lines within existing rights-of-way — across `r tx_states` Western states, run by BLM, DOE, and the power marketing administrations as full EAs. TVA already categorically excludes exactly this work under two exclusions: CE #17 (modify in place — reconductoring, equipment swaps; no length limit) and CE #19 (rebuild within the existing right-of-way — capped at 25 miles).
+The strongest single opportunity in the screen involves `r n_tx_up` in-corridor transmission upgrade FONSIs — reconductoring, rebuilding, and uprating existing lines within existing rights-of-way — across `r tx_states` states, mostly in the West, run by BLM, DOE, and the power marketing administrations as full EAs. TVA already categorically excludes exactly this work under two exclusions: CE #17 (modify in place — reconductoring, equipment swaps; no length limit) and CE #19 (rebuild within the existing right-of-way — capped at 25 miles).
 
 The catch is the cap. The in-corridor rebuilds in our data run a ~28-mile median — some far longer — against CE #19's 25-mile limit. So the move is not simply to adopt TVA's CE as-is, but to expand its mileage bound (or write the adopted version with a higher cap) so it covers the work agencies are demonstrably approving as insignificant anyway.
 
 ```{r}
 #| label: fig-sizes
-#| fig-cap: "Note: Bounded transmission FONSIs vs. all stated CE size limits (log scale). Only line length (miles) runs past the limits existing CEs state; voltage and acreage sit comfortably within them."
+#| fig-cap: "Note: Bounded transmission FONSIs vs. all stated CE size limits (log scale). Line length (miles) is the dimension where FONSIs systematically run past stated CE limits; acreage and voltage mostly fall within or near them (voltage is bounded by only two CEs, so that row is indicative)."
 #| out-width: "90%"
 include_fig("fig_d6_sizes.png")
 ```
@@ -156,7 +156,9 @@ verdicts |>
   transmute(
     `Technology × action` = str_replace_all(candidate_label, "_", " "),
     `Low-impact FONSIs` = n_profile_fonsi,
-    `Existing CE (held by)` = paste0(best_ce_structured_id, " — ", best_ce_agency),
+    # Backticks keep the multi-hyphen CE ids verbatim — otherwise pandoc smart
+    # typography turns "---" into an em dash in the rendered docx.
+    `Existing CE (held by)` = paste0("`", best_ce_structured_id, "`", " — ", best_ce_agency),
     `Agencies that could adopt` = str_trunc(adopt_targets, 60),
     States = n_states
   ) |>
@@ -169,7 +171,7 @@ One timing caveat: nearly all of these FONSIs predate the FRA's June 2023 adopti
 
 ## Methodology
 
-A cell resolves to develop when the FONSIs recur but no existing CE comes close (text-similarity match below the 0.40 reference line for every CE in the catalog). These are the gaps invisible to any approach that starts from existing CE categories.
+A cell resolves to develop when the FONSIs recur but no existing CE comes close — no CE in the catalog scores a strong text match (typically below the 0.40 reference line) and the coverage check finds none whose text covers the action. These are the gaps invisible to any approach that starts from existing CE categories.
 
 ## Real gaps exist, but the evidence supports keeping them high-level
 

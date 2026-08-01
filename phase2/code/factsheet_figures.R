@@ -139,12 +139,24 @@ message("  Copied ", sum(file.exists(passthrough)), " figures to ", fig_dir)
 # ===========================================================================
 message("\n--- FS1: duration by process (retitled from D4 .rds) ---")
 
-fs1_dur <- readRDS(file.path(D04_FIG, "fig_d4_duration_summary_intervals.rds")) +
-  labs(title = "NEPA Review Duration Climbs From Days (CE) to Months (EA) to Years (EIS)")
+# Retitle helper: .rds sidecars are gitignored (regenerable via the deliverables'
+# NN_create_figures.R). If one is absent on this machine, keep the committed PNG
+# and say so instead of aborting the whole run.
+retitle <- function(rds_path, out_name, new_title, width, height) {
+  tryCatch({
+    p <- readRDS(rds_path) + labs(title = new_title)
+    ggsave(file.path(fig_dir, out_name), p, width = width, height = height, dpi = 300)
+    message("  Saved: ", out_name)
+  }, error = function(e) {
+    message("  SKIPPED ", out_name, " (missing ", basename(rds_path),
+            " — re-run the deliverable's figure script to regenerate; committed PNG kept)")
+  })
+}
 
-ggsave(file.path(fig_dir, "fs1_duration_by_process.png"), fs1_dur,
-       width = 10, height = 5.5, dpi = 300)
-message("  Saved: fs1_duration_by_process.png")
+retitle(file.path(D04_FIG, "fig_d4_duration_summary_intervals.rds"),
+        "fs1_duration_by_process.png",
+        "NEPA Review Duration Climbs From Days (CE) to Months (EA) to Years (EIS)",
+        width = 10, height = 5.5)
 
 # ===========================================================================
 # FS1 Fig — Review duration by technology  [FROM SCRATCH — STOPGAP]
@@ -282,14 +294,11 @@ write_csv(trig_counts, file.path(tbl_dir, "fs2_trigger_counts.csv"))
 funding_share <- trig_counts$share[trig_counts$trigger == "Funding"]
 
 # [RETITLED] readRDS D1's fig1_trigger_counts.rds and override the title.
-fs2_counts <- readRDS(file.path(D01_OUT, "fig1_trigger_counts.rds")) +
-  labs(title = sprintf(
-    "Federal Funding Triggers %s of All Decarbonization NEPA Reviews —\nMore Than Any Other Federal Nexus",
-    percent(funding_share, accuracy = 1)))
-
-ggsave(file.path(fig_dir, "fs2_trigger_counts.png"), fs2_counts,
-       width = 10, height = 5.5, dpi = 300)
-message("  Saved: fs2_trigger_counts.png")
+retitle(file.path(D01_OUT, "fig1_trigger_counts.rds"),
+        "fs2_trigger_counts.png",
+        sprintf("Federal Funding Triggers %s of All Decarbonization NEPA Reviews —\nMore Than Any Other Federal Nexus",
+                percent(funding_share, accuracy = 1)),
+        width = 10, height = 5.5)
 
 # ===========================================================================
 # FS2 Fig — Review process within each trigger class, headline title
@@ -312,14 +321,11 @@ funding_ce_share <- proc_by_trig |>
   pull(share)
 
 # [RETITLED] readRDS D1's fig3_process_by_trigger.rds and override the title.
-fs2_proc <- readRDS(file.path(D01_OUT, "fig3_process_by_trigger.rds")) +
-  labs(title = sprintf(
-    "Funding-Triggered Reviews Are Almost Entirely Categorically Excluded (%s)",
-    percent(funding_ce_share, accuracy = 1)))
-
-ggsave(file.path(fig_dir, "fs2_process_by_trigger.png"), fs2_proc,
-       width = 10, height = 5.5, dpi = 300)
-message("  Saved: fs2_process_by_trigger.png")
+retitle(file.path(D01_OUT, "fig3_process_by_trigger.rds"),
+        "fs2_process_by_trigger.png",
+        sprintf("Funding-Triggered Reviews Are Almost Entirely Categorically Excluded (%s)",
+                percent(funding_ce_share, accuracy = 1)),
+        width = 10, height = 5.5)
 
 # ===========================================================================
 # FS5: Determinations of Significance Across Resource Areas (D2)
@@ -357,22 +363,22 @@ message("  Copied ", sum(file.exists(fs5_passthrough)), " FS5 passthrough figure
 
 # --- RETITLED headline figures (readRDS the D2 .rds sidecar + labs()) ---
 # Fig 7 — mitigated share
-fs5_mit <- readRDS(file.path(D02_ANALYSIS, "fig_mitigated_share.rds")) +
-  labs(title = "Most Decarbonization FONSIs Reach \"No Significant Impact\"\nOnly With Committed Mitigation")
-ggsave(file.path(fig_dir, "fs5_mitigated_share.png"), fs5_mit, width = 8, height = 4.8, dpi = 300)
-message("  Saved: fs5_mitigated_share.png")
+retitle(file.path(D02_ANALYSIS, "fig_mitigated_share.rds"),
+        "fs5_mitigated_share.png",
+        "Most Decarbonization FONSIs Reach \"No Significant Impact\"\nOnly With Committed Mitigation",
+        width = 8, height = 4.8)
 
 # Fig 17 — which resources cross the line
-fs5_above <- readRDS(file.path(D02_ANALYSIS, "fig_eis_above_line.rds")) +
-  labs(title = "Visual Impacts Cross the Significance Line\nMore Than Any Other Resource")
-ggsave(file.path(fig_dir, "fs5_eis_above_line.png"), fs5_above, width = 9.5, height = 6.5, dpi = 300)
-message("  Saved: fs5_eis_above_line.png")
+retitle(file.path(D02_ANALYSIS, "fig_eis_above_line.rds"),
+        "fs5_eis_above_line.png",
+        "Visual Impacts Cross the Significance Line\nMore Than Any Other Resource",
+        width = 9.5, height = 6.5)
 
 # Fig 20 — two ways a resource can be a problem
-fs5_vs <- readRDS(file.path(D02_ANALYSIS, "fig_fonsi_vs_eis.rds")) +
-  labs(title = "Some Resources Get Mitigated Below the Line;\nOthers Cross It")
-ggsave(file.path(fig_dir, "fs5_fonsi_vs_eis.png"), fs5_vs, width = 9, height = 6.5, dpi = 300)
-message("  Saved: fs5_fonsi_vs_eis.png")
+retitle(file.path(D02_ANALYSIS, "fig_fonsi_vs_eis.rds"),
+        "fs5_fonsi_vs_eis.png",
+        "Some Resources Get Mitigated Below the Line;\nOthers Cross It",
+        width = 9, height = 6.5)
 
 # --- Staged summary CSVs for inline numbers + example tables ---
 fs5_tables <- c(

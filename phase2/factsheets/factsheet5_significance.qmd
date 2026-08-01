@@ -119,7 +119,7 @@ nuc     <- eis_tech |> filter(tech == "Nuclear")
 - **Most decarbonization FONSIs are mitigated.** About `r percent(mit_share, accuracy = 1)` of analyzed FONSI decision documents reach "no significant impact" only because the developer commits to specific measures — the impact would have been significant otherwise. The mitigation burden concentrates in a handful of resources: `r top_mit_str`.
 - **On the EIS side, visual impacts cross the line most** — judged significant more often than any other resource (`r eis_top$lab[1]`), and most likely to be declared significant and unavoidable, because a changed landscape usually cannot be mitigated back.
 - **Resources split into two shapes.** Some are reliably managed below the line (soils/geology, water, public health — mitigated in FONSIs, rarely crossing); others break through (visual, land use, air quality — judged significant more often than they are engineered under).
-- **Mitigation does much of the work — but is not always demonstrably enforceable.** For the "softer" resources (visual, cultural, soils), the committed measures behind a not-significant finding are least often tied to an enforceable permit condition — a caveat for how much weight the "mitigated FONSI" label should bear.
+- **Mitigation does much of the work — but is not always demonstrably enforceable.** For several resources — cultural, soils, and public health in particular — the committed measures behind a not-significant finding are rarely tied to an enforceable permit condition, a caveat for how much weight the "mitigated FONSI" label should bear.
 :::
 
 ---
@@ -167,7 +167,7 @@ include_fig("fig_corpus_overview.png")
 
 The FONSI analysis rests on the decarbonization FONSIs that are led by BLM or the Department of Energy family and carry machine-extractable significance findings — `r fmt_n(n_fonsi_docs)` decision documents across `r fmt_n(n_fonsi_proj)` projects. Every rate below describes those documents, not the full corpus; the reduction is a coverage limitation (some documents phrase their finding in wording the extraction does not recognize), not a different finding.
 
-Accuracy is measured against the AI-human answer key on a held-out test. The extraction almost never misses a determination, places it in the right resource area about `r percent(vg("fonsi", "resource"), accuracy = 1)` of the time, and agrees with the answer key on the significance class at `r number(vg("fonsi", "class"), accuracy = 0.01)`, the standard bar for this kind of task. The three signals that carry the findings — finding the determination, placing the resource, and getting the class — all clear or approach that bar.
+Accuracy is measured against the AI-human answer key on a held-out test. The extraction almost never misses a determination, agrees with the answer key on the resource area at `r number(vg("fonsi", "resource"), accuracy = 0.01)` (F1 score), and on the significance class at `r number(vg("fonsi", "class"), accuracy = 0.01)`, the standard bar for this kind of task. The three signals that carry the findings — finding the determination, placing the resource, and getting the class — all clear or approach that bar.
 
 ## How agencies stay below the line
 
@@ -217,7 +217,9 @@ What do these mitigations actually look like? A representative measure per resou
 mit_ex <- rt("mitigation_examples.csv")
 if (nrow(mit_ex) > 0) {
   mit_ex |>
-    group_by(Resource) |> slice_head(n = 1) |> ungroup() |>
+    # filter(!duplicated()) keeps the CSV's frequency ordering; group_by() |>
+    # slice_head() would silently re-sort resources alphabetically.
+    filter(!duplicated(Resource)) |>
     transmute(Resource, `Example mitigation drawn from the FONSI` = example) |>
     kable(align = "l")
 }
@@ -245,7 +247,7 @@ include_fig("fig_fonsi_technology.png")
 
 ### Enforceability of committed mitigation
 
-"Mitigated" only means something if the measures are actually required. The extraction flags whether each mitigated conclusion is tied to an enforceable permit condition or committed only in the document's text. The pattern tracks regulatory leverage: biological, air-quality, and water conclusions — backed by the Endangered Species Act and the Clean Air and Water Acts — most often carry an enforceable condition. Visual, cultural, and soils measures are far less often tied to one.
+"Mitigated" only means something if the measures are actually required. The extraction flags whether each mitigated conclusion is tied to an enforceable permit condition or committed only in the document's text. The pattern tracks regulatory leverage: biological and air-quality conclusions — backed by the Endangered Species Act and the Clean Air Act — most often carry an enforceable condition (about half and 43%). Visual and water sit mid-range (36% and 35%; the visual cell is small, n = 14 mitigated conclusions), while cultural, soils/geology, and public-health measures are rarely tied to one (26%, 9%, and 8%).
 
 ```{r}
 #| label: fig-enforce
@@ -254,7 +256,7 @@ include_fig("fig_fonsi_technology.png")
 include_fig("fig_fonsi_enforceability.png")
 ```
 
-So for the softer resources, the mitigation behind a not-significant finding is the least demonstrably binding, a caveat worth carrying into how much weight the "mitigated FONSI" label should bear for those areas.
+So for cultural, soils/geology, and public-health impacts, the mitigation behind a not-significant finding is the least demonstrably binding, a caveat worth carrying into how much weight the "mitigated FONSI" label should bear for those areas.
 
 # EIS Analysis: Which Resources Cross the Line
 
@@ -290,7 +292,7 @@ include_fig("fig_eis_unavoidable.png")
 eis_unav_ex <- rt("eis_unavoidable_examples.csv")
 if (nrow(eis_unav_ex) > 0) {
   eis_unav_ex |>
-    group_by(Resource) |> slice_head(n = 1) |> ungroup() |>
+    filter(!duplicated(Resource)) |>
     transmute(Resource, `Significant-unavoidable finding, in the agency's words` = example) |>
     kable(align = "l")
 }
@@ -326,7 +328,7 @@ For every above-the-line determination the extraction also records why it is sig
 
 ```{r}
 #| label: fig-factors
-#| fig-cap: "Note: The dominant factor behind each significant determination. Sheer magnitude, a protected resource, and cumulative effects lead."
+#| fig-cap: "Note: The factor cited behind each significant determination (a determination can cite more than one factor across alternatives). Sheer magnitude, a protected resource, and cumulative effects lead."
 #| out-width: "90%"
 include_fig("fig_eis_factors.png")
 ```
@@ -337,7 +339,7 @@ include_fig("fig_eis_factors.png")
 eis_fac_ex <- rt("eis_factor_examples.csv")
 if (nrow(eis_fac_ex) > 0) {
   eis_fac_ex |>
-    group_by(Factor) |> slice_head(n = 1) |> ungroup() |>
+    filter(!duplicated(Factor)) |>
     transmute(Factor, `Significant finding, in the agency's words` = example) |>
     kable(align = "l")
 }
@@ -382,7 +384,7 @@ include_fig("fig_eis_mitigable.png")
 
 First, the uneven mitigation pattern is itself an opportunity. Where agencies have a deep, repeatable toolbox — habitat timing windows, wetland minimization, cultural-resource protection — impacts that would otherwise be significant are routinely brought under the line. The resources that cross most (visual above all) are precisely the ones where the mitigation toolbox is thinnest. Increased investment in, and standardization of, mitigation approaches for those harder resources could keep more projects on the faster FONSI track, provided the measures genuinely reduce impact rather than relabel it.
 
-Second, a caveat that limits how far the "mitigated FONSI" label should be trusted. The committed mitigation behind a not-significant finding is, more often than not, not tied to a demonstrably enforceable permit condition — especially for the softer resources (visual, cultural, soils) that lean on commitments in the document text. This leaves open questions about the effectiveness of mitigation as a tool for avoiding in-depth environmental review: a finding is only as sound as the measures that support it are binding.
+Second, a caveat that limits how far the "mitigated FONSI" label should be trusted. The committed mitigation behind a not-significant finding is, more often than not, not tied to a demonstrably enforceable permit condition — especially for cultural, soils/geology, and public-health measures, which lean on commitments in the document text. This leaves open questions about the effectiveness of mitigation as a tool for avoiding in-depth environmental review: a finding is only as sound as the measures that support it are binding.
 
 **Data recommendation: standardize the terminology used for resource areas.** The single largest friction in this analysis is that agencies name the same resource in many different ways, and significance language is written project by project. A shared, standardized resource-area vocabulary — of the kind contemplated by CEQ's NEPA and Permitting Data and Technology Standard — would make significance determinations directly comparable across agencies and would sharpen every finding in this fact sheet.
 
