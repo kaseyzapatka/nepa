@@ -301,8 +301,10 @@ fig2 <- ggplot(fig2_data,
                aes(x = process_type, y = pct, fill = trigger_label)) +
   geom_col(position = position_fill(), width = 0.65) +
   geom_text(
-    data    = filter(fig2_data, pct > 0.05),
-    aes(label = percent(pct, accuracy = 1)),
+    # Label via the full stack, blanking small segments: filtering the data before
+    # position_fill() recomputes cumulative positions without the dropped segments
+    # and shifts every label in that bar (the EA-column mislabel).
+    aes(label = if_else(pct > 0.05, percent(pct, accuracy = 1), "")),
     position = position_fill(vjust = 0.5),
     color = "white", size = 3.5, fontface = "bold"
   ) +

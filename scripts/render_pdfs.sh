@@ -19,4 +19,10 @@ echo "  project_overview.pdf done"
 quarto render phase1/reports/key_insights.qmd --to pdf
 echo "  key_insights.pdf done"
 
+quarto render technical_reports/phase1.qmd --to pdf
+echo "  technical_reports/phase1.pdf done"
+
+quarto render technical_reports/phase2.qmd --to pdf
+echo "  technical_reports/phase2.pdf done"
+
 echo "PDFs complete."

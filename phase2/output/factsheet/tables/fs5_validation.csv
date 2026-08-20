@@ -1,0 +1,7 @@
+track,metric,score
+fonsi,finds,0.978
+fonsi,resource,0.886
+fonsi,class,0.808
+eis,finds,0.835
+eis,resource,0.679
+eis,class,0.686

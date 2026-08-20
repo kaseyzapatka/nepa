@@ -1,0 +1,7 @@
+process_type,review_type,n,mean_days,median_days,sd_days,p25_days,p75_days,min_days,max_days
+EA,Standard,313,610,421,755,204,758,14,7226
+EA,Programmatic,10,395,289,353,157,507,21,1228
+EA,Tiered,20,1143,734,1194,303,1384,29,4069
+EIS,Standard,287,1379,1087,1111,540,1784,43,7136
+EIS,Programmatic,82,1279,914,1255,543,1534,49,7862
+EIS,Tiered,7,725,593,201,586,917,505,973
