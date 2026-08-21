@@ -14,6 +14,12 @@ project:
     - "technical_reports/*.qmd"
     - "presentations/*.qmd"
     - "index.qmd"
+    - "project_overview.qmd"
+  # Refuses to build on Quarto < 1.10 (older versions silently drop the
+  # screen-reader-only callout labels). `quarto-required` does not enforce
+  # this for projects, so it is done here.
+  pre-render:
+    - scripts/check_quarto_version.sh
   post-render:
     - scripts/render_pdfs.sh
 
@@ -25,8 +31,6 @@ website:
         href: https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer
       - text: "Phase 1"
         menu:
-          - text: "Project Overview"
-            href: phase1/reports/project_overview.qmd
           - text: "Deliverable 1"
             href: phase1/reports/deliverable01.qmd
           - text: "Deliverable 2"
@@ -41,9 +45,6 @@ website:
             href: phase1/reports/deliverable06.qmd
       - text: "Phase 2"
         menu:
-          - text: "Overview"
-            href: phase2/reports/index.html
-          - text: "---"
           - text: "Deliverable 1"
             href: phase2/reports/deliverable01.html
           - text: "Deliverable 2"
@@ -56,7 +57,7 @@ website:
             href: phase2/reports/deliverable05.html
           - text: "Deliverable 6"
             href: phase2/reports/deliverable06.html
-      - text: "Technical Report"
+      - text: "Technical Reports"
         menu:
           - text: "Phase 1"
             href: technical_reports/phase1.qmd

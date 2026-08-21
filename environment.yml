@@ -36,13 +36,20 @@ dependencies:
   # Development / tests
   - pytest=9.*           # 9.0.3 used
 
-  # Quarto + R reporting stack. Do NOT float quarto: newer builds ship Deno 2.x,
-  # which crashed `quarto render` on this project; 1.3.433 is the version that
-  # rendered the published site. R: the site was originally rendered with system
-  # R 4.2.3 (package versions annotated below as the historical record); that pin
-  # no longer solves on conda-forge, so the env pins R 4.4 — verified to render
-  # the reports identically (2026-07-24 test render).
-  - quarto=1.3.433
+  # R reporting stack. NOTE: Quarto is deliberately NOT a conda dependency.
+  # Install it from the official installer (https://quarto.org/docs/get-started/),
+  # which bundles a known-good Deno. The conda-forge quarto builds pulled in a Deno
+  # that crashed `quarto render` on this project, and pinning around that problem
+  # froze this env at Quarto 1.3.433 — which silently rendered a *downgraded* site
+  # (it strips the screen-reader-only callout labels that 1.9+ emits).
+  # Required: Quarto >= 1.10. This is enforced by the `pre-render` hook
+  # scripts/check_quarto_version.sh, which aborts the build on an older Quarto.
+  # (Note: `quarto-required` in _quarto.yml does NOT work for projects — Quarto
+  # only honours it for extensions — which is why the hook exists.) See README.md.
+  # R: the site was originally rendered with system R 4.2.3 (package versions
+  # annotated below as the historical record); that pin no longer solves on
+  # conda-forge, so the env pins R 4.4 — verified to render the reports
+  # identically (2026-07-24 test render).
   - r-base=4.4.*         # 4.4.3 verified; original site render used system R 4.2.3
   - r-arrow              # 14.0.0.2 used
   - r-classint           # 0.4.9 used
