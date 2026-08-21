@@ -66,7 +66,9 @@ Raw NEPATEC 2.0 documents are loaded and preprocessed into per-source parquet fi
 | Deliverables | D1–D6 complete | D1–D6 complete |
 | Output location | `phase1/data/analysis/` | `phase2/data/` |
 
-**Data flow:** the two phases are independent. Each runs its own copy of `extract_data.py` over the same processed NEPATEC tables to build its own base parquets, so the project universe matches (61,881 rows) but the schemas differ — Phase 1 carries transmission/pipeline fields, Phase 2 carries extended Federal Register enrichment. Phase 2 does not read Phase 1's outputs, and neither phase writes into the other. See [phase2/runbooks/01_base_dataset.md](phase2/runbooks/01_base_dataset.md) for the build sequence.
+**Data flow:** the two phases build their *base* tables independently. Each runs its own copy of `extract_data.py` over the same processed NEPATEC parquets, so the project universe matches (61,881 rows) while the schemas differ — Phase 1 carries transmission/pipeline fields, Phase 2 carries extended Federal Register enrichment. Neither base table is derived from the other.
+
+No Phase 2 script reads from or writes to `phase1/`. See [phase2/runbooks/01_base_dataset.md](phase2/runbooks/01_base_dataset.md) for the build sequence.
 
 **Reproducing this work:** the current state of the default branch is the authoritative version of both phases — Phase 1 reproduces from `phase1/`, Phase 2 from `phase2/`.
 

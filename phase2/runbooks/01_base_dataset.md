@@ -87,6 +87,21 @@ enrichment fields added in Phase 2's `federal_register.py`.
 Neither file is derived from the other. Do not backfill Phase 1 outputs into Phase 2; recover
 anything missing through the Phase 2 pipeline.
 
+### Cross-phase reads (resolved 2026-08-21)
+
+**No Phase 2 script now reads from or writes to `phase1/`.** Three did, and were cleaned up:
+
+- `deliverable05/03_create_figures.R` read Phase 1's `projects_combined.parquet` for project
+  metadata. Repointed at the Phase 2 copy. Verified to be a no-op: all 61,881 `project_id`s
+  align across the two files, and the four columns it selects — `project_energy_type`,
+  `project_department`, `lead_agency_harmonized`, `project_type` — have **zero differing rows**.
+  No D5 figure changes.
+- `extract/extract_timeline.py` and `extract/extract_reviews.py` set
+  `ANALYSIS_DIR = BASE_DIR / "phase1" / "data" / "analysis"` at module level, which made them
+  look like a live dependency. They were unused Phase 1 carryovers — no importer anywhere
+  outside `phase2/code/_archived/` — and have been deleted. Phase 2's real timeline pipeline is
+  the numbered sequence in `phase2/code/deliverable04/` (`00_sample.py` … `07_validate.py`).
+
 ## Notes
 
 - `phase2/data/raw/` is a defined constant in `extract_data.py` but is **not** used by the base

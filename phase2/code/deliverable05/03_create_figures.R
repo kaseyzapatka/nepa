@@ -10,7 +10,7 @@
 #
 # Inputs:
 #   phase2/data/analysis/timeline/timeline_project_dates.parquet   (decision/initiation dates)
-#   phase1/data/analysis/projects_combined.parquet                 (energy, department, agency, type)
+#   phase2/data/analysis/projects_combined.parquet                 (energy, department, agency, type)
 #   phase2/data/analysis/deliverable05/law_citations.parquet       (script 01)
 #   phase2/data/analysis/deliverable05/ce_categories.parquet       (script 02)
 #
@@ -34,7 +34,7 @@ dir.create(FIGS, recursive = TRUE, showWarnings = FALSE)
 dir.create(DIAG, recursive = TRUE, showWarnings = FALSE)
 
 TIMELINE <- file.path(PHASE2, "data", "analysis", "timeline", "timeline_project_dates.parquet")
-PROJECTS <- here::here("phase1", "data", "analysis", "projects_combined.parquet")
+PROJECTS <- file.path(PHASE2, "data", "analysis", "projects_combined.parquet")
 CITES    <- file.path(PHASE2, "data", "analysis", "deliverable05", "law_citations.parquet")
 CATS     <- file.path(PHASE2, "data", "analysis", "deliverable05", "ce_categories.parquet")
 
