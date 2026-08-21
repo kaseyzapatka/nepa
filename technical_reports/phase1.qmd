@@ -36,7 +36,7 @@ execute:
 <!--
 SCOPE MAP (section -> public artifact it explains) — validated 2026-07-31; re-checked in review loop.
 - Executive Summary -> the Phase 1 section of the site as a whole
-- The Dataset -> phase1/reports/project_overview.html (corpus, classification, exclusions)
+- The Dataset -> project_overview.html (corpus, classification, exclusions)
 - Pipeline Architecture -> the methods content across all phase1/reports/*.html
 - D1-D6 sections -> phase1/reports/deliverable01-06.html
 - Data Products & Validation -> the reports' data provenance + the public repo
@@ -53,7 +53,7 @@ decarbonization universe, 1,326 EA/EIS. Quotes are verbatim client-approved Phas
 
 ## Executive Summary
 
-This report is a technical companion to the six Phase 1 deliverable reports. It explains how the analysis was built — the dataset, the extraction pipelines, the validation performed — and what someone would need to know to replicate or extend the work. Findings live in the [deliverable reports](../phase1/reports/project_overview.html); this document is about the machinery behind them.
+This report is a technical companion to the six Phase 1 deliverable reports. It explains how the analysis was built — the dataset, the extraction pipelines, the validation performed — and what someone would need to know to replicate or extend the work. Findings live in the [deliverable reports](../project_overview.html); this document is about the machinery behind them.
 
 Phase 1 was the first analysis layer built on NEPATEC 2.0, a corpus of more than 120,000 NEPA documents from roughly 60,000 federal reviews. From that corpus, Phase 1 classified a 20,725-project decarbonization universe and delivered six analyses: the technology, agency, and geographic landscape of decarbonization reviews; the prevalence and speed of programmatic and tiered reviews; review-type shares, timelines, and generation capacity; multi-state and multi-department collaboration structure; document length and compliance with the Fiscal Responsibility Act's page limits; and technology-specific deep dives on transmission, geothermal, and pipelines.
 
@@ -74,7 +74,7 @@ Phase 1's extraction pipeline flattens this into a single analysis table, `proje
 | Other | 26,078 | 1,541 | 2,754 | 30,373 |
 | **Total** | **54,668** | **3,083** | **4,130** | **61,881** |
 
-The decarbonization universe — the subject of all six deliverables — was defined by NEPATEC's own project-type tags: a project counts as decarbonization when it carries at least one decarbonization tag (renewable energy production, electricity transmission, nuclear technology, carbon capture and sequestration, utilities, and related categories) and no fossil-fuel tag (coal, land-based or offshore oil and gas, pipelines, rural energy). Because tags are broad, three documented refinements then removed projects the tags capture but the analysis should not: utility-tagged projects that are actually broadband, waste, or land development (1,623 removed); military and defense nuclear actions (481); and nuclear-waste cleanup work at DOE environmental-management sites, filtered by office and site lists with a client-reviewed keep list of 34 genuinely energy-relevant projects. The full logic, term lists, and counts are documented in the repository and summarized in the [project overview](../phase1/reports/project_overview.html).
+The decarbonization universe — the subject of all six deliverables — was defined by NEPATEC's own project-type tags: a project counts as decarbonization when it carries at least one decarbonization tag (renewable energy production, electricity transmission, nuclear technology, carbon capture and sequestration, utilities, and related categories) and no fossil-fuel tag (coal, land-based or offshore oil and gas, pipelines, rural energy). Because tags are broad, three documented refinements then removed projects the tags capture but the analysis should not: utility-tagged projects that are actually broadband, waste, or land development (1,623 removed); military and defense nuclear actions (481); and nuclear-waste cleanup work at DOE environmental-management sites, filtered by office and site lists with a client-reviewed keep list of 34 genuinely energy-relevant projects. The full logic, term lists, and counts are documented in the repository and summarized in the [project overview](../project_overview.html).
 
 One structural fact about NEPATEC shapes every Phase 1 result: EIS records are drawn from EPA's governmentwide EIS database and are broadly comprehensive since 2012, but EA and CE records are substantially complete only for the Department of Energy and the Bureau of Land Management. DOE alone accounts for 81 percent of decarbonization projects, 96 percent of them categorical exclusions. Statistics about EAs and CEs therefore describe the DOE/BLM-dominated corpus, not the full federal population.
 

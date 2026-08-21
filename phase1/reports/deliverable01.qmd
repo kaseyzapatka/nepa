@@ -31,7 +31,7 @@ d1_tables <- here("phase1", "output", "deliverable1", "tables")
 
 # Read project overview source so this report stays synced to the canonical
 # definitions document used across deliverables.
-project_overview_path <- here("phase1", "reports", "project_overview.qmd")
+project_overview_path <- here("project_overview.qmd")
 if (!file.exists(project_overview_path)) {
   stop("Missing required file: ", project_overview_path)
 }
@@ -52,7 +52,7 @@ This report aims to create the following set of deliverables:
 
 > Data on number of projects tagged with decarbonization technologies within the dataset: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location
 
-For a full description of how “decarbonization technologies” are defined and classified in this analysis — including inclusion/exclusion criteria and the overall project universe — see the [Project Overview](project_overview.qmd) document (last updated `r project_overview_last_updated`).
+For a full description of how “decarbonization technologies” are defined and classified in this analysis — including inclusion/exclusion criteria and the overall project universe — see the [Project Overview](../../project_overview.qmd) document (last updated `r project_overview_last_updated`).
 
 ---
 

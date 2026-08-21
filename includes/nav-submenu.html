@@ -48,10 +48,6 @@
     }
 
     const menuItems = Array.from(phase2Menu.querySelectorAll("a.dropdown-item"));
-    const overviewItem = menuItems.find((item) => item.textContent.trim() === "Overview");
-    if (!overviewItem) {
-      return;
-    }
 
     const submenuConfigs = [
       ["Deliverable 1", [

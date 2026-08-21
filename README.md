@@ -15,6 +15,7 @@ What's tracked in this repository (large data drops, trained models, and admin f
 ```
 nepa/
 ├── README.md                  # This file — project overview
+├── LICENSE                    # MIT license for the code in this repository
 ├── _quarto.yml                # Quarto website configuration
 ├── index.qmd                  # Website landing page
 ├── includes/                  # Site-wide HTML includes (navbar submenu)
@@ -23,7 +24,8 @@ nepa/
 ├── app/                       # Streamlit document explorer (deployed to HF Spaces)
 ├── docs/                      # Built Quarto website output (published site)
 ├── literature/                # Reference materials
-├── phase1/                    # Phase 1 analysis — complete, frozen at freeze/phase1_v1.0
+├── technical_reports/         # Cross-phase technical report + recommendations (Quarto)
+├── phase1/                    # Phase 1 analysis — complete
 │   ├── README.md              # Phase 1 pipeline documentation
 │   ├── code/                  # Extraction scripts + per-deliverable R analysis
 │   ├── notes/                 # Status files, architecture notes
@@ -37,9 +39,11 @@ nepa/
 │   ├── notes/                 # Published methods notes and coverage pages
 │   ├── output/                # Deliverable outputs (report-input CSVs are tracked)
 │   ├── reports/               # Quarto reports
+│   ├── factsheets/            # Client-facing one-page summaries per deliverable
+│   ├── rag/                   # Retrieval-augmented Q&A app over the document corpus
 │   ├── runbooks/              # Pipeline runbooks
 │   └── training/              # Model training labels and locked sample IDs
-├── presentations/             # RevealJS slides (CATF stakeholder presentation)
+└── presentations/             # RevealJS slides (CATF stakeholder presentation)
 ```
 
 Not in the repository: raw NEPATEC data and multi-GB processed parquets (`phase1/data/`, `phase2/data/` — local data drops; a small set of gold-label and replication cache files *is* tracked), trained model weights (`phase1/models/`, `phase2/models/` — available via the project's GitHub Release), and administrative files.
@@ -56,7 +60,7 @@ Raw NEPATEC 2.0 documents are loaded and preprocessed into per-source parquet fi
 
 | | Phase 1 | Phase 2 |
 |---|---|---|
-| Status | Complete — frozen at `freeze/phase1_v1.0` | Complete (D1–D6) |
+| Status | Complete | Complete (D1–D6) |
 | Data pipeline | Pandas-based | DuckDB-based |
 | Timeline extraction | BERT classifier | Multi-tier retrieval + SetFit/LightGBM + LLM adjudication |
 | Deliverables | D1–D6 complete | D1–D6 complete |
@@ -64,7 +68,9 @@ Raw NEPATEC 2.0 documents are loaded and preprocessed into per-source parquet fi
 
 **Data flow:** Phase 2 reads `phase1/data/analysis/projects_combined.parquet` as read-only input and writes all new outputs to `phase2/data/`. Phase 1 data is never modified by Phase 2 scripts.
 
-To reproduce Phase 1 exactly: `git checkout freeze/phase1_v1.0`
+**Reproducing this work:** the current state of the default branch is the authoritative version of both phases — Phase 1 reproduces from `phase1/`, Phase 2 from `phase2/`.
+
+Two tags from earlier in the project remain in the history as markers and should **not** be used for replication: `freeze/phase1_v1.0` (2026-03-19) and `checkpoint/phase1-cleanup` (2026-04-09). Both predate the repository reorganization, when Phase 1 code sat in a flat top-level layout (`code/`, `notes/`, `output/`, `reports/`) rather than under `phase1/`. Checking either one out yields a tree whose scripts resolve paths that no longer exist, and which predates later edits to the Phase 1 reports.
 
 ---
 
@@ -75,7 +81,9 @@ conda env create -f environment.yml
 conda activate nepa
 ```
 
-Both phases share this environment — Python pipelines and the rendering stack (Quarto 1.3.433 + R 4.2, pinned to the versions that produced the published site). See [environment.yml](environment.yml) for the full dependency spec with the exact versions annotated, or `phase1/notes/architecture/environment_setup.md` for design rationale.
+Both phases share this environment for the Python pipelines and the R side of the rendering stack (R 4.4; the original site render used system R 4.2.3). See [environment.yml](environment.yml) for the full dependency spec with the exact versions annotated, or `phase1/notes/architecture/environment_setup.md` for design rationale.
+
+**Quarto is installed separately, not through conda.** This project requires **Quarto ≥ 1.10** — install it from [quarto.org](https://quarto.org/docs/get-started/). Do not install Quarto from conda-forge: those builds pull in a Deno that crashes `quarto render` on this project, and the pin used to work around that (1.3.433) silently produced a *downgraded* site — it drops the screen-reader-only callout labels that Quarto 1.9+ emits, a regression invisible to a sighted reviewer. A pre-render hook, [scripts/check_quarto_version.sh](scripts/check_quarto_version.sh), now aborts the build if Quarto is too old.
 
 **Rendering the website**: `quarto render` from the repo root inside the activated env. Report-input CSVs are tracked, so the reports render from a fresh clone; re-running the extraction pipelines themselves requires the NEPATEC data drop.
 

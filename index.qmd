@@ -3,6 +3,6 @@ title: "NEPA"
 ---
 
 ```{=html}
-<meta http-equiv="refresh" content="0; url=phase1/reports/project_overview.html">
-<p>Redirecting to <a href="phase1/reports/project_overview.html">Project Overview</a>...</p>
+<meta http-equiv="refresh" content="0; url=project_overview.html">
+<p>Redirecting to <a href="project_overview.html">Project Overview</a>...</p>
 ```
