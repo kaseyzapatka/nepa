@@ -4,6 +4,12 @@ Rplots.pdf
 tmp/
 *.csv
 literature/*.pdf
+# Word files are build artifacts, not sources -- the .qmd is the source of truth and
+# regenerates them via `quarto render <file>.qmd --to docx`.
+# ONE deliberate exception is force-added: phase1/reports/catf-reference.docx. It is a
+# render INPUT (the `reference-doc:` template for key_insights.qmd), and key_insights is
+# in the site render list, so the full `quarto render` FAILS without it on a fresh clone.
+# Verified by direct test. Do not untrack it.
 *.docx
 *project_overview.md
 20181101_COMMS_CATFBrandGuide.pdf
