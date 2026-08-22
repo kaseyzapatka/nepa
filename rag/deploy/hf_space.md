@@ -1,11 +1,11 @@
 # Hugging Face Space Notes
 
-Deployment is on hold until the local RAG build is validated.
+**Status: preliminary — not built.** No Space exists yet. Deployment is on hold until the local RAG build is validated.
 
-When ready, use a separate Hugging Face Dataset repo for Phase 2 RAG artifacts:
+When ready, use a separate Hugging Face Dataset repo for the RAG artifacts:
 
 ```text
-YOUR_HF_USERNAME/nepa-phase2-rag-db
+YOUR_HF_USERNAME/nepa-rag-db
 ```
 
 The Space should download or mount:

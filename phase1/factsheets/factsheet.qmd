@@ -1,0 +1,292 @@
+---
+title: "NEPA by the Numbers: New Insights on Environmental Reviews for Energy Infrastructure"
+subtitle: "Phase 1 Fact Sheet"
+date: "July 2026"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    fig-align: center
+  docx:
+    toc: false
+    number-sections: false
+    fig-align: center
+    fig-width: 6.5
+    fig-height: 4.5
+    reference-doc: catf-reference.docx
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+<!--
+Converted from the final submitted Phase 1 fact sheet, admin/factsheets/phase1/Phase1_final.docx
+(gitignored, not tracked in this repo). See phase1/factsheets/README.md for the source note and
+conversion caveats. Figure placeholders below carry the exact captions from the source docx; the
+docx embeds its own final chart images (not tracked here). Related, but not verified-identical,
+PNGs already exist under phase1/output/factsheet/figures/ and are noted per figure below for a
+human to reconcile before rendering.
+-->
+
+**Authors:** Kasey Zapatka (data management, analysis, and visualization) and Kelsey Landau
+**Contributors:** Natalie Manitius, Alan Mitchell, Nicole Pavia, and Frank Sturges
+
+::: {.callout-note}
+## Key Findings
+
+- **The overwhelming majority of energy-related federal actions — 91% — are categorically excluded from higher levels of NEPA review.** This finding applies across both fossil and decarbonization technologies (see the appendix for how those technologies were defined). Data also suggest that agencies most often limit environmental review of smaller-scale projects while scrutinizing the impacts of larger ones, reflecting the intention of NEPA. A closer look at solar-related federal actions shows solar projects with higher generation capacity (typically larger projects) are more likely to receive higher levels of scrutiny. In addition, solar-related reviews are completed faster than those for decarbonization technologies overall.
+- **For the remainder of decarbonization-related federal actions requiring more in-depth NEPA review, effective agency use of programmatic or tiered reviews can speed review times.** Programmatic and tiered reviews for decarbonization technologies remain rare (161 of 1,326 environmental assessments [EAs] and environmental impact statements [EISs], about 12%). However, data show that the median tiered EA is faster than a full EIS, and a tiered EIS is faster than standard and programmatic EISs. This is quantitative evidence that tiering reviews results in demonstrable time savings on the back end of the review process. The value of a tiered EA comes in avoiding the need for a full EIS, while tiered EISs successfully use the upfront work done in programmatic reviews to save time on later site-specific analyses. This analysis does not, however, include the upfront time spent preparing the programmatic review.
+- **A multi-department network collaborates on decarbonization-related environmental reviews, with the Department of the Interior as the "hub" and the Departments of Defense and Energy as frequent and consequential partners.** Mapping of interagency coordination shows the Department of the Interior's breadth of partnerships and shared ties in the environmental review process. Interior frequently collaborates with the Department of Defense, driven by partnership with the U.S. Army Corps of Engineers, and the Department of Energy. The two latter agencies also often serve as lead agencies.
+- **It's early, but permitting reforms on page limits, set in the Fiscal Responsibility Act of 2023 (FRA), are associated with real, but modest, reduction in page lengths for EISs involving energy technologies.** Post-FRA, most EAs (83%) are compliant with the 75-page limit; for EISs, though there is a clear downward trend, 35% still exceed 300 pages and another 33% fall between 151 and 300 pages. Links between page length and quality of environmental review documents, as well as page lengths of supplemental materials such as appendices, were not analyzed in this work.
+- **Data quality and completeness remain a structural limitation to comprehensive analysis.** The NEPATEC 2.0 dataset captures a large share of the federal NEPA universe for energy technologies, but it is not comprehensive. Data availability remains limited for key agencies in energy-related environmental review processes, including the Army Corps of Engineers, the U.S. Forest Service, the Bureau of Ocean Energy Management, and the Federal Energy Regulatory Commission.
+:::
+
+---
+
+# Executive Summary
+
+Clean Air Task Force (CATF) and Kasey Zapatka partnered to analyze the National Environmental Policy Act Text Corpus (NEPATEC) 2.0 dataset collated by the Pacific Northwest National Laboratory's PermitAI project — the largest publicly available dataset of National Environmental Policy Act (NEPA) documents, including categorical exclusions, environmental assessments, and environmental impact statements. The NEPATEC 2.0 dataset standardizes and categorizes data across many of these documents for the first time, making them accessible for analysis. In this report, we investigate how NEPA functions across a range of federal actions involving energy infrastructure.
+
+Given the historically limited amount of publicly available data on NEPA and its impact on project outcomes, our analysis of this new dataset sheds light on important trends in agency use of different types of NEPA documents and the initial effects of recent statutory reforms. This report summarizes our first phase of results from a planned series analyzing this new NEPA data corpus.
+
+## Recommendations
+
+From this first phase of analysis, several data-driven recommendations that could strengthen and speed environmental reviews emerged:
+
+- The federal government should invest in increased data management and transparency for NEPA reviews, including by publishing categorical exclusion determinations across all agencies to allow for broad-based crosscutting analysis.
+- Programmatic and tiered reviews remain underutilized strategic tools that can speed project delivery without compromising environmental review integrity. Agencies should consider increasing their use as appropriate.
+- A focus on strengthening coordination capabilities within and between the Department of the Interior, Department of Defense, and Department of Energy — agencies the data confirm as particularly critical across a range of energy-related reviews — can have outsized impact on improving review timelines. Mechanisms to enhance this coordination capacity should include targeted staff increases and improving retention of individuals with permitting expertise, development and effective implementation of memoranda of understanding, enhanced transparency in project review and project timelines (such as those enabled by the Permitting Council's Permitting Dashboard), leadership recognition of permitting as a top priority, and leverage of shared databases.
+- Investments in federal metadata standards, document-linkage practices, and centralized submission requirements can improve the quality of downstream environmental review and permitting analyses. Existing efforts such as PermitAI, effective implementation of the Council on Environmental Quality's NEPA Data and Technology Standard, and the proposed ePermit Act would all be valuable steps to improve data quality and subsequent research findings — and significant additional investments in federal data infrastructure are still needed.
+
+# Definitions
+
+- **Categorical exclusion (CE):** the lowest and least complicated level of NEPA review, used for categories of agency actions with a record demonstrating that the category does not normally significantly affect the environment; takes days or weeks for agencies to complete.
+- **Environmental assessment (EA):** the middle level of NEPA review, used for agency actions that do not have a reasonably foreseeable significant effect on the quality of the human environment, or if the significance of such effect is unknown; agencies have a statutory limit of one year to complete.
+- **Environmental impact statement (EIS):** the highest and most complicated level of NEPA review, used for agency actions that have a reasonably foreseeable significant effect on the quality of the human environment; agencies have a statutory limit of two years to complete an EIS, or three for agency actions of extraordinary complexity.
+- **Programmatic review:** an EA or EIS that analyzes all or some of the environmental effects of a policy, program, plan, or group of related actions.
+- **Tiered review:** a site- or project-specific EA or EIS that typically uses the programmatic review as a base of analysis.
+- **Decarbonization technology:** defined using the following metadata tags from Pacific Northwest National Laboratory's NEPATEC 2.0 dataset: carbon capture and sequestration, conventional energy production – nuclear, conventional energy production – other, electricity transmission, nuclear technology, renewable energy production, utilities. For more on how these technologies are categorized in this analysis, see the appendix.
+
+# Background
+
+The National Environmental Policy Act (NEPA) is a foundational environmental law that has, for more than fifty years, ensured that federal agencies consider the environmental impacts of a proposed major federal action. NEPA requires federal agencies to consider the reasonably foreseeable environmental impacts of their activities, integrate those considerations into agency decision making, and enhance public transparency in the decision-making process.
+
+In recent years, NEPA has become a flashpoint in conversations around infrastructure deployment, with critics identifying the statute as a source of delays and proponents pointing to the important role it plays in improving environmental decision-making and promoting interagency coordination and public participation. At the same time, research shows that factors external to NEPA — including financing, agency staffing and coordination, and project-specific challenges (for instance, supply chains and social license) — play important and overlooked roles in determining project timelines.
+
+## The NEPA data challenge
+
+Historically, research to determine the role NEPA plays in infrastructure deployment has been hindered by federal agency data management practices: NEPA documents are scattered across numerous agency databases, often in machine-unreadable formats, and lack basic metadata and other identifiers. As such, researchers have had to craft bespoke subsets of NEPA data from which to glean insights — a time-consuming task that has limited the information available about NEPA's effectiveness and paved the way for a national permitting reform conversation reliant on selective examples and anecdotes.
+
+## A fresh perspective on NEPA
+
+The National Environmental Policy Act Text Corpus (NEPATEC) 2.0 dataset, developed as part of the Pacific Northwest National Laboratory's (PNNL) PermitAI project, allows us to add new, large-scale evidence to this conversation. PNNL has built and released a valuable dataset of environmental review documents containing millions of pages and billions of words in machine-readable JSON format. The dataset contains more than 120,000 NEPA documents from 60,000 reviews prepared by more than 60 different agencies. Of these, nearly 21,000 involve decarbonization technologies and nearly 11,000 involve fossil fuel technologies, which are the focus of this research. The bulk of the NEPATEC 2.0 dataset spans roughly 2000 through 2025, with a handful of project records as early as the 1980s; decarbonization-related reviews in particular span roughly 2010 through 2025, with a handful of project records dated from earlier in the 2000s.
+
+To get to the facts on the ground about NEPA and its role in project outcomes, Clean Air Task Force (CATF), a non-profit organization dedicated to advancing the policy and technology changes necessary to achieve a zero-emissions, high-energy planet at an affordable cost, sought to review and garner insights from the NEPATEC 2.0 dataset. CATF partnered with Kasey Zapatka, a postdoctoral researcher and lecturer at the University of California, Berkeley, to analyze this data corpus and investigate how NEPA functions across a range of energy infrastructure projects. This work, part of an ongoing series, will inform policymakers, NEPA practitioners, and the public. Key findings from our first phase of research are:
+
+# 1. The NEPA Process Is Categorically Excluding Small-Scale Projects and Scrutinizing the Impacts of Larger Ones
+
+## 1.1 The vast majority of energy-related federal actions do not require EAs or EISs
+
+Of the approximately 31,500 NEPA reviews involving all energy technologies in this dataset, including both fossil and decarbonization technologies, 91% are subject to CEs. <!-- CORRECTED from the source docx, which reads "approximately 3,000" — a dropped digit. Verified against projects_combined.parquet: 31,508 energy projects (Clean 20,725 + Fossil 10,783), of which 28,590 are CEs = 91%. The 91% in the source was correct; only the denominator was wrong. --> This means reforms aimed only at accelerating EAs and EISs will affect a limited slice of energy-related federal actions, as most are already categorically excluded.
+
+```{r}
+#| label: fig-process-composition
+#| fig-cap: "NEPA process composition (all energy-related reviews)."
+#| echo: false
+knitr::include_graphics(here::here("phase1","output","factsheet","figures","02_energy_type_composition_ALL_ENERGY.png"))
+```
+
+NEPATEC 2.0 contains the most complete set of reviews from the Department of Energy (DOE) and Bureau of Land Management (BLM, part of the Department of the Interior), two key agencies in environmental review processes. The aforementioned trend persists for energy-related reviews at these agencies — the overwhelming majority of federal actions involving energy technologies are CEs. Although DOE and BLM datasets are not necessarily representative of every federal agency, this finding indicates that where the documentation in the dataset is complete, energy-related actions are overwhelmingly using the lowest-intensity level of NEPA review. It is worth noting, however, that not all projects are equally sized, and a small number of major projects can have an outsized impact. While the number of overall federal actions that use CEs is instructive, more analysis is needed to fully assess overall impacts.
+
+```{r}
+#| label: fig-doe-blm-composition
+#| fig-cap: "NEPA process type distribution for departments with complete CE, EA, and EIS coverage in NEPATEC 2.0: DOE (all offices) and BLM."
+#| echo: false
+knitr::include_graphics(here::here("phase1","output","factsheet","figures","02_energy_type_composition_ALL_ENERGY_DOE_BLM.png"))
+```
+
+## 1.2 Reviews for solar energy projects are completed more quickly than reviews for decarbonization projects as a whole, and level of review is correlated with the generation capacity of those projects
+
+While the vast majority of solar projects are sited on private land (around 95% of installed capacity) and do not have a federal nexus requiring a NEPA decision, those that do are the subject of much debate. Previous research by Resources for the Future examined 28 EISs for solar projects between 2009-2021 and found that, on average, the NEPA process took around 2.5 years, notably less than the 4.5 years for EISs for all projects during the same time period. Our research results are similar: solar projects in the NEPATEC 2.0 dataset took a median 2 months, compared to 3 months for all decarbonization projects; EAs took a median 1 month, compared to 1 month for all decarbonization projects. <!-- SIC: this sentence is garbled in the source docx (run-together text, likely from unspaced inline computed values, e.g. "2 monthscompared to3 months"); minimal punctuation was added here for readability without changing any numbers or adding/removing claims. It is unclear from the source text alone which review process ("2 months"/"3 months") this first clause refers to. -->
+
+```{r}
+#| label: fig-solar-timeline
+#| fig-cap: "Timeline from initiation to decision for reviews of solar actions. Thin bar spans the 10th to 90th percentile, thick bar shows the interquartile range (25th–75th), and the point marks the median; the dashed bar represents the median for decarbonization reviews as a whole. Timeline data extraction is incomplete due to missing data (such as initiation dates, decision dates, and linked records of decision)."
+#| echo: false
+knitr::include_graphics(here::here("phase1","output","factsheet","figures","03_duration_summary_intervals_by_process_solar.png"))
+```
+
+In addition, solar projects with a higher generation capacity — typically, larger projects — are more likely to go through more intensive levels of NEPA review. This is to be expected, since projects with larger footprints are more likely to have significant environmental impacts, and indicates that the NEPA process categorically excludes some small-scale projects or other solar-related actions (for instance, research and development funding for agrivoltaics) while more closely examining the impacts of large-scale projects (e.g., the 200 MW Arrow Canyon Solar Project in Nevada).
+
+```{r}
+#| label: fig-solar-capacity
+#| fig-cap: "Distribution of extracted generation capacity for solar actions by process type (violin + boxplot, megawatt [MW] log scale). CEs for projects with reported capacities above 500 MW reflect transmission approvals, minor modifications, and administrative actions where the capacity figure describes an associated facility, rather than for the solar project itself."
+#| echo: false
+knitr::include_graphics(here::here("phase1","output","factsheet","figures","06_capacity_distribution_violin_box_solar.png"))
+```
+
+# 2. Effective Agency Implementation of Existing NEPA Options Can Speed Review Times
+
+## 2.1 Programmatic and tiered reviews remain underutilized strategic tools that can speed project delivery without compromising environmental review integrity
+
+The evidence on programmatic and tiered reviews indicates that there are real efficiency gains from avoiding project-specific EISs for decarbonization-related reviews. However, the use of programmatic and tiered reviews for decarbonization technologies is rare: only 161 of 1,326 (12.1%) decarbonization EA and EIS reviews in the dataset were programmatic or tiered, indicating that there are opportunities for agencies to increase their use, as appropriate.
+
+Tiered EAs take longer than standard EAs (median of 734 versus 421 days) but have a substantially shorter timeline than a full EIS. This suggests the real efficiency gain from tiering occurs when it allows an agency to move a project that would have been assessed by an EIS to a tiered EA. Tiered EISs take less time (median of 593 days) than standard (1,087 days) and programmatic EISs (914 days), though distributions substantially overlap and sample sizes are small. This represents the first quantitative evidence, to our knowledge, that tiering reviews results in demonstrable time savings on the back end (though this analysis does not include the upfront time agencies spend initially preparing the programmatic review).
+
+```{r}
+#| label: fig-review-duration
+#| fig-cap: "Review duration for decarbonization technologies by review type and NEPA process. Small sample sizes mean the results should be treated as directional, not definitive."
+#| echo: false
+knitr::include_graphics(here::here("phase1","output","factsheet","figures","02_duration.png"))
+```
+
+## 2.2 Interagency coordination could meaningfully impact efficiency
+
+Previous CATF research on transmission permitting has demonstrated that insufficient support for agency coordination, cooperation, and capacity contributes to longer permitting timelines. This research builds on that finding by mapping which agencies collaborate the most on NEPA reviews by creating a "bridge score," a normalized measure of cross-department collaboration ties of lead and cooperating agencies for decarbonization-related EISs.
+
+In our analysis of decarbonization-related EISs in this dataset, we find that the Department of the Interior stands out as the clear hub of the multi-department network, with a bridge score of 64.2 compared with 62.8 for the Department of Defense and 50.3 for the Department of Energy. The Department of the Interior's central position reflects both the breadth of its partnerships — spanning 12 unique <!-- SIC: source docx text reads "spanning 12 unique —and the sheer volume..." — a word appears to be missing after "unique" in the original; transcribed verbatim without inventing the missing word. --> — and the sheer volume of shared ties. Interior's strongest single partnership is with the Department of Defense, a relationship driven primarily by the U.S. Army Corps of Engineers, which routinely cooperates on federal actions affecting waterways or wetlands. The Department of Energy is a strong third, with its largest partnership also flowing to the Department of the Interior. Most of the other departments are more peripheral, connecting to fewer partners and typically anchored to the Departments of Interior, Defense, or Energy as their primary collaborator.
+
+```{r}
+#| label: fig-collaboration-hubs
+#| fig-cap: "Federal departments ranked by bridge score for decarbonization-related EISs. The Department of the Interior is the dominant collaboration hub across the interagency network."
+#| echo: false
+knitr::include_graphics(here::here("phase1","output","factsheet","figures","fig_department_collaboration_hubs.png"))
+```
+
+The flow diagram below offers a complementary view of the same pattern. This figure is read from left to right: the department on the left shows to which departments on the right each review's lead agency collaboration flows. The Department of the Interior anchors the left side as the most common lead agency, with its largest flows directed to the Department of Defense, Environmental Protection Agency, and Department of Energy on the right. The Department of Energy also appears as a meaningful lead, with substantial flows to the Department of Defense and Environmental Protection Agency and back to the Department of the Interior. The remaining departments — Agriculture, Defense, and the Environmental Protection Agency — appear on both sides, reflecting their roles as both lead and cooperating agencies across different reviews. Together, the figure reinforces the Department of the Interior's role as the essential intermediary in cross-agency decarbonization work, while highlighting that the Departments of Defense and Energy are its most consequential partners.
+
+```{r}
+#| label: fig-department-sankey
+#| fig-cap: "Cross-department flows for the top six departments by collaborative activity (decarbonization-related EISs only). Flow width reflects the number of shared review ties."
+#| echo: false
+knitr::include_graphics(here::here("phase1","output","factsheet","figures","fig_department_sankey_filtered.png"))
+```
+
+# 3. It's Early, but Page Limits, Set in the Fiscal Responsibility Act of 2023, Are Associated with Real, but Modest, Reduction in Page Lengths
+
+The Fiscal Responsibility Act of 2023 (Public Law 118-5) introduced page limits for NEPA environmental reviews. Under the law, the main body text of EAs must be 75 pages or fewer and EISs must be either 150 pages or fewer, or, for proposals of "extraordinary complexity," under 300 pages.
+
+There is considerable variation in average page length of documents over time for energy-related reviews. Using a three-month rolling average (calculated before and after FRA enactment), we see a decline in average and median page length for EISs after the FRA's passage (mean 317 → 269 pages; median 260 → 212), while EA length was essentially flat (likely because EAs were generally already under the 75-page limit). However, more time is needed for a large sample of energy-related reviews.
+
+```{r}
+#| label: fig-pages-over-time
+#| fig-cap: "Regulatory page counts for individual EAs and EISs (all energy types) by decision date; navy line = three-month rolling mean. Red dashed line = FRA enactment (June 3, 2023)."
+#| echo: false
+
+knitr::include_graphics(here::here("phase2", "output", "deliverable04", "figures", "fig_d4_pages_over_time.png"))
+```
+>
+> <!-- NOT INSERTED — scope mismatch, do not use without reconciling. Best candidate:
+> `phase1/output/factsheet/figures/05_pages_over_time_break.png`, but its committed source
+> data is scoped to decarbonization-only reviews (per its on-chart note, "Analysis is limited
+> to 20,725 decarbonization NEPA reviews"), while this caption and the docx's embedded chart
+> say "all energy types" — a much larger population (fossil + decarbonization). The docx image
+> (word/media/image9.png, 1,159,175 bytes) is a dark-themed chart titled "Document Length Over
+> Time (All EA/EIS, all energy types)" with a different note ("Regulatory pages exclude
+> embedded appendices and low-content pages per 40 C.F.R. § 1508.1(bb)"), confirming it is a
+> different run than the committed 05_pages_over_time_break.png. No matching "all energy
+> types" PNG exists anywhere in the repo (checked phase1/output/deliverable5/figures/,
+> phase1/output/factsheet/figures/, phase2/output/) — the underlying decarb-only scoping
+> decision post-dates the docx and was never re-run at the docx's original scope. -->
+
+Viewed another way, our analysis shows a real but modest shift in document length pre- and post-FRA for EISs (though this shift is correlational). Average and median regulatory page counts mostly decline after the FRA was enacted, which is consistent with agencies responding to the new statutory limits.
+
+```{r}
+#| label: fig-pages-pre-post-fra
+#| fig-cap: "Mean regulatory pages for all energy-related EAs and EISs, before and after FRA enactment."
+#| echo: false
+
+knitr::include_graphics(here::here("phase2", "output", "deliverable04", "figures", "fig_d4_pages_pre_post_fra.png"))
+```
+>
+> <!-- NOT INSERTED — scope mismatch, do not use without reconciling. Best candidate:
+> `phase1/output/factsheet/figures/05_pages_pre_post_fra.png`, but its numbers do not match
+> this caption's own prose above ("mean 317 → 269 pages; median 260 → 212" for EISs): the
+> committed PNG shows EIS average 368 (n=269) → 270 (n=42), EA average 62 (n=283) → 57 (n=33),
+> all decarbonization-only. The docx's embedded chart (word/media/image10.png, 151,786 bytes)
+> shows EIS average 317 (n=1,342) → 269 (n=97) and EA average 33 (n=2,021) → 39 (n=218) — the
+> "all energy-related" scope matching the caption and prose exactly. Same root cause as Figure
+> 8: the repo's committed 05_*.png figures were regenerated decarbonization-only after the docx
+> was finalized, and no all-energy-scoped version survives in the repo. -->
+
+Ultimately, it's likely that instituting page limits reduced document length for EISs, but the evidence is not definitive: 83% of post-FRA energy-related EAs are compliant with the 75-page limit, and 32% fall within the 150-page limit, with another 33% within the 300-page extraordinary-complexity range. <!-- SIC: source docx reads "32% fall within the 15page limit another 33% 300page" (missing digit/words in the original); minimal wording restored ("150-page", "within the ... range") without changing the numbers. NOT a contradiction with the Key Findings callout: @fig-fra-compliance shows the EIS bar split 32% compliant / 33% exceeds standard limit / 35% exceeds limit, so this paragraph and the callout describe different segments of the same chart. --> The practical conclusion is that the FRA has changed incentives, but not yet produced consistent compliance. A fuller assessment will require the completion of more EAs and EISs from actions initiated after June 3, 2023. In addition, the FRA set timelines for reviews as well as page limits, which we intend to investigate more fully in phase two of this work.
+
+```{r}
+#| label: fig-fra-compliance
+#| fig-cap: "FRA page-limit compliance among post-FRA energy-related reviews (regulatory pages). EA limit = 75; EIS limit = 150 (300 if extraordinarily complex). The bracket marks the EIS share within the 300-page extraordinary-complexity threshold."
+#| echo: false
+
+knitr::include_graphics(here::here("phase2", "output", "deliverable04", "figures", "fig_d4_pages_compliance.png"))
+```
+>
+> <!-- NOT INSERTED — scope mismatch, do not use without reconciling. Best candidate:
+> `phase1/output/factsheet/figures/05_fra_compliance.png`, but its numbers contradict the body
+> text above ("83% of post-FRA energy-related EAs are compliant... 32% fall within the 150-page
+> limit, with another 33% within the 300-page... range"): the committed PNG shows EA 70%
+> compliant / 30% exceeds (n=33, decarbonization-only) and EIS 29%/29%/43% (n=42), vs. the
+> docx's embedded chart (word/media/image11.png, 58,524 bytes) showing EA 83% compliant / 17%
+> exceeds (n=218) and EIS 32%/33%/35% (n=97) — matching the prose exactly at the "all
+> energy-related" scope. Same root cause as Figures 8–9. -->
+
+# Caveats and Considerations
+
+Several considerations should remain front-of-mind when translating these findings into policy recommendations.
+
+**Data quality and completeness remain a structural limitation.**
+
+- NEPATEC 2.0 assembles documents from multiple sources: EISs are drawn from the Environmental Protection Agency's governmentwide EIS database and are broadly comprehensive since 2012, but EAs and CEs are substantially complete only for DOE and BLM. This means the dataset captures a large share of the federal energy NEPA universe, but not all of it — for example, coverage is thin for agencies like the Army Corps of Engineers (which is involved for actions involving covered waterways and wetlands), the U.S. Forest Service (for actions on lands it manages), the Bureau of Ocean Energy Management (for actions on the outer continental shelf), and the Federal Energy Regulatory Commission (for, among others, natural gas pipelines, hydropower licenses, and LNG exports).
+- While PNNL's metadata enrichment methods demonstrate strong technical validation (≥ 90% accuracy across targeted metadata attributes), the inherent "fuzziness" of natural language processing techniques necessary to create these data allow for some degree of inherent measurement error that will, to some extent, impact the accuracy of any research findings.
+- Better federal metadata standards, document-linkage practices, and centralized submission requirements would improve nearly every downstream permitting analysis. One invaluable data point would be consistent, easily extractable project timeline data. In its current form, all timeline data were extracted directly from document text: this is an inefficient and unwieldy process that is difficult to validate. Future iterations of the NEPATEC dataset would benefit greatly from including this as metadata.
+- Existing efforts such as PermitAI, CEQ's NEPA Data and Technology Standard, and the proposed ePermit Act move in the right direction, but they do not yet solve the broader fragmentation problem — and significant additional investments in federal data infrastructure are still needed.
+
+**High CE usage is not automatically a normative success — using CEs solely to move projects through NEPA faster, rather than because they genuinely qualify, warrants scrutiny.**
+
+- CEs are a legitimate and appropriate tool when applied within appropriate bounds: they are designed for categories of actions with a record demonstrating that the category normally does not significantly affect the environment. Their integrity depends on applying the right tool to the right action. When CEs are used primarily to accelerate timelines rather than because an action clearly qualifies for an established exclusion, the integrity of the process is undermined. The goal of NEPA reform should not solely be faster approvals, but more efficient reviews that ensure each project or action receives the appropriate level of scrutiny and timely action to ensure that federal actions comply with relevant statutes and that reasonable alternatives are considered. A CE that shortens a timeline by bypassing warranted analysis trades short-term speed for downstream litigation risk and larger-than-expected environmental impacts. These concerns are not directly observable in NEPATEC 2.0 — the dataset captures the formal record, not the quality of the underlying analysis. A count of CEs is not the same as an assessment of the quality of a CE determination.
+- In addition, not all CEs actually result in or relate to project deployment. Instead, many are for administrative tasks, funding for research projects, and other small-scale actions. These distinctions are not captured in this research.
+
+**Faster timelines are not the only policy goal, and optimizing only for speed can come at the cost of quality and legal durability.**
+
+- High-quality reviews that maintain environmental and community safeguards and foster public participation and community acceptance matter alongside speed. Recently, federal agencies have reduced their requirements for receiving and acting upon public and Tribal input, fostering interagency coordination, using rigorous scientific analyses, considering impacts, and developing and applying categorical exclusions in the name of faster reviews. These actions risk trading short-term speed for downstream litigation risk (and broader social rejection of energy and infrastructure projects) and larger-than-expected environmental impacts — the opposite of what well-designed environmental review policies should produce.
+
+**Some important questions remain outside of the scope of work for this first phase of NEPA research.**
+
+- For example, the present work does not directly test whether NEPA was the specific cause of project delays, identify the main triggers of NEPA review, evaluate other reforms in the FRA such as compliance with statutory timelines and CE adoption, or compare aspects of NEPA reviews between decarbonization technologies and fossil fuel technologies. We plan to examine these and other questions in forthcoming additional analysis.
+
+# Appendix: Scope of Analysis
+
+Decarbonization technology actions comprise roughly 34% of all reviews in the dataset, while fossil fuel-related reviews represent just over 17%, and other (non-energy) reviews make up 49% of the total.
+
+Three additional refinements were applied to improve the precision of the "decarbonization technology" classification:
+
+- **Utilities + non-energy:** 1,623 actions tagged ONLY as Utilities AND with 1 or more of the following non-energy tags (e.g., broadband, waste management, land development) were excluded, since these likely reflect non-energy utilities (e.g., telecommunications) and utility-adjacent infrastructure rather than energy generation.
+- **Military and Defense + Nuclear:** 481 actions tagged as "Nuclear Technology" and "Military and Defense" were excluded from the decarbonization technology category, since they involve weapons-related nuclear activities rather than nuclear energy production.
+- **Nuclear + Waste Management:** There are approximately 4,000 Nuclear Waste actions in the dataset (those tagged with "Waste Management" AND ("Nuclear Technology" OR "Conventional Energy Production - Nuclear")). We excluded all actions led by DOE's National Nuclear Security Administration, Office of Environmental Management, and Office of Legacy Management, along with their associated field offices, as those focus on waste management rather than energy generation. This reduced the dataset to approximately 1,588 actions. Of those, CATF staff identified only 34 actions that were relevant to this analysis.
+
+After these refinements were applied, the breakdown of reviews in our analysis was:
+
+```{r}
+#| label: fig-energy-type-breakdown
+#| fig-cap: "NEPA Projects by Energy Type: Other 30,373 (49.1%), Clean 20,725 (33.5%), Fossil 10,783 (17.4%)."
+#| echo: false
+knitr::include_graphics(here::here("phase1","output","factsheet","figures","00_energy_type_breakdown.png"))
+```
+
+**Table 1: Federal action type tags from PNNL's metadata used to classify decarbonization technologies vs. fossil energy** (number of reviews in the dataset noted in parentheses). While reviews often have multiple tags, a "decarbonization technology" action is identified as having at least one decarbonization technology tag and no fossil fuel tags.
+
+| Decarbonization Technology Tags | Fossil Energy Tags |
+|---|---|
+| Carbon Capture and Sequestration (1,327) | Conventional Energy Production – Coal (732) |
+| Conventional Energy Production – Nuclear (301) | Conventional Energy Production – Land-based Oil & Gas (8,664) |
+| Conventional Energy Production – Other (935) | Conventional Energy Production – Offshore Oil and Gas (222) |
+| Electricity Transmission (7,967) | Conventional Energy Production – Rural Energy (157) |
+| Nuclear Technology (1,314) | Pipelines (5,324) |
+| Renewable Energy Production¹ (8,798) | |
+| Utilities (electricity, gas, telecommunications) (10,157) | |
+
+¹ Includes Biomass, Energy Storage, Geothermal, Hydrokinetic, Hydropower, Solar, Wind (Offshore & Onshore), and Other.
+
+---
+
+*Data: NEPATEC 2.0. Source: [Phase1_final.docx](../../admin/factsheets/phase1/Phase1_final.docx) (final submitted Phase 1 fact sheet, not tracked in this repository).*

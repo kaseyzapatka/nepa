@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local Streamlit RAG app for Phase 2 NEPATEC artifacts."""
+"""Local Streamlit RAG app for NEPATEC artifacts."""
 
 from __future__ import annotations
 
@@ -77,9 +77,9 @@ def check_artifacts(config: RagConfig) -> None:
     st.code(
         "\n".join(
             [
-                "conda run -n nepa python phase2/rag/scripts/01_build_text_store.py --sample-documents-per-process 25",
-                "conda run -n nepa python phase2/rag/scripts/02_build_chunks.py",
-                "conda run -n nepa python phase2/rag/scripts/03_build_indexes.py",
+                "conda run -n nepa python rag/scripts/01_build_text_store.py --sample-documents-per-process 25",
+                "conda run -n nepa python rag/scripts/02_build_chunks.py",
+                "conda run -n nepa python rag/scripts/03_build_indexes.py",
             ]
         ),
         language="bash",

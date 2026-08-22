@@ -22,6 +22,7 @@ nepa/
 ├── scripts/                   # Quarto post-render hook (PDF generation)
 ├── environment.yml            # Conda environment spec (shared by phase1 + phase2)
 ├── app/                       # Streamlit document explorer (deployed to HF Spaces)
+├── rag/                       # Retrieval-augmented Q&A app over the document corpus (preliminary, not built)
 ├── docs/                      # Built Quarto website output (published site)
 ├── literature/                # Reference materials
 ├── technical_reports/         # Cross-phase technical report + recommendations (Quarto)
@@ -40,7 +41,6 @@ nepa/
 │   ├── output/                # Deliverable outputs (report-input CSVs are tracked)
 │   ├── reports/               # Quarto reports
 │   ├── factsheets/            # Client-facing one-page summaries per deliverable
-│   ├── rag/                   # Retrieval-augmented Q&A app over the document corpus
 │   ├── runbooks/              # Pipeline runbooks
 │   └── training/              # Model training labels and locked sample IDs
 └── presentations/             # RevealJS slides (CATF stakeholder presentation)
@@ -83,7 +83,7 @@ conda env create -f environment.yml
 conda activate nepa
 ```
 
-Both phases share this environment for the Python pipelines and the R side of the rendering stack (R 4.4; the original site render used system R 4.2.3). See [environment.yml](environment.yml) for the full dependency spec with the exact versions annotated, or `phase1/notes/architecture/environment_setup.md` for design rationale.
+Both phases share this environment for the Python pipelines and the R side of the rendering stack (R 4.4; the original site render used system R 4.2.3). See [environment.yml](environment.yml) for the full dependency spec with the exact versions annotated, or `phase1/runbooks/environment_setup.md` for design rationale.
 
 **Quarto is installed separately, not through conda.** This project requires **Quarto ≥ 1.10** — install it from [quarto.org](https://quarto.org/docs/get-started/). Do not install Quarto from conda-forge: those builds pull in a Deno that crashes `quarto render` on this project, and the pin used to work around that (1.3.433) silently produced a *downgraded* site — it drops the screen-reader-only callout labels that Quarto 1.9+ emits, a regression invisible to a sighted reviewer. A pre-render hook, [scripts/check_quarto_version.sh](scripts/check_quarto_version.sh), now aborts the build if Quarto is too old.
 

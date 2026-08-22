@@ -33,7 +33,6 @@ phase2/
 ├── models/             # Local model weights (untracked; SetFit classifiers ship via the GitHub Release)
 ├── notes/              # Published methods notes and coverage/limitations pages
 ├── output/             # Phase 2 deliverable figures, tables, and validation output
-├── rag/                # Retrieval-augmented Q&A app over the document corpus
 ├── reports/            # Quarto deliverable reports (D1–D6)
 ├── runbooks/           # Step-by-step execution guides
 └── training/           # Model training labels and locked sample IDs (see its README)

@@ -42,7 +42,7 @@ Output: `data/analysis/bert_traindata.parquet`
 
 ### Step 3 — Train BERT model
 
-Trains separate classifiers for each source (CE, EA, EIS). CE uses `deberta-v3-base`; EA/EIS use `deberta-v3-small`.
+Trains a single 4-class sequence classifier over the weak-supervision labels. `--bert-model` defaults to `distilbert-base-uncased`, and that is what was trained and committed: `phase1/models/timeline_classifier/config.json` reports `DistilBertForSequenceClassification`. There is one model directory on disk, not per-source classifiers.
 
 ```bash
 # Train all sources
@@ -101,4 +101,4 @@ python code/extract/extract_timeline.py --llm-run --hybrid \
 - EA/EIS are smaller (~500/700 projects) — LLM adjudication is feasible for edge cases.
 - Initiation coverage is the primary bottleneck: CE ~30%, EA ~62%, EIS ~48% at Phase 1 freeze.
 - Phase 2 (`phase2/runbooks/02_timeline.md`) documents the improved pipeline with spaCy enrichment and richer BERT inputs.
-- Status and known issues: `notes/status/timeline_status.md`
+- Status and known issues: [architecture/code/extract_timeline.md](../architecture/code/extract_timeline.md)

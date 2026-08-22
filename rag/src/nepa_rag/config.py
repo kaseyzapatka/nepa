@@ -12,8 +12,8 @@ except ImportError:  # pragma: no cover - dependency installed in app env
 
 
 RAG_DIR = Path(__file__).resolve().parents[2]
-PHASE2_DIR = RAG_DIR.parent
-REPO_ROOT = PHASE2_DIR.parent
+REPO_ROOT = RAG_DIR.parent
+PHASE2_DIR = REPO_ROOT / "phase2"
 
 
 def _load_env() -> None:
@@ -86,7 +86,7 @@ class RagConfig:
 def load_config() -> RagConfig:
     _load_env()
 
-    data_dir = resolve_path(_env("NEPA_RAG_DATA_DIR", "phase2/rag/data"))
+    data_dir = resolve_path(_env("NEPA_RAG_DATA_DIR", "rag/data"))
     catalog_path = resolve_path(_env("NEPA_RAG_CATALOG", str(data_dir / "rag_catalog.duckdb")))
     manifest_path = resolve_path(_env("NEPA_RAG_MANIFEST", str(data_dir / "manifest.json")))
 

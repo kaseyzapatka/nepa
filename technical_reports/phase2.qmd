@@ -46,7 +46,7 @@ SCOPE MAP (section -> public artifact it explains) — validated 2026-07-31; re-
 - Limitations -> the six rendered coverage_limitations pages
 - Recommendations -> exempt (forward-looking, contract-mandated)
 - Replication Guide -> public repo runbooks + per-report reproduction commands
-NOT covered anywhere (correctly): phase2/rag/ prototype (unshipped; recommendations-only),
+NOT covered anywhere (correctly): rag/ prototype (unshipped; recommendations-only),
 internal session notes, _archived design history.
 
 CONTENT RULES:

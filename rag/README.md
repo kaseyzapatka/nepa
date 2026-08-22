@@ -1,16 +1,16 @@
-# Phase 2 RAG
+# NEPA RAG
 
-This directory will contain the CAFT-facing RAG application for NEPATEC2.0 source text, project metadata, and selected Phase 2 deliverable artifacts.
+> **Status: preliminary — not built.** This is an exploratory design for a retrieval-augmented Q&A layer over the NEPA corpus. It is not deployed, not wired into the site, and its outputs have not been validated. The working document-browsing tool is the Streamlit app in [`app/`](../app/), deployed to Hugging Face Spaces.
 
-The implementation plan lives in `phase2/plans/rag.md`. This README is the project overview and use-case index.
+This directory will contain a CATF-facing RAG application for NEPATEC2.0 source text, project metadata, and selected deliverable artifacts across the project. This README is the project overview and use-case index.
 
 ## Local build
 
-Copy `phase2/rag/.env.example` to `phase2/rag/.env` and adjust the model tags if needed. The first local build can use a tiny sample:
+Copy `rag/.env.example` to `rag/.env` and adjust the model tags if needed. The first local build can use a tiny sample:
 
 ```bash
-make -f phase2/rag/Makefile rag-smoke-build
-conda run -n nepa streamlit run phase2/rag/app/app.py
+make -f rag/Makefile rag-smoke-build
+conda run -n nepa streamlit run rag/app/app.py
 ```
 
 The smoke build uses two CE documents and skips DuckDB FTS, so it is quick and does not require downloading the DuckDB `fts` extension. It is meant to test the catalog, shard build, chunking, retrieval fallback, app startup, and Ollama connection behavior.
@@ -18,13 +18,13 @@ The smoke build uses two CE documents and skips DuckDB FTS, so it is quick and d
 For the full local RAG store, remove `--sample-documents-per-process` and include all process types:
 
 ```bash
-make -f phase2/rag/Makefile rag-build
+make -f rag/Makefile rag-build
 ```
 
 If DuckDB cannot install/load the `fts` extension, rebuild indexes with the LIKE fallback:
 
 ```bash
-make -f phase2/rag/Makefile rag-index-skip-fts
+make -f rag/Makefile rag-index-skip-fts
 ```
 
 The app will still run, but retrieval ranking will be weaker than with FTS.
@@ -36,7 +36,7 @@ ollama pull gemma4:e2b
 ollama pull gemma4:e4b
 ```
 
-The fast default model is `gemma4:e2b`. The app sidebar also offers `gemma4:e4b` as a quality option, and the fallback is `gemma4:e2b`. Adjust these tags in `phase2/rag/.env` if Ollama uses different Gemma 4 tag names on your machine.
+The fast default model is `gemma4:e2b`. The app sidebar also offers `gemma4:e4b` as a quality option, and the fallback is `gemma4:e2b`. Adjust these tags in `rag/.env` if Ollama uses different Gemma 4 tag names on your machine.
 
 For local CPU-bound testing, the defaults intentionally keep prompts small:
 

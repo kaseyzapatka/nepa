@@ -157,7 +157,7 @@ This section improves on the Phase 1 timeline method. For every project we ident
 -   Full-database coverage — Phase 1 covered decarbonization technology projects only (20,725); Phase 2 covers the entire NEPATEC 2.0 database (61,881 projects).
 -   API registry dates — Phase 2 incorporates authoritative dates from *BLM and DOE NEPA registers* as an authoritative source of official project-start and decision dates. We pull in roughly 37,000 project-matched register dates, which is particularly helpful for CE and EA reviews.
 -   Cleaner retrieval and granularity handling — the pipeline uses year-month decision dates (e.g. a Final-EIS cover month) where no better dates are available. (A section-aware retrieval tier retrieves decision/initiation sections directly; a 2026-07-23 re-run of the section index and retrieval chain activated it, adding 21,289 section-tier candidates to the current dataset.)
--   Improved classifier and a ranking model — Phase 1 used a single date classifier (`DeBERTa`); Phase 2 uses an improved classifier (`SetFit`) and adds a dedicated ranking model (`LightGBM`) that decides which candidate is the operative initiation/decision, sharply improving which candidates get sent to the LLM.
+-   Improved classifier and a ranking model — Phase 1 used a single date classifier (`DistilBERT`); Phase 2 uses an improved classifier (`SetFit`) and adds a dedicated ranking model (`LightGBM`) that decides which candidate is the operative initiation/decision, sharply improving which candidates get sent to the LLM.
 
 
 ## Date provenance

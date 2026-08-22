@@ -196,7 +196,8 @@ if (file.exists(targeted_path)) {
 
 # --------------------------
 # MANUAL DATE OVERRIDES (TEMPORARY — presentation 2026-03-06)
-# TODO: Integrate into pipeline after Thursday. See notes/status/reviews_status.md.
+# TODO: Integrate into pipeline after Thursday. See architecture/deliverables/deliverable02.md
+# ("Known Issues and Cautions" -> manual timeline date overrides).
 # Dates verified manually by inspecting document text, filenames, and NOI records.
 # --------------------------
 
