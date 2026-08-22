@@ -21,17 +21,17 @@ phase1/
 │   ├── extract/             # Core Python extraction scripts (timeline, reviews, gencap, etc.)
 │   ├── deliverable01–06/    # Per-deliverable R analysis scripts
 │   ├── _project_overview/   # Project overview scripts
-│   ├── exploratory/         # Exploratory analysis
 │   ├── utils/               # Shared utilities (config.py, R helpers)
-│   ├── validation/          # QC and validation scripts
-│   └── rag/                 # Document retrieval infrastructure
+│   └── validation/          # QC and validation scripts
 ├── data/
 │   ├── analysis/            # Primary analysis outputs (parquet files)
 │   ├── processed/           # Per-source preprocessed documents (ce/, ea/, eis/)
 │   ├── models/              # Geothermal classifier checkpoints
 │   └── rag/                 # DuckDB text store
 ├── models/                  # BERT timeline classifier checkpoints
-├── notes/                   # Status files, architecture notes, running todo
+├── architecture/            # As-built technical documentation per deliverable
+├── factsheets/              # Client-facing fact sheet (qmd + rendered docx)
+├── notes/                   # Classification filters, exclusion lists, validation memos
 ├── output/
 │   └── deliverable{1–6}/    # Figures, tables, maps per deliverable
 ├── reports/                 # Quarto deliverable reports (.qmd)

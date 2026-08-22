@@ -58,7 +58,7 @@ Tables under `phase1/output/deliverable3/tables/`; figures under `phase1/output/
 | `04_gencap_examples_regex.csv`, `04_gencap_examples_llm.csv` | Illustrative extraction examples for the report |
 | `03_bert_coverage.csv` | CE timeline extraction coverage (decision/initiation/duration-calculable) |
 | `03_year_by_process_type.csv` | Projects by decision year × process type |
-| `03_bert_client_examples.csv` + `03_bert_example{1-6}.csv` | Curated example projects for client review, sourced from `code/exploratory/timeline/01_compare_decisions.R` |
+| `03_bert_client_examples.csv` + `03_bert_example{1-6}.csv` | Curated example projects for client review |
 
 ---
 
@@ -154,8 +154,7 @@ complete-timeline share by process (boxplot); initiation→decision span plots (
 Gantt-style); duration summary intervals; **projects by decision year, faceted by process
 type, with dashed vertical markers for ARRA (Feb 2009), BIL (Nov 2021), and IRA (Aug 2022)**
 — a DOE-only variant of the same figure is also produced; timeline status mix; and duration
-distribution by process. Six curated example projects (sourced from
-`code/exploratory/timeline/01_compare_decisions.R`) are written to
+distribution by process. Six curated example projects are written to
 `03_bert_client_examples.csv` for report narrative use.
 
 **This decision-year-by-legislation figure is architecturally the same question Phase 2 spun

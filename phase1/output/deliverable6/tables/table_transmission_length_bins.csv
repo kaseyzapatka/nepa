@@ -1,0 +1,5 @@
+length_bin,n_projects,median_length_miles,median_duration_days,p90_duration_days
+<10 mi,113,3.2,82,684
+10–50 mi,112,20,110,1146.8
+50–100 mi,18,65,292.5,746.7
+100+ mi,19,220,704.5,2480

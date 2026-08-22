@@ -549,7 +549,7 @@ cat("Tables saved to:", tables_dir, "\n")
 # --------------------------
 # BERT TIMELINE EXAMPLES (for client review)
 # --------------------------
-# Source: code/exploratory/timeline/01_compare_decisions.R
+# Logic originated in an exploratory timeline comparison script (since removed).
 # Shows 6 curated project examples from BERT v8 classification
 
 cat("\n=== BERT Timeline Examples ===\n\n")

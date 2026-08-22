@@ -1,0 +1,51 @@
+department,lead_agency_harmonized,EIS,EA,CE,Total,Coverage
+Department of Agriculture,Department of Agriculture,0,1,43,44,Not complete
+Department of Agriculture,Forest Service,31,7,0,38,Not complete
+Department of Agriculture,Rural Utilities Service,9,1,0,10,Not complete
+Department of Agriculture,Natural Resources Conservation Service,1,0,0,1,Not complete
+Department of Agriculture,Rural Business-Cooperative Service,0,1,0,1,Not complete
+Department of Agriculture,Rural Development,0,1,0,1,Not complete
+Department of Commerce,Department of Commerce,0,0,3,3,Not complete
+Department of Defense--Military Programs,Army,5,0,0,5,Not complete
+Department of Defense--Military Programs,Department of Defense--Military Programs,0,0,5,5,Not complete
+Department of Defense--Military Programs,"Navy, Marine Corps",5,0,0,5,Not complete
+Department of Defense--Military Programs,Air Force,3,1,0,4,Not complete
+Department of Defense--Military Programs,Defense-wide,2,0,0,2,Not complete
+Department of Energy,Department of Energy,141,194,16140,16475,Full
+Department of Energy,Power Marketing Administration,89,107,0,196,Not complete
+Department of Energy,Energy Programs,8,30,0,38,Not complete
+Department of Energy,National Nuclear Security Administration,2,6,0,8,Not complete
+Department of Energy,Environmental and Other Defense Activities,1,1,0,2,Not complete
+Department of Energy,International Assistance Programs,0,0,1,1,Not complete
+Department of Health and Human Services,National Institutes of Health,2,1,0,3,Not complete
+Department of Health and Human Services,Centers for Disease Control and Prevention,1,0,0,1,Not complete
+Department of Homeland Security,Department of Homeland Security,0,0,5,5,Not complete
+Department of Homeland Security,United States Coast Guard,3,0,0,3,Not complete
+Department of Homeland Security,Federal Emergency Management Agency,1,0,0,1,Not complete
+Department of Homeland Security,U.S. Customs and Border Protection,0,1,0,1,Not complete
+Department of Housing and Urban Development,Department of Housing and Urban Development,1,1,1,3,Full
+Department of State,Department of State,1,0,1,2,Not complete
+Department of Transportation,Department of Transportation,2,0,1,3,Not complete
+Department of Transportation,Federal Highway Administration,2,1,0,3,Not complete
+Department of Transportation,Federal Railroad Administration,2,0,0,2,Not complete
+Department of Transportation,Federal Transit Administration,1,0,0,1,Not complete
+Department of Veterans Affairs,Department of Veterans Affairs,1,0,0,1,Not complete
+Department of the Interior,Bureau of Land Management,165,201,3207,3573,Full
+Department of the Interior,Bureau of Ocean Energy Management,23,2,0,25,Not complete
+Department of the Interior,Bureau of Indian Affairs,16,3,0,19,Not complete
+Department of the Interior,United States Fish and Wildlife Service,17,1,0,18,Not complete
+Department of the Interior,Bureau of Reclamation,14,3,0,17,Not complete
+Department of the Interior,National Park Service,8,0,0,8,Not complete
+Department of the Interior,Department of the Interior,1,1,4,6,Full
+Department of the Interior,United States Geological Survey,0,1,0,1,Not complete
+Department of the Treasury,Bureau of Engraving and Printing,1,0,0,1,Not complete
+General Services Administration,General Services Administration,4,0,5,9,Not complete
+General Services Administration,Real Property Activities,3,0,0,3,Not complete
+Major Independent Agencies,Corps of Engineers--Civil Works,22,3,0,25,Not complete
+Major Independent Agencies,National Aeronautics and Space Administration,6,0,0,6,Not complete
+Major Independent Agencies,Environmental Protection Agency,1,0,0,1,Not complete
+Major Independent Agencies,National Science Foundation,1,0,0,1,Not complete
+Other Independent Agencies,Nuclear Regulatory Commission,78,0,0,78,Not complete
+Other Independent Agencies,Tennessee Valley Authority,13,0,0,13,Not complete
+Other Independent Agencies,Other Commissions and Boards,1,1,0,2,Not complete
+Other Independent Agencies,Denali Commission,1,0,0,1,Not complete

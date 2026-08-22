@@ -1,0 +1,5 @@
+process_type,fra_period,n_projects,mean_pages,median_pages,sd_pages,p25_pages,p75_pages,n_ocr,n_no_appx_file,n_raw_fallback
+EA,Pre-FRA,283,62,47,55,26,80.5,268,1,14
+EA,Post-FRA,33,57,61,43,22,78,30,0,3
+EIS,Pre-FRA,269,368,288,324,130,499,260,0,9
+EIS,Post-FRA,42,270,269,196,106,418,41,0,1

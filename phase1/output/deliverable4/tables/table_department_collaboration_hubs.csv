@@ -1,0 +1,17 @@
+department,Unique partner departments,Collaborative project ties,Most frequent partner,Projects with top partner,Bridge score
+Department of the Interior,12,209,Department of Defense,56,64.17
+Department of Defense,13,124,Department of the Interior,56,62.77
+Department of Energy,11,96,Department of the Interior,38,50.32
+Environmental Protection Agency,11,89,Department of the Interior,45,49.5
+Other Independent Agencies,8,63,Nuclear Regulatory Commission,43,33.27
+Major Independent Agencies,9,33,Department of Defense,8,31.74
+Department of Agriculture,8,51,Department of the Interior,29,31.61
+Department of Homeland Security,8,22,Department of the Interior,5,25.08
+Department of Transportation,7,15,Major Independent Agencies,4,19.41
+Department of Commerce,5,27,Department of the Interior,14,16.66
+Nuclear Regulatory Commission,4,46,Other Independent Agencies,43,15.4
+Council on Environmental Quality,5,9,Department of the Interior,4,11.51
+Federal Energy Regulatory Commission,3,8,Department of Defense,4,6.59
+General Services Administration,3,3,Department of Defense,1,4.16
+Advisory Council on Historic Preservation,2,4,Department of the Interior,3,3.22
+Department of State,1,1,General Services Administration,1,0.69
