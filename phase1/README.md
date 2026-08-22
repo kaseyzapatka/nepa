@@ -1,12 +1,12 @@
 # Phase 1: NEPA Clean Energy Analysis
 
-Phase 1 is the foundational analysis of clean energy NEPA reviews using the NEPATEC 2.0 dataset. Status: **frozen at `freeze/v1.0`**.
+Phase 1 is the foundational analysis of clean energy NEPA reviews using the NEPATEC 2.0 dataset. Status: **complete**.
 
 ## Key facts
 
 | | Phase 1 |
 |---|---|
-| Status | Frozen at `freeze/v1.0` |
+| Status | Complete |
 | Data pipeline | Pandas-based |
 | Timeline extraction | BERT classifier |
 | Output location | `phase1/data/analysis/` |
@@ -98,8 +98,8 @@ Output: `reports/key_insights.docx`
 
 ## Relationship to Phase 2
 
-Phase 1 data is read-only input for Phase 2. Phase 2 reads `phase1/data/analysis/projects_combined.parquet` but never writes back to `phase1/data/`. All Phase 2 outputs go to `phase2/data/`.
+The two phases are independent. Phase 2 builds its own base tables by running its own copy of `extract_data.py` over the same processed NEPATEC corpus, so the project universe matches (61,881 rows in each `projects_combined.parquet`) while the schemas differ — Phase 1 has 97 columns, Phase 2 has 77. Neither table is derived from the other, and no Phase 2 script reads from or writes to `phase1/`.
 
-To reproduce Phase 1 exactly: `git checkout freeze/v1.0`
+To reproduce Phase 1, work from the current repository under `phase1/` and follow the runbooks in order. The tags `freeze/phase1_v1.0` and `checkpoint/phase1-cleanup` remain in the history as markers but predate the repository reorganization, so they cannot be used for replication.
 
 See [phase2/README.md](../phase2/README.md) for the Phase 2 pipeline.

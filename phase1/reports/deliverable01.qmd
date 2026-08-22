@@ -214,10 +214,10 @@ County-level geographic data is available for approximately **48% of projects ta
 
 tibble(
   `Process Type` = c("CE (Categorical Exclusion)", "EA (Environmental Assessment)", "EIS (Environmental Impact Statement)", "Total"),
-  `Total Projects` = c("20,863", "622", "794", "22,279"),
-  `With County Data` = c("9,631 (46%)", "504 (81%)", "509 (64%)", "10,644 (48%)"),
-  `Missing County` = c("11,232 (54%)", "118 (19%)", "285 (36%)", "11,635 (52%)"),
-  `Recoverable` = c("Not recoverable", "~116 (98%)", "~281 (99%)", "~397 EA/EIS")
+  `Total Projects` = c("19,399", "573", "753", "20,725"),
+  `With County Data` = c("8,461 (44%)", "462 (81%)", "486 (65%)", "9,409 (45%)"),
+  `Missing County` = c("10,938 (56%)", "111 (19%)", "267 (36%)", "11,316 (55%)"),
+  `Recoverable` = c("Not recoverable", "~109 (98%)", "~264 (99%)", "~373 EA/EIS")
 ) |>
   gt() |>
   tab_style(

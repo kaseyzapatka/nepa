@@ -277,7 +277,7 @@ ex1 %>%
 ## Key Findings: Capacity
 - **EIS projects are predominantly utility-scale** (>500 MW, median 538 MW), while CE projects are mostly small-scale (<10 MW, median 1.2 MW). This aligns with expectations: larger projects require more intensive environmental review.
 - Extraction coverage varies sharply by process type: **EIS 81%**, EA moderate, **CE 8%** — reflecting that smaller CE projects rarely document explicit capacity figures.
-- Transmission-only projects account for **6.9%** of decarbonization technology projects (1,531 of 22,279).
+- Transmission-only projects account for **1.3%** of decarbonization technology projects (262 of 20,725), using a strict definition based on `project_type` tags: projects tagged *only* as Electricity Transmission and/or Utilities.
 :::
 
 ### How generation capacity is extracted

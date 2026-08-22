@@ -22,6 +22,7 @@ nepa/
 ├── scripts/                   # Quarto post-render hook (PDF generation)
 ├── environment.yml            # Conda environment spec (shared by phase1 + phase2)
 ├── app/                       # Streamlit document explorer (deployed to HF Spaces)
+├── rag/                       # Retrieval-augmented Q&A app over the document corpus (preliminary, not built)
 ├── docs/                      # Built Quarto website output (published site)
 ├── literature/                # Reference materials
 ├── technical_reports/         # Cross-phase technical report + recommendations (Quarto)
@@ -40,7 +41,6 @@ nepa/
 │   ├── output/                # Deliverable outputs (report-input CSVs are tracked)
 │   ├── reports/               # Quarto reports
 │   ├── factsheets/            # Client-facing one-page summaries per deliverable
-│   ├── rag/                   # Retrieval-augmented Q&A app over the document corpus
 │   ├── runbooks/              # Pipeline runbooks
 │   └── training/              # Model training labels and locked sample IDs
 └── presentations/             # RevealJS slides (CATF stakeholder presentation)
@@ -66,7 +66,9 @@ Raw NEPATEC 2.0 documents are loaded and preprocessed into per-source parquet fi
 | Deliverables | D1–D6 complete | D1–D6 complete |
 | Output location | `phase1/data/analysis/` | `phase2/data/` |
 
-**Data flow:** Phase 2 reads `phase1/data/analysis/projects_combined.parquet` as read-only input and writes all new outputs to `phase2/data/`. Phase 1 data is never modified by Phase 2 scripts.
+**Data flow:** the two phases build their *base* tables independently. Each runs its own copy of `extract_data.py` over the same processed NEPATEC parquets, so the project universe matches (61,881 rows) while the schemas differ — Phase 1 carries transmission/pipeline fields, Phase 2 carries extended Federal Register enrichment. Neither base table is derived from the other.
+
+No Phase 2 script reads from or writes to `phase1/`. See [phase2/runbooks/01_base_dataset.md](phase2/runbooks/01_base_dataset.md) for the build sequence.
 
 **Reproducing this work:** the current state of the default branch is the authoritative version of both phases — Phase 1 reproduces from `phase1/`, Phase 2 from `phase2/`.
 
@@ -81,7 +83,7 @@ conda env create -f environment.yml
 conda activate nepa
 ```
 
-Both phases share this environment for the Python pipelines and the R side of the rendering stack (R 4.4; the original site render used system R 4.2.3). See [environment.yml](environment.yml) for the full dependency spec with the exact versions annotated, or `phase1/notes/architecture/environment_setup.md` for design rationale.
+Both phases share this environment for the Python pipelines and the R side of the rendering stack (R 4.4; the original site render used system R 4.2.3). See [environment.yml](environment.yml) for the full dependency spec with the exact versions annotated, or `phase1/runbooks/environment_setup.md` for design rationale.
 
 **Quarto is installed separately, not through conda.** This project requires **Quarto ≥ 1.10** — install it from [quarto.org](https://quarto.org/docs/get-started/). Do not install Quarto from conda-forge: those builds pull in a Deno that crashes `quarto render` on this project, and the pin used to work around that (1.3.433) silently produced a *downgraded* site — it drops the screen-reader-only callout labels that Quarto 1.9+ emits, a regression invisible to a sighted reviewer. A pre-render hook, [scripts/check_quarto_version.sh](scripts/check_quarto_version.sh), now aborts the build if Quarto is too old.
 

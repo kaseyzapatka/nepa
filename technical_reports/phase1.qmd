@@ -42,7 +42,7 @@ SCOPE MAP (section -> public artifact it explains) — validated 2026-07-31; re-
 - Data Products & Validation -> the reports' data provenance + the public repo
 - Limitations -> project_overview + key_insights caveats (public)
 - Recommendations -> exempt (forward-looking)
-- Replication Guide -> public repo (README, runbooks, freeze/v1.0 tag)
+- Replication Guide -> public repo (README, runbooks, current repository state)
 CONTENT RULES: same as phase2.qmd — technical explainer, PDF-safe (pipe tables + prose only),
 numbers from the rendered public reports / Phase1_final.docx / verified parquet reads,
 dataset/process recommendations only. Published (frozen) numbers used throughout: 20,725
@@ -192,7 +192,7 @@ The recommendations below concern the dataset and the records that feed it — t
 
 ## Replication Guide
 
-Phase 1 is frozen at the git tag `freeze/v1.0` (`git checkout freeze/v1.0` reproduces the exact published state; the alias `freeze/phase1_v1.0` marks the same freeze for Phase 2's dependency pin). The repository's `phase1/README.md` is the entry point: it maps the directory structure, lists the key facts, and orders the runbooks.
+Phase 1 is complete, and the published state is reproducible from the current repository under `phase1/`. The repository's `phase1/README.md` is the entry point: it maps the directory structure, lists the key facts, and orders the runbooks.
 
 The environment is a single conda environment, `nepa` (Python 3.12), defined by `environment.yml` at the repository root, with the R package set documented alongside it. Extraction requires two credentials: a Hugging Face login to download NEPATEC 2.0, and an `ANTHROPIC_API_KEY` for the adjudication steps (estimated total Phase 1 API cost was on the order of five dollars). The eight runbooks under `phase1/runbooks/` — environment, base dataset, timelines, reviews, generation capacity, page counts, technology, geography — document each stage's exact commands, expected outputs, and caveats, in dependency order.
 

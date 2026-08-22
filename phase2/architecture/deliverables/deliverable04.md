@@ -183,7 +183,7 @@ flowchart TD
 | `phase2/data/analysis/doe_register/doe_cx_dates.parquet` | DOE CX determination dates for CE projects, matched via `cx-NNNNNN.pdf` filenames |
 | `phase2/data/analysis/doe_register/doe_cx_register.parquet` | Full DOE CX determination listing (`cx_number`, `office`, date) — used by `field_office/01b_build_doe_offices.py` and `geothermal/01_build_tables.py` to link projects to a DOE administering/grant office (distinct from `doe_cx_dates.parquet`, which carries only the determination date) |
 | `phase2/data/analysis/deliverable03/projects_nepa_reviews.parquet` | D3 output; supplies `tech_group`/`energy_group` — used by `08_create_figures_technology.R` (Decarb-vs-Fossil split) and `geothermal/01_build_tables.py` (`tech_group = 'Geothermal'` universe definition). This is D4's one hard cross-deliverable input. |
-| `phase1/data/analysis/projects_combined.parquet` | Phase 1 copy of the combined-projects table, read by `ceq_regime/01_build_tables.py` only, for `project_energy_type` in the regime-composition CSV (row count matches the Phase 2 copy at 61,881; see Known Issues for the path deviation) |
+| `phase2/data/analysis/projects_combined.parquet` | Combined-projects table, read by `ceq_regime/01_build_tables.py` for `project_energy_type` in the regime-composition CSV |
 
 ---
 
@@ -487,7 +487,7 @@ Segments the headline duration corpus by the CEQ NEPA-implementing-regulation re
 
 **Headline-frame replication (`# SYNC` contract).** The script's `build_headline()` replicates `08_create_figures.R`'s headline duration frame verbatim in DuckDB SQL: `timeline_status` in `{complete_clear, complete_with_proxy}`, both dates non-null, both granularities `!= "year"`, month-granularity dates imputed to the mid-month (`date_trunc('month', x) + 14`), `duration_days >= 0`. The module docstring flags this as a manual-sync obligation — any change to `08_create_figures.R`'s frame logic must be mirrored here by hand (there is no shared code path); the **hard cross-check** at the end of `main()` is the safety net: it re-reads `d4_duration_summary.csv` (written by `08_create_figures.R`) and `sys.exit(1)`s if the fine-regime per-process sums don't reconcile to it exactly, or if the collapsed `2024_phase2_plus` count doesn't equal `2024_phase2 + 2025_rescission`. This makes `08_create_figures.R` a **hard prerequisite** — `ceq_regime/01_build_tables.py` will refuse to write output if `d4_duration_summary.csv` is missing.
 
-**Composition CSV energy-type source.** `d4_ceq_regime_composition.csv` (per process × collapsed regime: n, completeness, energy-type mix, top lead agency) reads `project_energy_type` from `phase1/data/analysis/projects_combined.parquet` — the **Phase 1** copy, not the Phase 2 copy the rest of D4 uses (`phase2/data/analysis/projects_combined.parquet`). Both currently have identical row counts (61,881) so this is not presently a correctness bug, but it is a path deviation from every other D4 script and should be corrected to the Phase 2 path if the two ever diverge (see Known Issues).
+**Composition CSV energy-type source.** `d4_ceq_regime_composition.csv` (per process × collapsed regime: n, completeness, energy-type mix, top lead agency) reads `project_energy_type` from `phase2/data/analysis/projects_combined.parquet`, the same copy every other D4 script uses.
 
 Writes `d4_duration_by_ceq_regime.csv` (decision-anchored, all three regime levels), `d4_duration_by_ceq_regime_initiation.csv` (initiation-anchored sensitivity, fine + collapsed only), and `d4_ceq_regime_composition.csv`.
 
@@ -939,7 +939,7 @@ The `final_eis` head is markedly weaker (fewer positives: 148 of 5,361 labeled r
 
 - **BLM ePlanning OCR O/0 confusion.** The case-number normalizer in `09a` corrects O↔0 confusion in office codes, but false normalizations are possible for unusual office code patterns. Check `blm_manual_review.csv` for projects flagged during the matching step.
 
-- **`ceq_regime/01_build_tables.py` reads Phase 1's `projects_combined.parquet`, not Phase 2's.** `d4_ceq_regime_composition.csv`'s `project_energy_type` column comes from `phase1/data/analysis/projects_combined.parquet` rather than the Phase 2 copy every other D4 script uses. Both currently have identical row counts (61,881), so this is not presently a correctness bug, but it is an inconsistent path and should be pointed at the Phase 2 copy if the two files are ever allowed to diverge.
+- ~~**`ceq_regime/01_build_tables.py` reads Phase 1's `projects_combined.parquet`, not Phase 2's.**~~ **Resolved.** The script reads `phase2/data/analysis/projects_combined.parquet` (`01_build_tables.py:54`), consistent with every other D4 script. No Phase 2 code reads from `phase1/` as of 2026-08-21.
 
 - **`geothermal/01_build_tables.py` duplicates `field_office/01b_build_doe_offices.py`'s DOE office-harmonization logic rather than importing it.** Both files independently implement the same 3-part rule (last-comma segment → dash/ellipsis normalization → 15-entry controlled-vocabulary prefix match, `CANON_MIN_PREFIX = 6`) against the same 15-entry `VOCAB`/`DOE_VOCAB` list. A change to one (e.g. adding a new office to the vocabulary) will silently not propagate to the other unless both are edited by hand.
 
