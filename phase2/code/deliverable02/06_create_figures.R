@@ -479,7 +479,7 @@ if (fig_ok) tryCatch({
            Leads = ifelse(diff >= 0, "BLM", "DOE-family"))
   lead_lab <- lead_bg %>% group_by(Leads) %>%
     summarise(y = ifelse(first(Leads) == "BLM", max(yi), min(yi)), .groups = "drop") %>%
-    mutate(label = ifelse(Leads == "BLM", "BLM has a\nlarger share", "DOE-family has\na larger share"),
+    mutate(label = ifelse(Leads == "BLM", "BLM has a\nlarger share", "DOE has a\nlarger share"),
            col = ifelse(Leads == "BLM", catf_purple, catf_dark_blue))
   x_lab <- max(deptr$mit) * 1.06
   savefig(ggplot(deptr, aes(mit, Resource)) +
@@ -493,7 +493,8 @@ if (fig_ok) tryCatch({
         geom_text(data = lead_lab, aes(x = x_lab, y = y, label = label),
                   inherit.aes = FALSE, hjust = 1, size = 3, fontface = "bold",
                   lineheight = 0.95, color = lead_lab$col) +
-        scale_color_manual(values = c("BLM" = catf_purple, "DOE-family" = catf_dark_blue), name = NULL) +
+        scale_color_manual(values = c("BLM" = catf_purple, "DOE-family" = catf_dark_blue),
+                           labels = c("BLM" = "BLM", "DOE-family" = "DOE"), name = NULL) +
         scale_x_continuous(labels = scales::percent, expand = expansion(mult = c(0.02, 0.08))) +
         labs(title = "Does a resource trigger mitigation more for BLM or DOE?",
              subtitle = "Share of a resource's FONSI conclusions that depend on committed mitigation, by department",

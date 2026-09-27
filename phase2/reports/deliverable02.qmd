@@ -539,7 +539,7 @@ mitigation for BLM versus DOE.
 
 ```{r}
 #| label: fig-dept-by-resource
-#| fig-cap: "Share of each resource's FONSI conclusions that depend on committed mitigation, BLM versus the DOE family. A wider gap means the resource is a bigger mitigation driver for one department than the other."
+#| fig-cap: "Share of each resource's FONSI conclusions that depend on committed mitigation, BLM versus DOE (the department and its sub-agencies). A wider gap means the resource is a bigger mitigation driver for one department than the other."
 include_fig("fig_dept_by_resource.png")
 ```
 
