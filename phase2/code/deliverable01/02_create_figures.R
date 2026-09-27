@@ -404,13 +404,21 @@ cat("Saved fig3_process_by_trigger.png\n")
 # --------------------------
 # Sorted by total N descending (largest department at top).
 # Includes a "Total N" column on the right; legend below figure.
+#
+# Small-department cutoff added after CATF review (Sep 2026). Reviewer comment:
+# "I think it's fine to cut agencies with fewer than 20 reviews in the dataset."
+# At the current data this drops 10 departments totalling 55 projects (0.3% of
+# 20,725) and keeps 6, from Major Independent Agencies (33) upward. Note TVA is
+# classified under "Other Independent Agencies" (13 projects), which is retained.
+DEPT_MIN_REVIEWS <- 20
 
 dept_trigger <- df |>
   filter(!is.na(department)) |>
   count(department, trigger_label) |>
   group_by(department) |>
   mutate(pct = n / sum(n), total = sum(n)) |>
-  ungroup()
+  ungroup() |>
+  filter(total >= DEPT_MIN_REVIEWS)
 
 # Sort departments: largest total N at top (ggplot y-axis: bottom = first level)
 dept_order <- dept_trigger |>
@@ -455,7 +463,8 @@ fig4 <- ggplot(dept_trigger,
   scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
   labs(
     title    = "NEPA Trigger Distribution by Federal Department",
-    subtitle = "Share of each department's decarbonization projects per trigger class; N = total projects",
+    subtitle = paste0("Share of each department's decarbonization projects per trigger class; N = total projects. ",
+                      "Departments with fewer than ", DEPT_MIN_REVIEWS, " reviews omitted."),
     x = NULL, y = NULL
   ) +
   theme_catf(base_size = 12) +
