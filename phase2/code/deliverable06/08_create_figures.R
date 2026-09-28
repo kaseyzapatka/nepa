@@ -502,9 +502,9 @@ if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
                        guide = guide_legend(override.aes = list(size = 4.5, alpha = 1), ncol = 2)) +
     labs(title = "How related are the existing CEs?",
          subtitle = str_wrap(paste("Each point is one CE, laid out by t-SNE of its text embedding; color = topic family,",
-                  "labeled on the map by that family's name. Closer = more similar wording; families recur across departments."), 95),
+                  "labeled on the map by that family's name. Closer = more similar wording; families recur across departments and agencies."), 95),
          x = NULL, y = NULL,
-         caption = "Many families recur across departments — the precedent for adopt.") +
+         caption = "Many families recur across departments and agencies — the precedent for adoption.") +
     theme_catf() + theme(axis.text = element_blank(), panel.grid = element_blank(),
                          legend.position = "bottom", legend.text = element_text(size = 9),
                          legend.key.size = unit(0.55, "cm"))

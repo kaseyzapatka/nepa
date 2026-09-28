@@ -1049,7 +1049,7 @@ departments, which is the precedent for adopt.
 
 ```{r}
 #| label: fig-d6-ce-scatter
-#| fig-cap: "Every CE laid out by text similarity (t-SNE), colored by k-means family and labeled by its distinctive phrases. Closer = more similar wording."
+#| fig-cap: "Every CE laid out by text similarity (t-SNE), colored by k-means family and labeled by its distinctive phrases. Closer = more similar wording. Many families recur across departments and agencies — the precedent for adoption."
 #| out-width: 92%
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_scatter.png"))
 ```

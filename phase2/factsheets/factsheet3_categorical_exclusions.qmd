@@ -131,7 +131,7 @@ The existing catalog — `r fmt_n(n_ce)` CEs across `r n_units` federal agency u
 
 ```{r}
 #| label: fig-ce-scatter
-#| fig-cap: "Note: All existing federal CEs laid out by text similarity (t-SNE), colored by family and labeled by distinctive phrases. Closer = more similar wording. The families recur across different departments — the precedent for adoption."
+#| fig-cap: "Note: All existing federal CEs laid out by text similarity (t-SNE), colored by family and labeled by distinctive phrases. Closer = more similar wording. Many families recur across departments and agencies — the precedent for adoption."
 #| out-width: "95%"
 include_fig("fig_d6_ce_scatter.png")
 ```
